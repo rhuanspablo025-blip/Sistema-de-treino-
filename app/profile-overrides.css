@@ -1,0 +1,23 @@
+.profile-button { margin-right: 8px; color: var(--teal); border-color: #cce4d5; background: #f4faf5; }
+.profile-button:disabled { cursor: not-allowed; opacity: .7; color: var(--muted); border-color: var(--line); background: #f5f7f5; box-shadow: none; }
+.profile-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 20px; }
+.measurements-panel, .body-card, .history-panel { padding: 24px; }
+.profile-status { color: #3a9a72; font-size: 10px; }
+.measurement-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+.measurement-form label { display: grid; gap: 6px; color: #697670; font-size: 10px; font-weight: 700; }
+.measurement-form label div { position: relative; }
+.measurement-form input { width: 100%; height: 40px; padding: 0 34px 0 10px; border: 1px solid var(--line); border-radius: 6px; outline: 0; color: var(--ink); font-size: 12px; }
+.measurement-form input:focus { border-color: var(--coral); }
+.measurement-form label span { position: absolute; top: 13px; right: 10px; color: var(--muted); font-size: 9px; font-weight: 400; }
+.profile-save { margin-top: 22px; }
+.bmi-badge { padding: 6px 8px; border-radius: 5px; color: var(--teal); background: #e6f4e9; font-size: 9px; font-weight: 700; }
+.body-card { min-height: 340px; }
+.body-figure { position: relative; width: 150px; height: 245px; margin: 14px auto 8px; }
+.figure-head { position: absolute; top: 2px; left: 50%; width: 39px; height: 45px; transform: translateX(-50%); border-radius: 48% 48% 45% 45%; background: #d89575; }
+.figure-neck { position: absolute; top: 40px; left: 50%; width: 20px; height: 25px; transform: translateX(-50%); background: #d89575; }
+.figure-torso { position: absolute; top: 57px; left: 50%; width: var(--body-width); height: 93px; transform: translateX(-50%); border-radius: 38% 38% 25% 25%; background: #287b69; }
+.figure-arm { position: absolute; top: 65px; width: 17px; height: 93px; border-radius: 12px; background: #d89575; }.figure-arm.left { left: calc(50% - var(--shoulder-width) / 2 - 3px); transform: rotate(5deg); }.figure-arm.right { right: calc(50% - var(--shoulder-width) / 2 - 3px); transform: rotate(-5deg); }
+.figure-legs { position: absolute; top: 140px; width: 27px; height: 100px; border-radius: 0 0 13px 13px; background: #315f57; }.figure-legs.left { left: calc(50% - 30px); transform: rotate(2deg); }.figure-legs.right { right: calc(50% - 30px); transform: rotate(-2deg); }
+.figure-caption { margin: 0; color: var(--muted); text-align: center; font-size: 10px; line-height: 1.4; }
+.history-panel { margin-top: 20px; }.history-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 25px; }.history-chart-title { display: flex; justify-content: space-between; margin-bottom: 12px; }.history-chart-title strong { font: 600 14px 'Space Grotesk', sans-serif; }.history-chart-title span { color: var(--coral); font-size: 10px; font-weight: 700; }.history-line { position: relative; height: 125px; border-bottom: 1px solid #dfe8e1; background: repeating-linear-gradient(to bottom, transparent 0, transparent 40px, #edf1ee 41px); }.history-line::after { position: absolute; right: 0; bottom: 45px; left: 0; height: 2px; content: ''; background: #b8ddca; transform: rotate(-3deg); transform-origin: left; }.waist-line::after { background: #f1c3a8; transform: rotate(-8deg); }.history-point { position: absolute; z-index: 1; display: grid; justify-items: center; gap: 5px; transform: translateX(-50%); }.history-point b { color: var(--ink); font-size: 9px; }.history-point i { display: block; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2px var(--teal); }.waist-line .history-point i { background: var(--coral); box-shadow: 0 0 0 2px var(--coral); }.history-labels { display: flex; justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 9px; }
+@media (max-width: 700px) { .profile-button { margin-right: 0; }.profile-grid, .history-charts { grid-template-columns: 1fr; }.measurement-form { grid-template-columns: repeat(2, 1fr); }.student-view-header .outline-button { width: 100%; }.history-panel { padding: 17px; } }

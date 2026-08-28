@@ -1,0 +1,17 @@
+{
+  "name": "sistema-de-treino",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  }
+}
