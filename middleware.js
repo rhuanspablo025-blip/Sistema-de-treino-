@@ -5,7 +5,6 @@ export async function middleware(request) {
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (request.nextUrl.pathname.startsWith('/login')) return NextResponse.next();
   if (!hasSupabaseConfig) {
-    if (request.cookies.get('atlas_demo_session')?.value === 'active') return NextResponse.next();
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -25,6 +24,15 @@ export async function middleware(request) {
   if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('active').eq('id', user.id).maybeSingle();
+  if (profile?.active === false) {
+    await supabase.auth.signOut();
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.searchParams.set('error', 'inactive');
     return NextResponse.redirect(loginUrl);
   }
 
