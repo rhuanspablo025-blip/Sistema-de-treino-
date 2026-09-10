@@ -13,7 +13,7 @@ export async function requireAuth() {
 export async function requireStaff() {
   const auth = await requireAuth();
   if (auth.error) return auth;
-  const role = auth.user.app_metadata?.role || auth.profile?.role;
+  const role = auth.user.app_metadata?.role;
   if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
   return auth;
 }

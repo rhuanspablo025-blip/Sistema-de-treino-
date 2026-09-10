@@ -58,10 +58,10 @@ alter table public.workout_plans enable row level security;
 alter table public.body_measurements enable row level security;
 
 create policy "students can read own profile" on public.profiles for select using (auth.uid() = id);
-create policy "staff can manage profiles" on public.profiles for all using (auth.uid() = id or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff can manage profiles" on public.profiles for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 create policy "students read own workouts" on public.workout_plans for select using (student_id = auth.uid());
-create policy "staff manage workouts" on public.workout_plans for all using (student_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff manage workouts" on public.workout_plans for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 create policy "students read own measurements" on public.body_measurements for select using (student_id = auth.uid());
 create policy "students manage own measurements" on public.body_measurements for insert with check (student_id = auth.uid());
-create policy "students update own measurements" on public.body_measurements for update using (student_id = auth.uid());
-create policy "staff manage measurements" on public.body_measurements for all using (student_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "students update own measurements" on public.body_measurements for update using (student_id = auth.uid()) with check (student_id = auth.uid());
+create policy "staff manage measurements" on public.body_measurements for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));

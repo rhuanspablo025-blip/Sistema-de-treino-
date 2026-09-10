@@ -11,8 +11,11 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador';
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
   console.error('❌ Erro: Variáveis de ambiente não configuradas.');
   process.exit(1);
 }
@@ -27,11 +30,11 @@ async function createAdminUserSQL() {
 
     // Criar usuário na autenticação
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: 'rhuandesa611@gmail.com',
-      password: 'Rrp24a09#',
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
       email_confirm: true,
       user_metadata: {
-        full_name: 'Rpss2',
+        full_name: ADMIN_NAME,
       },
       app_metadata: {
         role: 'admin',
@@ -61,7 +64,7 @@ async function createAdminUserSQL() {
         .from('profiles')
         .insert({
           id: userId,
-          full_name: 'Rpss2',
+          full_name: ADMIN_NAME,
           role: 'admin',
           active: true,
         });
@@ -80,9 +83,8 @@ async function createAdminUserSQL() {
     console.log('✅ Perfil criado com sucesso');
 
     console.log('\n🎉 Usuário ADM criado com sucesso!');
-    console.log('   Nome: Rpss2');
-    console.log('   Email: rhuandesa611@gmail.com');
-    console.log('   Senha: Rrp24a09#');
+    console.log('   Nome:', ADMIN_NAME);
+    console.log('   Email:', ADMIN_EMAIL);
     console.log('   Role: admin');
     console.log('\n📧 Você pode fazer login em http://localhost:3000/login');
   } catch (error) {

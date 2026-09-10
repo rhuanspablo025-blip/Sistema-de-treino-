@@ -38,4 +38,12 @@ NEXT_PUBLIC_PROFILE_DEV=false
 
 `SUPABASE_SERVICE_ROLE_KEY` é usada somente pelas rotas do servidor para criar, editar e excluir usuários. Nunca a exponha no navegador.
 
+## Segurança de produção
+
+Antes de publicar, execute `supabase-security-migration.sql` no Supabase SQL Editor para atualizar bancos existentes com as políticas RLS corrigidas. Rotacione a senha administrativa que existia em versões anteriores e configure `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` somente nas variáveis de ambiente da Vercel ou em `.env.local`.
+
+No painel **Supabase Auth > Rate Limits**, habilite limites para autenticação por senha e configure CAPTCHA (Turnstile ou hCaptcha) para login. Esses controles são aplicados pelo serviço de autenticação e não podem ser garantidos apenas pelo código do frontend.
+
+O projeto aplica headers HTTP de segurança em `next.config.js`. A política de privacidade está disponível em `/privacy`; complete o canal de contato do controlador antes do uso com dados reais.
+
 Com as variáveis presentes, as rotas ficam protegidas e o login usa sessão segura por cookies. O nome exibido é `Rhuan` e o usuário de acesso é `Rpss2`. No Supabase, cadastre o usuário com o e-mail técnico `rpss2@atlas.training`; o e-mail fica oculto na interface. Para o acesso total do dev, defina a claim `app_metadata.role = dev` no usuário Rhuan. O schema inclui `body_measurements`, que guarda o histórico de medidas. Defina `NEXT_PUBLIC_PROFILE_DEV=true` apenas no seu ambiente de desenvolvimento para abrir o perfil corporal avançado. Para usuários comuns, a área aparece como “Perfil em desenvolvimento”.

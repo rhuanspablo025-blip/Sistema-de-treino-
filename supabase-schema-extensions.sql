@@ -116,14 +116,14 @@ alter table public.workout_exercises enable row level security;
 
 -- RLS Policies: Exercises
 create policy "anyone can read active exercises" on public.exercises for select using (active = true);
-create policy "staff can manage exercises" on public.exercises for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff can manage exercises" on public.exercises for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 
 -- RLS Policies: Workout Plans V2
 create policy "students read own workout plans" on public.workout_plans_v2 for select using (student_id = auth.uid());
 create policy "professors read student workout plans" on public.workout_plans_v2 for select using (professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
-create policy "staff manage all workout plans" on public.workout_plans_v2 for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff manage all workout plans" on public.workout_plans_v2 for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 create policy "professors create and edit own workout plans" on public.workout_plans_v2 for insert with check (professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
-create policy "professors update own workout plans" on public.workout_plans_v2 for update using (professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "professors update own workout plans" on public.workout_plans_v2 for update using (professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 
 -- RLS Policies: Workouts (herda permissão da ficha)
 create policy "students read own workouts" on public.workouts for select using (
@@ -131,8 +131,10 @@ create policy "students read own workouts" on public.workouts for select using (
 );
 create policy "professors manage workout plans" on public.workouts for all using (
   workout_plan_id in (select id from public.workout_plans_v2 where professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'))
+) with check (
+  workout_plan_id in (select id from public.workout_plans_v2 where professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'))
 );
-create policy "staff manage all workouts" on public.workouts for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff manage all workouts" on public.workouts for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 
 -- RLS Policies: Workout Exercises
 create policy "students read own exercises" on public.workout_exercises for select using (
@@ -148,8 +150,14 @@ create policy "professors manage exercises" on public.workout_exercises for all 
     join public.workout_plans_v2 wp on w.workout_plan_id = wp.id
     where wp.professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')
   )
+) with check (
+  workout_id in (
+    select w.id from public.workouts w
+    join public.workout_plans_v2 wp on w.workout_plan_id = wp.id
+    where wp.professor_id = auth.uid() or auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')
+  )
 );
-create policy "staff manage all exercises" on public.workout_exercises for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
+create policy "staff manage all exercises" on public.workout_exercises for all using (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin')) with check (auth.jwt() -> 'app_metadata' ->> 'role' in ('dev', 'admin'));
 
 -- Dados iniciais: Exercícios de exemplo
 insert into public.exercises (name, muscle_group, equipment, category, difficulty, active) values

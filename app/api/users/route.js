@@ -15,7 +15,7 @@ async function requireStaff() {
   if (error || !user) return { error: NextResponse.json({ error: 'Não autenticado.' }, { status: 401 }) };
   const { data: profile } = await authClient.from('profiles').select('role, active').eq('id', user.id).maybeSingle();
   if (profile?.active === false) return { error: NextResponse.json({ error: 'Usuário desativado.' }, { status: 403 }) };
-  const role = user.app_metadata?.role || profile?.role;
+  const role = user.app_metadata?.role;
   if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
   return { user };
 }
@@ -35,7 +35,7 @@ function validatePayload(payload, { passwordRequired = true } = {}) {
 }
 
 function publicUser(user, profile) {
-  return { id: user.id, email: user.email, name: profile?.full_name || user.user_metadata?.full_name || '', role: profile?.role || user.app_metadata?.role || 'student', active: profile?.active ?? !user.banned_until, createdAt: profile?.created_at || user.created_at, updatedAt: profile?.updated_at || user.updated_at };
+  return { id: user.id, email: user.email, name: profile?.full_name || user.user_metadata?.full_name || '', role: user.app_metadata?.role || 'student', active: profile?.active ?? !user.banned_until, createdAt: profile?.created_at || user.created_at, updatedAt: profile?.updated_at || user.updated_at };
 }
 
 export async function GET() {

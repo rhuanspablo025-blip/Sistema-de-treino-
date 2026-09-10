@@ -20,7 +20,7 @@ export async function GET(request) {
     const studentId = searchParams.get('studentId');
 
     // Aluno pode acessar apenas suas medidas
-    const role = auth.user.app_metadata?.role || auth.profile?.role;
+    const role = auth.user.app_metadata?.role;
     let query = authClient.from('body_measurements').select('*');
 
     if (!['dev', 'admin'].includes(role)) {
@@ -49,7 +49,7 @@ export async function POST(request) {
     const { student_id } = payload;
 
     // Aluno só pode adicionar suas próprias medidas
-    const role = auth.user.app_metadata?.role || auth.profile?.role;
+    const role = auth.user.app_metadata?.role;
     const allowedStudentId = ['dev', 'admin'].includes(role) ? student_id : auth.user.id;
 
     if (!allowedStudentId) {

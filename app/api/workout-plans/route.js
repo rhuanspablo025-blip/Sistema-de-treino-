@@ -13,7 +13,7 @@ async function requireAuth() {
 async function requireStaff() {
   const auth = await requireAuth();
   if (auth.error) return auth;
-  const role = auth.user.app_metadata?.role || auth.profile?.role;
+  const role = auth.user.app_metadata?.role;
   if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
   return auth;
 }
@@ -30,7 +30,7 @@ export async function GET(request) {
     let query = authClient.from('workout_plans_v2').select('*');
 
     // Se não for staff, filtrar apenas fichas do próprio aluno
-    const role = auth.user.app_metadata?.role || auth.profile?.role;
+    const role = auth.user.app_metadata?.role;
     if (!['dev', 'admin'].includes(role)) {
       query = query.eq('student_id', auth.user.id);
     } else if (studentId) {
