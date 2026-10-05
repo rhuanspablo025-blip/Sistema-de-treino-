@@ -2,6 +2,7 @@
 @import './student-overrides.css';
 @import './profile-overrides.css';
 @import './body-map-overrides.css';
+@import './auth-overrides.css';
 
 :root { --ink: #17221f; --muted: #75807c; --line: #e6ebe7; --paper: #f8faf8; --white: #fff; --coral: #e9664e; --coral-soft: #fff0eb; --teal: #287b69; }
 * { box-sizing: border-box; }

@@ -130,7 +130,10 @@ export async function PATCH(request) {
     const existing = await users.findOne({ id });
     if (!existing) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
     const updated = { ...existing, name, email, role, active: payload.active !== false, updatedAt: new Date() };
-    if (password) updated.passwordHash = await bcrypt.hash(password, 12);
+    if (password) {
+      updated.passwordHash = await bcrypt.hash(password, 12);
+      updated.sessionVersion = (existing.sessionVersion || 0) + 1;
+    }
     delete updated._id;
 
     const students = database.collection('students');

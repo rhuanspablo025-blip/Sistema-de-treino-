@@ -44,6 +44,7 @@ async function createAdmin() {
       name: ADMIN_NAME.trim(),
       role: 'admin',
       active: true,
+      sessionVersion: 0,
       passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
       createdAt: now,
       updatedAt: now,

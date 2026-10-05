@@ -20,6 +20,8 @@ Entre com o e-mail cadastrado. Para contas no domínio `@atlas.training`, també
 
 O banco é fixado pelo código como `sistema_treino`; a chave de sessão é derivada no servidor da URI privada e não precisa de outra variável. Rotacionar a URI invalida as sessões atuais. No Atlas, o usuário da aplicação deve ter somente a role integrada `readWrite` no banco `sistema_treino`; não use `atlasAdmin` nem acesso a todos os recursos. Configure uma regra de rede apropriada para a Vercel. Não publique a URI no repositório.
 
+O cadastro público cria somente contas de aluno e elas ficam pendentes até ativação por um administrador. Para habilitar recuperação de senha por e-mail, configure `RESEND_API_KEY` e `EMAIL_FROM` na Vercel; o token é de uso único, expira em 30 minutos e é salvo apenas como hash. `APP_URL` é opcional; a Vercel fornece a URL de produção automaticamente.
+
 Após iniciar e entrar com uma conta administradora, consulte `/api/health/database` para confirmar a conexão. A resposta não inclui a URI nem credenciais.
 
 ## Migração dos dados existentes

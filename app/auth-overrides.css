@@ -1,0 +1,16 @@
+.login-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 11px;
+}
+
+.login-links a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.login-links a:hover {
+  text-decoration: underline;
+}

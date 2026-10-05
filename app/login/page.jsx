@@ -11,6 +11,7 @@ const Mail = () => <Icon>□</Icon>;
 export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setLoading(true);
@@ -32,5 +33,20 @@ export default function LoginPage() {
     }
   }
 
-  return <main className="login-page"><div className="login-brand"><span className="brand-mark"><Activity size={20} /></span><span>atlas<span className="brand-dot">.</span></span></div><section className="login-card"><p className="eyebrow">ÁREA RESTRITA</p><h1>Bem-vindo de volta</h1><p className="login-copy">Entre para acessar as fichas de treino da sua academia.</p><form onSubmit={handleSubmit}><label><span>Usuário ou e-mail</span><div className="login-input"><Mail size={16} /><input name="username" type="text" required autoComplete="username" placeholder="seu e-mail" /></div></label><label><span>Senha</span><div className="login-input"><LockKeyhole size={16} /><input name="password" type="password" required autoComplete="current-password" placeholder="Sua senha" /></div></label>{error && <p className="login-error">{error}</p>}<button className="primary-button" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}<ArrowRight size={16} /></button></form></section><p className="login-footer">Atlas Training · Gestão inteligente de treinos · <a href="/privacy">Privacidade</a></p></main>;
+  return <main className="login-page">
+    <div className="login-brand"><span className="brand-mark"><Activity /></span><span>atlas<span className="brand-dot">.</span></span></div>
+    <section className="login-card">
+      <p className="eyebrow">ÁREA RESTRITA</p>
+      <h1>Bem-vindo de volta</h1>
+      <p className="login-copy">Entre para acessar as fichas de treino da sua academia.</p>
+      <form onSubmit={handleSubmit}>
+        <label><span>Usuário ou e-mail</span><div className="login-input"><Mail /><input name="username" type="text" required autoComplete="username" placeholder="seu e-mail" /></div></label>
+        <label><span>Senha</span><div className="login-input"><LockKeyhole /><input name="password" type="password" required autoComplete="current-password" placeholder="Sua senha" /></div></label>
+        {error && <p className="login-error" role="alert">{error}</p>}
+        <button className="primary-button" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}<ArrowRight /></button>
+      </form>
+      <div className="login-links"><a href="/forgot-password">Esqueci minha senha</a><a href="/register">Criar conta de aluno</a></div>
+    </section>
+    <p className="login-footer">Atlas Training · Gestão inteligente de treinos · <a href="/privacy">Privacidade</a></p>
+  </main>;
 }
