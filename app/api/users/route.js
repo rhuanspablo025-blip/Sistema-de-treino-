@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { getCurrentUser } from '../../../lib/auth';
 import { writeAuditLog } from '../../../lib/audit';
 import { getDatabase } from '../../../lib/mongodb';
+import { normalizeUsername } from '../../../lib/usernames';
 
 export const runtime = 'nodejs';
 const validRoles = new Set(['admin', 'dev', 'trainer', 'student']);
@@ -20,7 +21,7 @@ function validDate(value) {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email, name: user.name, role: user.role, active: user.active, createdAt: user.createdAt, updatedAt: user.updatedAt };
+  return { id: user.id, username: user.username, name: user.name, role: user.role, active: user.active, createdAt: user.createdAt, updatedAt: user.updatedAt };
 }
 
 function profileDocument(user, payload = {}, existing = {}) {
@@ -75,10 +76,11 @@ export async function POST(request) {
   try {
     const payload = await request.json();
     const name = text(payload.name, 120);
-    const email = text(payload.email, 254).toLowerCase();
+    const username = text(payload.username, 32);
+    const usernameKey = normalizeUsername(username);
     const password = typeof payload.password === 'string' ? payload.password : '';
     const role = text(payload.role, 20) || 'student';
-    if (name.length < 2 || !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Informe nome e e-mail válidos.' }, { status: 400 });
+    if (name.length < 2 || !usernameKey) return NextResponse.json({ error: 'Informe nome e username válidos.' }, { status: 400 });
     if (!validRoles.has(role)) return NextResponse.json({ error: 'Perfil inválido.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
     if (!['admin', 'dev'].includes(creator.role) && !(creator.role === 'trainer' && role === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
@@ -86,16 +88,17 @@ export async function POST(request) {
     if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();
+    if (await database.collection('users').findOne({ usernameKey })) return NextResponse.json({ error: 'Este username já está em uso. Escolha outro.' }, { status: 409 });
     const requestedTrainerId = text(payload.trainerId, 64);
     if (role === 'student' && requestedTrainerId && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
     if (creator.role === 'trainer' && !await database.collection('trainers').findOne({ userId: creator.id, active: true })) return NextResponse.json({ error: 'Perfil de professor não encontrado.' }, { status: 403 });
     const now = new Date();
-    const user = { id: randomUUID(), name, email, passwordHash: await bcrypt.hash(password, 12), role, active: payload.active !== false, createdAt: now, updatedAt: now };
+    const user = { id: randomUUID(), name, username: usernameKey, usernameKey, passwordHash: await bcrypt.hash(password, 12), role, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
     await database.collection('users').insertOne(user);
     try {
       if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...payload, trainerId: payload.trainerId || (creator.role === 'trainer' ? creator.id : '') }));
       if (role === 'trainer') await database.collection('trainers').insertOne(profileDocument(user, payload));
-      await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, email } });
+      await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, username: usernameKey } });
     } catch (error) {
       await database.collection('users').deleteOne({ id: user.id });
       await database.collection('students').deleteOne({ userId: user.id });
@@ -104,7 +107,7 @@ export async function POST(request) {
     }
     return NextResponse.json({ user: publicUser(user) }, { status: 201 });
   } catch (error) {
-    if (error.code === 11000) return NextResponse.json({ error: 'Já existe uma conta com este e-mail.' }, { status: 409 });
+    if (error.code === 11000 && error.keyPattern?.usernameKey) return NextResponse.json({ error: 'Este username já está em uso. Escolha outro.' }, { status: 409 });
     return NextResponse.json({ error: 'Não foi possível criar o usuário.' }, { status: 500 });
   }
 }
@@ -116,20 +119,21 @@ export async function PATCH(request) {
     const payload = await request.json();
     const id = text(payload.id, 64);
     const name = text(payload.name, 120);
-    const email = text(payload.email, 254).toLowerCase();
+    const username = text(payload.username, 32);
+    const usernameKey = normalizeUsername(username);
     const role = text(payload.role, 20);
     const password = typeof payload.password === 'string' ? payload.password : '';
-    if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || !validRoles.has(role)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
+    if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !usernameKey || !validRoles.has(role)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
     if (password && (password.length < 12 || Buffer.byteLength(password, 'utf8') > 72)) return NextResponse.json({ error: 'A senha deve ter entre 12 e 72 bytes.' }, { status: 400 });
     if (password && password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();
     const users = database.collection('users');
-    if (await users.findOne({ email, id: { $ne: id } })) return NextResponse.json({ error: 'Já existe uma conta com este e-mail.' }, { status: 409 });
+    if (await users.findOne({ usernameKey, id: { $ne: id } })) return NextResponse.json({ error: 'Este username já está em uso. Escolha outro.' }, { status: 409 });
     const existing = await users.findOne({ id });
     if (!existing) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
-    const updated = { ...existing, name, email, role, active: payload.active !== false, updatedAt: new Date() };
+    const updated = { ...existing, name, username: usernameKey, usernameKey, role, active: payload.active !== false, updatedAt: new Date() };
     if (password) {
       updated.passwordHash = await bcrypt.hash(password, 12);
       updated.sessionVersion = (existing.sessionVersion || 0) + 1;
@@ -152,7 +156,7 @@ export async function PATCH(request) {
     await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'user', resourceId: id, metadata: { role, active: updated.active } });
     return NextResponse.json({ user: publicUser(updated) });
   } catch (error) {
-    if (error.code === 11000) return NextResponse.json({ error: 'Já existe uma conta com este e-mail.' }, { status: 409 });
+    if (error.code === 11000 && error.keyPattern?.usernameKey) return NextResponse.json({ error: 'Este username já está em uso. Escolha outro.' }, { status: 409 });
     return NextResponse.json({ error: 'Não foi possível atualizar o usuário.' }, { status: 500 });
   }
 }

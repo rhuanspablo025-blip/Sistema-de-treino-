@@ -7,11 +7,11 @@ Sistema web para gestão de alunos e fichas de treino de uma academia, com auten
 1. Instale Node.js 20.9 ou superior e execute `npm install`.
 2. Crie um cluster no MongoDB Atlas, um usuário de banco e libere o IP do ambiente que executará o app.
 3. Copie `.env.example` para `.env.local` e preencha `MONGODB_URI` com a URI do usuário de aplicação.
-4. Para criar o primeiro administrador, preencha `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
-5. Para criar o usuário mestre de desenvolvimento, configure `DEV_EMAIL`, `DEV_PASSWORD` (mínimo 16 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
+4. Para criar o primeiro administrador, preencha `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
+5. Para criar o usuário mestre de desenvolvimento, configure `DEV_USERNAME`, `DEV_PASSWORD` (mínimo 16 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
 6. Inicie com `npm run dev` e abra `http://localhost:3000`.
 
-Entre com o e-mail cadastrado. Para contas no domínio `@atlas.training`, também é aceito o nome de usuário antes do `@`.
+O login usa somente username, único e sem distinção entre maiúsculas e minúsculas. São aceitos de 3 a 32 caracteres: letras ASCII, números, ponto, hífen e sublinhado. O cadastro público cria contas ativas de aluno; a tela de cadastro informa se o username já está em uso.
 
 ## Publicar na Vercel
 
@@ -21,12 +21,12 @@ Entre com o e-mail cadastrado. Para contas no domínio `@atlas.training`, també
 
 O banco é fixado pelo código como `sistema_treino`; a chave de sessão é derivada no servidor da URI privada e não precisa de outra variável. Rotacionar a URI invalida as sessões atuais. No Atlas, o usuário da aplicação deve ter somente a role integrada `readWrite` no banco `sistema_treino`; não use `atlasAdmin` nem acesso a todos os recursos. Configure uma regra de rede apropriada para a Vercel. Não publique a URI no repositório.
 
-O cadastro público cria somente contas de aluno e elas ficam pendentes até ativação por um administrador. Para habilitar recuperação de senha por e-mail, configure `RESEND_API_KEY` e `EMAIL_FROM` na Vercel e verifique o domínio remetente no Resend. O token é de uso único, expira em 30 minutos, é salvo apenas como hash e segue no fragmento da URL. `APP_URL` é opcional; a Vercel fornece a URL de produção automaticamente. Sem as variáveis do Resend, o formulário informa que o recurso está indisponível e não simula o envio.
+A senha pode ser redefinida por um administrador na tela de gerenciamento de usuários. Não há recuperação por e-mail, pois e-mail não é exigido nem usado como identificador de conta.
 
 Após iniciar e entrar com uma conta administradora, consulte `/api/health/database` para confirmar a conexão. A resposta não inclui a URI nem credenciais.
 
 ## Migração dos dados existentes
 
-A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `email`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro.
+A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `username`, `usernameKey`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro. Na inicialização, contas antigas convertem o trecho anterior ao `@` em username; colisões recebem sufixo determinístico e os campos de e-mail são removidos.
 
 A aplicação armazena senhas com bcrypt e usa cookie HTTP-only assinado para as sessões. A política de privacidade está em `/privacy`; revise os dados de contato do controlador antes de usar dados pessoais reais.

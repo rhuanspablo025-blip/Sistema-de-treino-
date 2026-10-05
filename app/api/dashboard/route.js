@@ -51,9 +51,9 @@ export async function GET() {
       staff ? database.collection('users').find({ role: { $in: ['admin', 'trainer', 'dev'] }, active: true }, { projection: { passwordHash: 0 } }).toArray() : [],
     ]);
     return NextResponse.json({
-      currentUser: { id: access.user.id, name: access.user.name, email: access.user.email, role: access.user.role },
+      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role },
       students, workouts: workoutViews,
-      admins: adminUsers.map((user) => ({ id: user.id, name: user.name, email: user.email, role: user.role, initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
+      admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
       exercises: exerciseCatalog.map((exercise) => exercise.name),
     });
   } catch {

@@ -22,7 +22,7 @@ export default function RegisterPage() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível enviar o cadastro.');
-      setMessage(body.message || 'Cadastro concluído. Você já pode entrar com e-mail e senha.');
+      setMessage(body.message || 'Cadastro concluído. Entre usando seu username e senha.');
       formElement.reset();
     } catch (submitError) {
       setError(submitError.message);
@@ -39,7 +39,7 @@ export default function RegisterPage() {
       <p className="login-copy">Crie sua conta para acessar as fichas da academia.</p>
       <form onSubmit={handleSubmit}>
         <label>Nome completo<input name="name" required minLength="2" maxLength="120" autoComplete="name" /></label>
-        <label>E-mail<input name="email" type="email" required maxLength="254" autoComplete="email" /></label>
+        <label>Nome de usuário<input name="username" required minLength="3" maxLength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" title="Use de 3 a 32 letras, números, pontos, hífens ou sublinhados." autoComplete="username" /></label>
         <label>Telefone (opcional)<input name="phone" type="tel" maxLength="40" autoComplete="tel" /></label>
         <label>Objetivo (opcional)<input name="goal" maxLength="240" /></label>
         <label>Senha<input name="password" type="password" required minLength="12" maxLength="72" autoComplete="new-password" /></label>

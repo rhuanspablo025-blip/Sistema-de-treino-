@@ -6,11 +6,12 @@ const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
 
-const { MONGODB_URI, ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
+const { MONGODB_URI, ADMIN_PASSWORD } = process.env;
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador';
 
-if (!MONGODB_URI || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
-  console.error('Configure MONGODB_URI, ADMIN_EMAIL e ADMIN_PASSWORD em .env.local.');
+if (!MONGODB_URI || !ADMIN_USERNAME || !ADMIN_PASSWORD) {
+  console.error('Configure MONGODB_URI, ADMIN_USERNAME e ADMIN_PASSWORD em .env.local.');
   process.exit(1);
 }
 if (ADMIN_PASSWORD.length < 12) {
@@ -21,8 +22,8 @@ if (Buffer.byteLength(ADMIN_PASSWORD, 'utf8') > 72) {
   console.error('ADMIN_PASSWORD deve ter no máximo 72 bytes para bcrypt.');
   process.exit(1);
 }
-if (!/^\S+@\S+\.\S+$/.test(ADMIN_EMAIL) || !ADMIN_NAME.trim()) {
-  console.error('Informe um ADMIN_EMAIL válido e um ADMIN_NAME.');
+if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(ADMIN_USERNAME) || !ADMIN_NAME.trim()) {
+  console.error('Informe um ADMIN_USERNAME de 3 a 32 caracteres e um ADMIN_NAME.');
   process.exit(1);
 }
 
@@ -32,15 +33,15 @@ async function createAdmin() {
     await client.connect();
     const database = client.db('sistema_treino');
     const users = database.collection('users');
-    await users.createIndex({ email: 1 }, { unique: true });
+    await users.createIndex({ usernameKey: 1 }, { unique: true });
 
-    const email = ADMIN_EMAIL.trim().toLowerCase();
-    if (await users.findOne({ email })) throw new Error('Já existe um usuário com este e-mail.');
+    if (await users.findOne({ usernameKey: ADMIN_USERNAME })) throw new Error('Já existe um usuário com este username.');
 
     const now = new Date();
     await users.insertOne({
       id: randomUUID(),
-      email,
+      username: ADMIN_USERNAME,
+      usernameKey: ADMIN_USERNAME,
       name: ADMIN_NAME.trim(),
       role: 'admin',
       active: true,
@@ -49,13 +50,13 @@ async function createAdmin() {
       createdAt: now,
       updatedAt: now,
     });
-    console.log(`Administrador criado: ${email}`);
+    console.log(`Administrador criado: ${ADMIN_USERNAME}`);
   } finally {
     await client.close();
   }
 }
 
 createAdmin().catch((error) => {
-  console.error(error.code === 11000 ? 'Já existe um administrador com este e-mail.' : 'Não foi possível criar o administrador. Verifique as variáveis locais e o acesso ao Atlas.');
+  console.error(error.code === 11000 ? 'Já existe um administrador com este username.' : 'Não foi possível criar o administrador. Verifique as variáveis locais e o acesso ao Atlas.');
   process.exitCode = 1;
 });
