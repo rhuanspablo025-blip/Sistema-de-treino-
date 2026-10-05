@@ -24,7 +24,7 @@ export async function POST(request) {
 
     const { RESEND_API_KEY, EMAIL_FROM } = process.env;
     const baseUrl = appUrl();
-    if (!RESEND_API_KEY || !EMAIL_FROM || !baseUrl) return NextResponse.json({ error: 'A recuperação por e-mail ainda não está configurada.' }, { status: 503 });
+    if (!RESEND_API_KEY || !EMAIL_FROM || !baseUrl) return NextResponse.json({ error: 'Recuperação por e-mail indisponível: configure RESEND_API_KEY e EMAIL_FROM na Vercel.' }, { status: 503 });
 
     const database = await getDatabase();
     const users = database.collection('users');
