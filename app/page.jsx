@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { demoKeys, readDemo, writeDemo, saveMeasurements, saveWorkout } from "../lib/atlas-data";
-import { createSupabaseBrowserClient } from "../lib/supabase-browser";
+import { saveMeasurements, saveWorkout } from "../lib/atlas-data";
 
 const SimpleIcon = ({ children, size = 18 }) => (
   <span className="simple-icon" style={{ fontSize: size }}>
@@ -27,49 +26,7 @@ const UserRound = (props) => <SimpleIcon {...props}>○</SimpleIcon>;
 const UsersRound = (props) => <SimpleIcon {...props}>♙</SimpleIcon>;
 const X = (props) => <SimpleIcon {...props}>×</SimpleIcon>;
 
-const initialStudents = [
-  {
-    name: "Rhuan",
-    initials: "RH",
-    goal: "Hipertrofia",
-    status: "Em dia",
-    color: "coral",
-    updated: "Hoje, 09:42",
-  },
-];
-
-const exercises = [
-  {
-    name: "Agachamento livre",
-    detail: "4 séries  ·  8–10 reps",
-    load: "42 kg",
-    rest: "90s",
-  },
-  {
-    name: "Leg press 45°",
-    detail: "3 séries  ·  10–12 reps",
-    load: "120 kg",
-    rest: "90s",
-  },
-  {
-    name: "Cadeira extensora",
-    detail: "3 séries  ·  12–15 reps",
-    load: "35 kg",
-    rest: "60s",
-  },
-  {
-    name: "Mesa flexora",
-    detail: "3 séries  ·  10–12 reps",
-    load: "30 kg",
-    rest: "60s",
-  },
-  {
-    name: "Panturrilha em pé",
-    detail: "4 séries  ·  15–20 reps",
-    load: "40 kg",
-    rest: "45s",
-  },
-];
+const emptyStudent = { name: 'Nenhum aluno cadastrado', initials: '--', goal: 'Não definido', status: 'Em dia', color: 'coral', updated: 'Sem ficha' };
 
 const navItems = [
   { label: "Visão geral", icon: LayoutDashboard, key: "overview" },
@@ -77,15 +34,6 @@ const navItems = [
   { label: "Administradores", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
   { label: "Exercícios", icon: Dumbbell, key: "exercises" },
-];
-
-const adminUsers = [
-  {
-    name: "Rhuan",
-    email: "rhuan@atlas.training",
-    role: "Dev · Administrador + Aluno",
-    initials: "RH",
-  },
 ];
 
 function UserManagement() {
@@ -171,13 +119,13 @@ function UserManagement() {
     <div className="panel-header"><div><h2>Usuários do sistema</h2><p>Controle acessos, perfis e status diretamente no banco.</p></div><button className="primary-button" onClick={() => setEditingUser({})}><Plus size={17} /> Novo usuário</button></div>
     <div className="toolbar"><div className="search-box"><Search size={17} /><input placeholder="Buscar por nome ou e-mail..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></div><div className="filter-tabs">{['Todos', 'Ativos', 'Inativos'].map((item) => <button className={statusFilter === item ? 'filter active' : 'filter'} key={item} onClick={() => { setStatusFilter(item); setPage(1); }}>{item}</button>)}</div></div>
     {error && <p className="login-error">{error}</p>}{feedback && <p className="profile-status">{feedback}</p>}
-    {loading ? <p className="empty-state">Carregando usuários...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum usuário encontrado.</p> : <div className="table-list">{visibleUsers.map((user) => <div className="table-row" key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}</strong><small>{user.email}</small></span><em>{user.role === 'student' ? 'Aluno' : user.role === 'admin' ? 'Administrador' : 'Desenvolvedor'}</em><span className={`status ${user.active ? 'em-dia' : 'revisar'}`}><i />{user.active ? 'Ativo' : 'Inativo'}</span><button className="outline-button small-button" onClick={() => setEditingUser(user)}>Editar</button><button className="more-button" onClick={() => toggleUser(user)} aria-label={user.active ? 'Desativar usuário' : 'Ativar usuário'}>{user.active ? '⏸' : '▶'}</button><button className="more-button" onClick={() => deleteUser(user)} aria-label={`Excluir ${user.name}`}>×</button></div>)}</div>}
+    {loading ? <p className="empty-state">Carregando usuários...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum usuário encontrado.</p> : <div className="table-list">{visibleUsers.map((user) => <div className="table-row" key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}</strong><small>{user.email}</small></span><em>{user.role === 'student' ? 'Aluno' : user.role === 'trainer' ? 'Professor' : 'Administrador'}</em><span className={`status ${user.active ? 'em-dia' : 'revisar'}`}><i />{user.active ? 'Ativo' : 'Inativo'}</span><button className="outline-button small-button" onClick={() => setEditingUser(user)}>Editar</button><button className="more-button" onClick={() => toggleUser(user)} aria-label={user.active ? 'Desativar usuário' : 'Ativar usuário'}>{user.active ? '⏸' : '▶'}</button><button className="more-button" onClick={() => deleteUser(user)} aria-label={`Excluir ${user.name}`}>×</button></div>)}</div>}
     <div className="panel-header"><small>{filteredUsers.length} usuário(s)</small><div><button className="filter" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Anterior</button><span> Página {page} de {pageCount} </span><button className="filter" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Próxima</button></div></div>
-    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.id ? 'Editar usuário' : 'Novo usuário'}</h2><p>Os dados serão persistidos no Supabase Authentication e em profiles.</p><form onSubmit={saveUser}><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>E-mail / login<input name="email" type="email" required defaultValue={editingUser.email || ''} /></label><label>Perfil<select name="role" defaultValue={editingUser.role || 'student'}><option value="student">Aluno</option><option value="admin">Administrador</option><option value="dev">Desenvolvedor</option></select></label><label>Senha {editingUser.id ? '(opcional)' : ''}<input name="password" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Usuário ativo</label><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar usuário'}</button></form></div></div>}
+    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.id ? 'Editar usuário' : 'Novo usuário'}</h2><p>Os dados serão salvos no MongoDB.</p><form onSubmit={saveUser}><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>E-mail / login<input name="email" type="email" required defaultValue={editingUser.email || ''} /></label><label>Perfil<select name="role" defaultValue={editingUser.role || 'student'}><option value="student">Aluno</option><option value="trainer">Professor</option><option value="admin">Administrador</option></select></label><label>Senha {editingUser.id ? '(opcional)' : ''}<input name="password" type="password" minLength="12" required={!editingUser.id} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="12" required={!editingUser.id} autoComplete="new-password" /></label><label><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Usuário ativo</label><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar usuário'}</button></form></div></div>}
   </section>;
 }
 
-function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate }) {
+function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, onEditWorkout, canManageUsers }) {
   const moduleData = {
     overview: {
       kicker: "VISÃO GERAL",
@@ -225,7 +173,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
           </button>
           <button className="module-card" onClick={() => onNavigate("exercises")}>
             <Dumbbell size={22} />
-            <strong>42</strong>
+            <strong>{exerciseList.length}</strong>
             <span>Exercícios na biblioteca</span>
             <b>Ver exercícios →</b>
           </button>
@@ -252,7 +200,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
               </span>
               <ChevronRight size={16} />
             </button>
-            <button
+            {canManageUsers && <button
               onClick={() => onCreate("admin")}
             >
               <UserRound size={17} />
@@ -260,7 +208,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
                 Novo administrador<strong>Convidar profissional</strong>
               </span>
               <ChevronRight size={16} />
-            </button>
+            </button>}
           </div>
         </section>
       </div>
@@ -305,7 +253,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
                 <em>{plan.exercises} exercícios</em>
                 <button
                   className="outline-button small-button"
-                  onClick={() => onAction(`Editando ficha de ${plan.student}`)}
+                  onClick={() => onEditWorkout(plan)}
                 >
                   Editar
                 </button>
@@ -352,20 +300,21 @@ function BodyFigure({ measurements }) {
 
 function BodyProfileEditor({ measurements, setMeasurements }) {
   const fields = [["height", "Altura", "cm"], ["weight", "Peso", "kg"], ["shoulder", "Ombros", "cm"], ["chest", "Peito", "cm"], ["waist", "Cintura", "cm"], ["hip", "Quadril", "cm"], ["armLeft", "Braço esquerdo", "cm"], ["armRight", "Braço direito", "cm"], ["thighLeft", "Coxa esquerda", "cm"], ["thighRight", "Coxa direita", "cm"], ["legLeft", "Perna esquerda", "cm"], ["legRight", "Perna direita", "cm"]];
-  const defaults = { height: 172, weight: 74, shoulder: 108, chest: 96, waist: 82, hip: 101, armLeft: 34, armRight: 34, thighLeft: 58, thighRight: 58, legLeft: 38, legRight: 38 };
-  function update(key, value) { setMeasurements((current) => ({ ...current, [key]: Number(value) > 0 ? Number(value) : defaults[key] })); }
-  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><div className="measurement-form enhanced-form">{fields.map(([key, label, unit]) => <label key={key}>{label}<div><input type="number" min="1" value={measurements[key]} onChange={(event) => update(key, event.target.value)} /><span>{unit}</span></div></label>)}</div></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {(measurements.weight / ((measurements.height / 100) ** 2)).toFixed(1)}</span></div><BodyFigure measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
+  function update(key, value) { setMeasurements((current) => ({ ...current, [key]: value === '' ? '' : Number(value) })); }
+  const bmi = Number(measurements.height) > 0 && Number(measurements.weight) > 0 ? (measurements.weight / ((measurements.height / 100) ** 2)).toFixed(1) : '—';
+  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><div className="measurement-form enhanced-form">{fields.map(([key, label, unit]) => <label key={key}>{label}<div><input type="number" min="1" value={measurements[key] ?? ''} onChange={(event) => update(key, event.target.value)} /><span>{unit}</span></div></label>)}</div></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {bmi}</span></div><BodyFigure measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
 }
 
-function EnhancedProfile({ student, measurements, setMeasurements, onBack }) {
-  const history = [{ date: "02 mai", weight: 78, waist: 88 }, { date: "16 mai", weight: 77, waist: 86 }, { date: "30 mai", weight: 76, waist: 85 }, { date: "14 jun", weight: measurements.weight, waist: measurements.waist }];
+function EnhancedProfile({ student, measurements, setMeasurements, onBack, onSaved, measurementHistory = [] }) {
+  const history = measurementHistory.map((item) => ({ date: new Date(item.measuredAt).toLocaleDateString('pt-BR'), weight: item.weight, waist: item.waist })).filter((item) => item.weight || item.waist).slice(0, 4).reverse();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
     async function persistMeasurements() {
       setSaving(true);
       setMessage('');
       try {
-        await saveMeasurements(measurements, student.id);
+        const result = await saveMeasurements(measurements, student.id);
+        onSaved?.(result.measurement);
         setMessage('Medidas salvas com sucesso.');
       } catch (error) {
         setMessage(`Não foi possível salvar: ${error.message}`);
@@ -374,11 +323,11 @@ function EnhancedProfile({ student, measurements, setMeasurements, onBack }) {
       }
     }
   function exportHistory() { const csv = ["Data,Peso (kg),Cintura (cm)", ...history.map((item) => `${item.date},${item.weight},${item.waist}`)].join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); const link = document.createElement("a"); link.href = url; link.download = "historico-corporal-atlas.csv"; link.click(); URL.revokeObjectURL(url); }
-  return <div className="student-view profile-view"><div className="student-view-header"><div><p className="eyebrow">MEU PERFIL</p><h1>Seus dados, seu progresso</h1><p className="heading-copy">Atualize suas medidas para acompanhar sua evolução.</p></div><button className="outline-button" onClick={onBack}>← Voltar para o treino</button></div><BodyProfileEditor measurements={measurements} setMeasurements={setMeasurements} /><div className="profile-save-row"><button className="primary-button" onClick={persistMeasurements} disabled={saving}>{saving ? 'Salvando...' : 'Salvar medidas'}</button>{message && <span className="profile-status">{message}</span>}</div><section className="panel history-panel"><div className="panel-header"><div><p className="eyebrow">HISTÓRICO CORPORAL</p><h2>Evolução das medidas</h2><p>Compare seus registros ao longo do tempo.</p></div><button className="outline-button" onClick={exportHistory}>↓ Exportar CSV</button></div><div className="history-charts"><div className="history-chart"><div className="history-chart-title"><strong>Peso</strong><span>{measurements.weight} kg atual</span></div><div className="history-line weight-line">{history.map((item, index) => <div className="history-point" key={item.date} style={{ left: `${index * 33.33}%`, bottom: `${Math.max(12, 100 - item.weight * 1.02)}px` }}><b>{item.weight}</b><i /></div>)}</div><div className="history-labels">{history.map((item) => <span key={item.date}>{item.date}</span>)}</div></div><div className="history-chart"><div className="history-chart-title"><strong>Cintura</strong><span>{measurements.waist} cm atual</span></div><div className="history-line waist-line">{history.map((item, index) => <div className="history-point" key={item.date} style={{ left: `${index * 33.33}%`, bottom: `${Math.max(12, 100 - item.waist * 1.02)}px` }}><b>{item.waist}</b><i /></div>)}</div><div className="history-labels">{history.map((item) => <span key={item.date}>{item.date}</span>)}</div></div></div></section></div>;
+  return <div className="student-view profile-view"><div className="student-view-header"><div><p className="eyebrow">MEU PERFIL</p><h1>Seus dados, seu progresso</h1><p className="heading-copy">Atualize suas medidas para acompanhar sua evolução.</p></div><button className="outline-button" onClick={onBack}>← Voltar para o treino</button></div><BodyProfileEditor measurements={measurements} setMeasurements={setMeasurements} /><div className="profile-save-row"><button className="primary-button" onClick={persistMeasurements} disabled={saving}>{saving ? 'Salvando...' : 'Salvar medidas'}</button>{message && <span className="profile-status">{message}</span>}</div><section className="panel history-panel"><div className="panel-header"><div><p className="eyebrow">HISTÓRICO CORPORAL</p><h2>Evolução das medidas</h2><p>Compare seus registros ao longo do tempo.</p></div><button className="outline-button" onClick={exportHistory} disabled={!history.length}>↓ Exportar CSV</button></div>{history.length ? <div className="history-charts"><div className="history-chart"><div className="history-chart-title"><strong>Peso</strong><span>{measurements.weight || '—'} kg atual</span></div><div className="history-line weight-line">{history.filter((item) => item.weight).map((item, index) => <div className="history-point" key={item.date} style={{ left: `${index * 33.33}%`, bottom: `${Math.max(12, 100 - item.weight * 1.02)}px` }}><b>{item.weight}</b><i /></div>)}</div><div className="history-labels">{history.map((item) => <span key={item.date}>{item.date}</span>)}</div></div><div className="history-chart"><div className="history-chart-title"><strong>Cintura</strong><span>{measurements.waist || '—'} cm atual</span></div><div className="history-line waist-line">{history.filter((item) => item.waist).map((item, index) => <div className="history-point" key={item.date} style={{ left: `${index * 33.33}%`, bottom: `${Math.max(12, 100 - item.waist * 1.02)}px` }}><b>{item.waist}</b><i /></div>)}</div><div className="history-labels">{history.map((item) => <span key={item.date}>{item.date}</span>)}</div></div></div> : <p className="empty-state">Ainda não há registros de medidas.</p>}</section></div>;
 }
 
-function StudentProfile({ student, measurements, setMeasurements, onBack }) {
-  return <EnhancedProfile student={student} measurements={measurements} setMeasurements={setMeasurements} onBack={onBack} />;
+function StudentProfile({ student, measurements, setMeasurements, onBack, onSaved, history }) {
+  return <EnhancedProfile student={student} measurements={measurements} setMeasurements={setMeasurements} onBack={onBack} onSaved={onSaved} measurementHistory={history} />;
   const bodyWidth = Math.max(82, Math.min(130, measurements.hip * 0.92));
   const shoulderWidth = Math.max(75, Math.min(120, measurements.waist * 1.12));
   const bmi = (measurements.weight / ((measurements.height / 100) ** 2)).toFixed(1);
@@ -394,44 +343,114 @@ function StudentProfile({ student, measurements, setMeasurements, onBack }) {
   <button className="primary-button profile-save" onClick={() => saveMeasurements(measurements, student.id)}>Salvar medidas</button>
 
 function StudentView({ student, onBack }) {
-  const studentKey = student.id || student.name;
-  const storageKey = (name) => `atlas_${name}_${studentKey}`;
-  const [completed, setCompleted] = useState(() => readDemo(storageKey("completed"), []));
-  const [selectedExercise, setSelectedExercise] = useState(() => readDemo(storageKey("selected-exercise"), 0));
-  const [notes, setNotes] = useState(() => readDemo(storageKey("notes"), {}));
-  const [seriesTypes, setSeriesTypes] = useState(() => readDemo(storageKey("series-types"), {}));
-  const [chartPeriod, setChartPeriod] = useState(() => readDemo(storageKey("chart-period"), "1 mês"));
+  const [workoutPlan, setWorkoutPlan] = useState(null);
+  const [workout, setWorkout] = useState(null);
+  const [workoutExercises, setWorkoutExercises] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [selectedExercise, setSelectedExercise] = useState(0);
+  const [notes, setNotes] = useState({});
+  const [seriesTypes, setSeriesTypes] = useState({});
+  const [chartPeriod, setChartPeriod] = useState("1 mês");
   const [studentPanel, setStudentPanel] = useState("workout");
-  useEffect(() => writeDemo(storageKey("completed"), completed), [completed, studentKey]);
-  useEffect(() => writeDemo(storageKey("selected-exercise"), selectedExercise), [selectedExercise, studentKey]);
-  useEffect(() => writeDemo(storageKey("notes"), notes), [notes, studentKey]);
-  useEffect(() => writeDemo(storageKey("series-types"), seriesTypes), [seriesTypes, studentKey]);
-  useEffect(() => writeDemo(storageKey("chart-period"), chartPeriod), [chartPeriod, studentKey]);
-  const [measurements, setMeasurements] = useState(() => readDemo("atlas_measurements", { height: 172, weight: 74, shoulder: 108, chest: 96, waist: 82, hip: 101, armLeft: 34, armRight: 34, thighLeft: 58, thighRight: 58, legLeft: 38, legRight: 38 }));
-  useEffect(() => writeDemo("atlas_measurements", measurements), [measurements]);
-  const progress = Math.round((completed.length / exercises.length) * 100);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [measurements, setMeasurements] = useState({});
+  const [measurementHistory, setMeasurementHistory] = useState([]);
+  const periodDays = { "1 semana": 7, "15 dias": 15, "1 mês": 30, "3 meses": 90, "6 meses": 180, "1 ano": 365 };
+  const chartPeriods = Object.keys(periodDays);
+  const exercises = workoutExercises.map((item) => ({
+    ...item,
+    name: item.exercise?.name || 'Exercício',
+    detail: `${item.sets} séries · ${item.repetitions} reps`,
+    load: item.load ?? '',
+    rest: `${item.rest}s`,
+  }));
   const activeExercise = exercises[selectedExercise];
-  const chartData = {
-    "1 semana": [35, 38, 40, 42],
-    "15 dias": [32, 35, 38, 40, 42],
-    "1 mês": [28, 32, 35, 38, 42],
-    "3 meses": [20, 25, 28, 32, 36, 42],
-    "6 meses": [15, 20, 22, 26, 30, 34, 38, 42],
-    "1 ano": [10, 14, 18, 20, 24, 28, 31, 34, 38, 42],
-  };
-  const loadHistory = chartData[chartPeriod];
+  const completed = new Set(history.filter((record) => new Date(record.date).toDateString() === new Date().toDateString()).map((record) => record.exerciseId));
+  const progress = exercises.length ? Math.round((exercises.filter((item) => completed.has(item.exerciseId)).length / exercises.length) * 100) : 0;
+  const loadHistory = activeExercise ? history
+    .filter((record) => record.exerciseId === activeExercise.exerciseId && new Date(record.date) >= new Date(Date.now() - periodDays[chartPeriod] * 86400000))
+    .flatMap((record) => (record.sets || []).map((set) => Number(set.load)))
+    .filter((load) => Number.isFinite(load) && load > 0) : [];
+  const measurementDefaults = ['height', 'weight', 'shoulder', 'chest', 'waist', 'hip', 'armLeft', 'armRight', 'thighLeft', 'thighRight', 'legLeft', 'legRight'].reduce((result, key) => ({ ...result, [key]: 0 }), {});
+  const safeMeasurements = { ...measurementDefaults, ...measurements };
 
-  const measurementDefaults = { height: 172, weight: 74, shoulder: 108, chest: 96, waist: 82, hip: 101, armLeft: 34, armRight: 34, thighLeft: 58, thighRight: 58, legLeft: 38, legRight: 38 };
-  const safeMeasurements = Object.fromEntries(Object.entries(measurementDefaults).map(([key, fallback]) => [key, Number(measurements[key]) > 0 ? measurements[key] : fallback]));
-  const profileDevEnabled = process.env.NEXT_PUBLIC_PROFILE_DEV === "true";
-  if (studentPanel === "profile") return <StudentProfile student={student} measurements={safeMeasurements} setMeasurements={setMeasurements} onBack={() => setStudentPanel("workout")} />;
+  useEffect(() => {
+    let active = true;
+    async function loadStudentData() {
+      setLoading(true);
+      setError('');
+      try {
+        const getJson = async (url) => {
+          const response = await fetch(url);
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error || 'Falha ao carregar dados.');
+          return body;
+        };
+        const plans = await getJson(`/api/workout-plans?studentId=${encodeURIComponent(student.id)}`);
+        const selectedPlan = plans.plans.find((item) => item.active !== false);
+        if (!active) return;
+        setWorkoutPlan(selectedPlan || null);
+        if (!selectedPlan) {
+          setWorkout(null);
+          setWorkoutExercises([]);
+          setHistory([]);
+          return;
+        }
+        const workouts = await getJson(`/api/workouts?workoutPlanId=${encodeURIComponent(selectedPlan.id)}`);
+        const selectedWorkout = workouts.workouts[0] || null;
+        if (!active) return;
+        setWorkout(selectedWorkout);
+        if (!selectedWorkout) {
+          setWorkoutExercises([]);
+          setHistory([]);
+          return;
+        }
+        const [exerciseData, historyData, measurementData] = await Promise.all([
+          getJson(`/api/workout-exercises?workoutId=${encodeURIComponent(selectedWorkout.id)}`),
+          getJson(`/api/workout-history?studentId=${encodeURIComponent(student.id)}&workoutId=${encodeURIComponent(selectedWorkout.id)}`),
+          getJson(`/api/body-measurements?studentId=${encodeURIComponent(student.id)}`),
+        ]);
+        if (!active) return;
+        setWorkoutExercises(exerciseData.exercises);
+        setHistory(historyData.history);
+        setMeasurementHistory(measurementData.measurements);
+        setMeasurements(measurementData.measurements[0] || {});
+        setSelectedExercise(0);
+      } catch (loadError) {
+        if (active) setError(loadError.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadStudentData();
+    return () => { active = false; };
+  }, [student.id]);
+  const profileDevEnabled = true;
+  if (loading) return <div className="page-content"><p className="heading-copy">Carregando sua ficha...</p></div>;
+  if (error) return <div className="page-content"><p className="login-error">{error}</p></div>;
+  if (!workoutPlan || !workout || exercises.length === 0) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">Sua ficha ainda não foi cadastrada.</p></div>{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div></div>;
+  if (studentPanel === "profile") return <StudentProfile student={student} measurements={safeMeasurements} setMeasurements={setMeasurements} history={measurementHistory} onSaved={(record) => { setMeasurementHistory((current) => [record, ...current]); setMeasurements(record); }} onBack={() => setStudentPanel("workout")} />;
 
-  function toggleCompleted(index) {
-    setCompleted((current) =>
-      current.includes(index)
-        ? current.filter((item) => item !== index)
-        : [...current, index],
-    );
+  async function toggleCompleted(index) {
+    const item = exercises[index];
+    if (!item || completed.has(item.exerciseId) || !workout) return;
+    const load = Number(String(notes[item.id] ?? item.load ?? 0).replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0] || 0);
+    const repetitions = Number(item.repetitions.match(/[0-9]+/)?.[0] || 0);
+    const response = await fetch('/api/workout-history', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: student.id, workoutId: workout.id, exerciseId: item.exerciseId,
+        sets: Array.from({ length: item.sets }, () => ({ repetitions, load })),
+        observations: seriesTypes[item.id] || '',
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error || 'Não foi possível registrar o treino.');
+      return;
+    }
+    setHistory((current) => [body.record, ...current]);
   }
 
   return (
@@ -446,15 +465,15 @@ function StudentView({ student, onBack }) {
         </div>
         <button className="outline-button profile-button" disabled={!profileDevEnabled} onClick={() => setStudentPanel("profile")}>
           <UserRound size={15} /> {profileDevEnabled ? "Meu perfil" : "Perfil em desenvolvimento"}
-        </button><button className="outline-button" onClick={onBack}>
+        </button>{onBack && <button className="outline-button" onClick={onBack}>
           ← Visão do administrador
-        </button>
+        </button>}
       </div>
       <div className="student-hero">
         <div>
-          <span className="student-pill">TREINO A</span>
-          <h2>Pernas e glúteos</h2>
-          <p>Foco em força e hipertrofia · 5 exercícios</p>
+          <span className="student-pill">{workout.name}</span>
+          <h2>{workoutPlan.name}</h2>
+          <p>{workoutPlan.objective || student.goal} · {exercises.length} exercícios</p>
         </div>
         <div className="progress-ring">
           <strong>{progress}%</strong>
@@ -469,7 +488,7 @@ function StudentView({ student, onBack }) {
               <p>Selecione um exercício para registrar sua série.</p>
             </div>
             <strong className="exercise-count">
-              {completed.length}/{exercises.length}
+              {exercises.filter((item) => completed.has(item.exerciseId)).length}/{exercises.length}
             </strong>
           </div>
           <div className="student-exercise-list">
@@ -478,11 +497,11 @@ function StudentView({ student, onBack }) {
                 className={
                   selectedExercise === index
                     ? "student-exercise selected"
-                    : completed.includes(index)
+                    : completed.has(exercise.exerciseId)
                       ? "student-exercise completed"
                       : "student-exercise"
                 }
-                key={exercise.name}
+                key={exercise.id}
                 onClick={() => setSelectedExercise(index)}
               >
                 <button
@@ -492,19 +511,19 @@ function StudentView({ student, onBack }) {
                     toggleCompleted(index);
                   }}
                   aria-label={
-                    completed.includes(index)
+                    completed.has(exercise.exerciseId)
                       ? `Desmarcar ${exercise.name}`
                       : `Concluir ${exercise.name}`
                   }
                 >
-                  {completed.includes(index) ? "✓" : index + 1}
+                    {completed.has(exercise.exerciseId) ? "✓" : index + 1}
                 </button>
                 <span>
                   <strong>{exercise.name}</strong>
                   <small>{exercise.detail}</small>
                 </span>
                 <b>{exercise.load}</b>
-                <i>{completed.includes(index) ? "Concluído" : exercise.rest}</i>
+                <i>{completed.has(exercise.exerciseId) ? "Concluído" : exercise.rest}</i>
                 <button
                   className="complete-button"
                   onClick={(event) => {
@@ -512,7 +531,7 @@ function StudentView({ student, onBack }) {
                     toggleCompleted(index);
                   }}
                 >
-                  {completed.includes(index) ? "Concluído" : "Concluir"}
+                  {completed.has(exercise.exerciseId) ? "Concluído" : "Concluir"}
                 </button>
               </div>
             ))}
@@ -529,11 +548,11 @@ function StudentView({ student, onBack }) {
               <label>
                 Carga usada
                 <input
-                  value={notes[selectedExercise] || activeExercise.load}
+                  value={notes[activeExercise.id] ?? activeExercise.load}
                   onChange={(event) =>
                     setNotes((current) => ({
                       ...current,
-                      [selectedExercise]: event.target.value,
+                      [activeExercise.id]: event.target.value,
                     }))
                   }
                 />
@@ -541,11 +560,11 @@ function StudentView({ student, onBack }) {
               <label>
                 Tipo de série
                 <select
-                  value={seriesTypes[selectedExercise] || "Normal"}
+                    value={seriesTypes[activeExercise.id] || "Normal"}
                   onChange={(event) =>
                     setSeriesTypes((current) => ({
                       ...current,
-                      [selectedExercise]: event.target.value,
+                      [activeExercise.id]: event.target.value,
                     }))
                   }
                 >
@@ -562,7 +581,7 @@ function StudentView({ student, onBack }) {
                 className="primary-button"
                 onClick={() => toggleCompleted(selectedExercise)}
               >
-                {completed.includes(selectedExercise)
+                {completed.has(activeExercise.exerciseId)
                   ? "✓ Série concluída"
                   : "Marcar como concluído"}
               </button>
@@ -577,11 +596,11 @@ function StudentView({ student, onBack }) {
                 <h2>{activeExercise.name}</h2>
               </div>
               <span className="chart-period">
-                {loadHistory.length} registros
+                {loadHistory.length} séries registradas
               </span>
             </div>
             <div className="chart-range">
-              {Object.keys(chartData).map((period) => (
+              {chartPeriods.map((period) => (
                 <button
                   className={
                     chartPeriod === period
@@ -609,7 +628,7 @@ function StudentView({ student, onBack }) {
                       className={
                         index === loadHistory.length - 1 ? "bar current" : "bar"
                       }
-                      style={{ height: `${load * 1.35}px` }}
+                      style={{ height: `${Math.max(6, Math.min(100, (load / Math.max(...loadHistory)) * 100))}px` }}
                     />
                     <small>
                       {index === loadHistory.length - 1
@@ -622,7 +641,7 @@ function StudentView({ student, onBack }) {
             </div>
             <p className="chart-caption">
               Último registro:{" "}
-              <strong>{notes[selectedExercise] || activeExercise.load}</strong>
+              <strong>{loadHistory.at(-1) ?? notes[activeExercise.id] ?? activeExercise.load}</strong>
             </p>
           </div>
           <div className="student-side-card">
@@ -642,46 +661,44 @@ function StudentView({ student, onBack }) {
 }
 
 export default function Home() {
-  const defaultWorkouts = [{ id: 1, title: "Treino A · Pernas e glúteos", student: "Rhuan", admin: "Rhuan", exercises: 5, frequency: "4x por semana", goal: "Hipertrofia", exerciseList: exercises }];
-  const defaultExercises = ["Agachamento livre", "Leg press 45°", "Cadeira extensora", "Mesa flexora", "Hip thrust", "Puxada frontal", "Supino reto", "Elevação lateral"];
-  const [students, setStudents] = useState(() => readDemo(demoKeys.students, initialStudents));
-  const [selectedStudent, setSelectedStudent] = useState(() => readDemo(demoKeys.students, initialStudents)[0]);
-  const [workoutPlans, setWorkoutPlans] = useState(() => readDemo(demoKeys.workouts, defaultWorkouts));
-  const [adminList, setAdminList] = useState(() => readDemo(demoKeys.admins, adminUsers));
-  const [exerciseList, setExerciseList] = useState(() => readDemo(demoKeys.exercises, defaultExercises));
-  useEffect(() => writeDemo(demoKeys.students, students), [students]);
-  useEffect(() => writeDemo(demoKeys.workouts, workoutPlans), [workoutPlans]);
-  useEffect(() => writeDemo(demoKeys.admins, adminList), [adminList]);
-  useEffect(() => writeDemo(demoKeys.exercises, exerciseList), [exerciseList]);
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(emptyStudent);
+  const [workoutPlans, setWorkoutPlans] = useState([]);
+  const [adminList, setAdminList] = useState([]);
+  const [exerciseList, setExerciseList] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   useEffect(() => {
-    if (!selectedStudent || students.some((student) => student.name === selectedStudent.name)) return;
-    setSelectedStudent(students[0] || initialStudents[0]);
+    if (students.some((student) => student.id === selectedStudent?.id)) return;
+    setSelectedStudent(students[0] || emptyStudent);
   }, [students, selectedStudent]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [mode, setMode] = useState("admin");
+  const isStaff = ['dev', 'admin', 'trainer'].includes(currentUser?.role);
   const [showWorkoutEditor, setShowWorkoutEditor] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [toast, setToast] = useState("");
   const [adminView, setAdminView] = useState("students");
   const [createType, setCreateType] = useState(null);
   const [isHydrating, setIsHydrating] = useState(true);
-  const selectedWorkout = workoutPlans.find((plan) => plan.studentId === selectedStudent?.id) || workoutPlans[0];
+  const selectedWorkout = workoutPlans.find((plan) => plan.studentId === selectedStudent?.id);
 
   useEffect(() => {
     let active = true;
     async function hydrate() {
       try {
         const { loadAtlasData } = await import("../lib/atlas-data");
-        const data = await loadAtlasData({ students: initialStudents, workouts: defaultWorkouts, admins: adminUsers, exercises: defaultExercises });
+        const data = await loadAtlasData();
         if (!active) return;
+        setCurrentUser(data.currentUser);
+        setMode(data.currentUser.role === 'student' ? 'student' : 'admin');
         setStudents(data.students);
         setWorkoutPlans(data.workouts);
         setAdminList(data.admins);
         setExerciseList(data.exercises);
-        setSelectedStudent(data.students[0] || initialStudents[0]);
+        setSelectedStudent(data.students[0] || emptyStudent);
       } catch (error) {
         showAction(`Não foi possível carregar os dados: ${error.message}`);
       } finally {
@@ -704,7 +721,7 @@ export default function Home() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     try {
-      const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), email: form.get('email'), password: form.get('password'), confirmPassword: form.get('password'), role: 'student', active: true }) });
+      const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), email: form.get('email'), password: form.get('password'), confirmPassword: form.get('password'), goal: form.get('goal'), phone: form.get('phone'), dateOfBirth: form.get('dateOfBirth'), trainerId: form.get('trainerId'), role: 'student', active: true }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível cadastrar o aluno.');
       const student = { id: body.user.id, name: body.user.name, initials: body.user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(), goal: form.get('goal'), status: 'Em dia', color: 'coral', updated: 'Agora' };
@@ -717,13 +734,29 @@ export default function Home() {
     window.setTimeout(() => setToast(""), 2200);
   }
 
-  function createModuleItem(event) {
+  async function createModuleItem(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    if (createType === "admin") setAdminList((current) => [...current, { name: form.get("name"), email: `${form.get("username")}@atlas.training`, role: form.get("role"), initials: String(form.get("name")).split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase() }]);
-    if (createType === "exercise") setExerciseList((current) => [...current, form.get("name")]);
-    if (createType === "workout") setWorkoutPlans((current) => [...current, { id: Date.now(), title: form.get("title"), student: form.get("student"), admin: "Rhuan", exercises: 0 }]);
-    setCreateType(null); showAction("Cadastro salvo com sucesso");
+    try {
+      let response;
+      if (createType === 'admin') {
+        response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), email: form.get('email'), password: form.get('password'), confirmPassword: form.get('confirmPassword'), cref: form.get('cref'), role: form.get('role'), active: true }) });
+      } else if (createType === 'exercise') {
+        response = await fetch('/api/exercises', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), muscleGroup: form.get('muscleGroup'), equipment: form.get('equipment') }) });
+      } else if (createType === 'workout') {
+        const student = students.find((item) => item.id === form.get('studentId'));
+        response = await fetch('/api/workout-plans', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('title'), studentId: student?.id, objective: student?.goal }) });
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Não foi possível salvar o cadastro.');
+      if (createType === 'admin') setAdminList((current) => [{ name: body.user.name, email: body.user.email, role: body.user.role, initials: body.user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() }, ...current]);
+      if (createType === 'exercise') setExerciseList((current) => [...current, body.exercise.name]);
+      if (createType === 'workout') setWorkoutPlans((current) => [{ id: body.plan.id, title: body.plan.name, student: students.find((item) => item.id === body.plan.studentId)?.name || 'Aluno', studentId: body.plan.studentId, admin: currentUser.name, exercises: 0, frequency: '', goal: body.plan.objective, exerciseList: [] }, ...current]);
+      setCreateType(null);
+      showAction('Cadastro salvo com sucesso.');
+    } catch (error) {
+      showAction(error.message);
+    }
   }
 
   return (
@@ -745,8 +778,8 @@ export default function Home() {
           </span>
           <ChevronDown size={15} />
         </div>
-        <nav className="main-nav">
-          {navItems.map(({ label, icon: Icon, key }) => (
+        {isStaff && <nav className="main-nav">
+          {navItems.filter(({ key }) => key !== 'admins' || ['admin', 'dev'].includes(currentUser?.role)).map(({ label, icon: Icon, key }) => (
             <button
               className={
                 adminView === key && mode === "admin"
@@ -767,7 +800,7 @@ export default function Home() {
               )}
             </button>
           ))}
-        </nav>
+        </nav>}
         <div className="sidebar-bottom">
           <button
             className="nav-item"
@@ -776,13 +809,13 @@ export default function Home() {
             <Settings size={18} />
             <span>Configurações</span>
           </button>
-          <button
+          {isStaff && <button
             className="user-card role-switcher"
             onClick={() => setMode(mode === "admin" ? "student" : "admin")}
           >
-            <span className="user-avatar">RH</span>
+            <span className="user-avatar">{currentUser?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>
             <span>
-                <strong>Rhuan</strong>
+                <strong>{currentUser?.name}</strong>
               <small>
                 {mode === "admin"
                   ? "Ver visão do aluno"
@@ -790,12 +823,12 @@ export default function Home() {
               </small>
             </span>
             <ChevronDown size={15} />
-          </button>
+          </button>}
           <button
             className="logout"
             onClick={async () => {
-              const { error } = await createSupabaseBrowserClient().auth.signOut();
-              if (error) showAction(`Não foi possível sair: ${error.message}`);
+              const response = await fetch('/api/auth/logout', { method: 'POST' });
+              if (!response.ok) showAction('Não foi possível sair da conta.');
               else window.location.href = "/login";
             }}
           >
@@ -836,7 +869,7 @@ export default function Home() {
         {mode === "student" ? (
           <StudentView
             student={selectedStudent}
-            onBack={() => setMode("admin")}
+            onBack={isStaff ? () => setMode("admin") : undefined}
           />
         ) : adminView !== "students" ? (
           <AdminModule
@@ -849,6 +882,15 @@ export default function Home() {
             onAction={showAction}
             onNavigate={setAdminView}
             onCreate={setCreateType}
+            onEditWorkout={(plan) => {
+              const student = students.find((item) => item.id === plan.studentId);
+              if (!student) return;
+              setSelectedStudent(student);
+              setAdminView('students');
+              setMode('admin');
+              setShowWorkoutEditor(true);
+            }}
+            canManageUsers={['admin', 'dev'].includes(currentUser?.role)}
           />
         ) : (
           <div className="page-content">
@@ -878,7 +920,7 @@ export default function Home() {
                   <strong>{students.length}</strong>
                 </span>
                 <em>
-                  +12% <small>este mês</small>
+                  <small>cadastrados</small>
                 </em>
               </div>
               <div className="stat-card">
@@ -887,10 +929,10 @@ export default function Home() {
                 </span>
                 <span>
                   <small>Fichas ativas</small>
-                  <strong>38</strong>
+                    <strong>{workoutPlans.filter((plan) => plan.active !== false).length}</strong>
                 </span>
                 <em>
-                  +8% <small>este mês</small>
+                  <small>no sistema</small>
                 </em>
               </div>
               <div className="stat-card">
@@ -899,7 +941,7 @@ export default function Home() {
                 </span>
                 <span>
                   <small>Para revisar</small>
-                  <strong>04</strong>
+                    <strong>—</strong>
                 </span>
                 <em className="neutral">Atenção necessária</em>
               </div>
@@ -945,7 +987,7 @@ export default function Home() {
                   {filteredStudents.map((student) => (
                     <button
                       className={
-                        selectedStudent.name === student.name
+                        selectedStudent.id === student.id
                           ? "student-row selected"
                           : "student-row"
                       }
@@ -1001,7 +1043,7 @@ export default function Home() {
                     {selectedStudent.goal}
                   </span>
                   <span>
-                    <strong>Frequência</strong>4x por semana
+                    <strong>Frequência</strong>{selectedWorkout?.frequency || 'Não informada'}
                   </span>
                   <span>
                     <strong>Atualizada em</strong>
@@ -1010,7 +1052,7 @@ export default function Home() {
                 </div>
                 <div className="exercise-heading">
                   <h3>
-                    Exercícios <span>{(selectedWorkout?.exerciseList || exercises).length}</span>
+                    Exercícios <span>{(selectedWorkout?.exerciseList || []).length}</span>
                   </h3>
                   <button
                     className="icon-button"
@@ -1021,7 +1063,7 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="exercise-list">
-                  {(selectedWorkout?.exerciseList || exercises).map((exercise, index) => (
+                  {(selectedWorkout?.exerciseList || []).map((exercise, index) => (
                     <div className="exercise-row" key={`${exercise.name}-${index}`}>
                       <span className="exercise-number">0{index + 1}</span>
                       <span className="exercise-name">
@@ -1086,9 +1128,12 @@ export default function Home() {
                 E-mail / login
                 <input name="email" type="email" required placeholder="ana@email.com" />
               </label>
+              <label>Telefone<input name="phone" type="tel" autoComplete="tel" /></label>
+              <label>Data de nascimento<input name="dateOfBirth" type="date" /></label>
+              {['admin', 'dev'].includes(currentUser?.role) && <label>Professor responsável<select name="trainerId" defaultValue=""><option value="">Sem professor atribuído</option>{adminList.filter((item) => item.role === 'trainer').map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}</option>)}</select></label>}
               <label>
                 Senha inicial
-                <input name="password" type="password" required minLength="8" autoComplete="new-password" />
+                <input name="password" type="password" required minLength="12" autoComplete="new-password" />
               </label>
               <label>
                 Objetivo principal
@@ -1127,18 +1172,19 @@ export default function Home() {
               onSubmit={async (event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
-                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id || Date.now(), title: form.get('title'), frequency: form.get('frequency'), studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: selectedWorkout?.exerciseList || exercises };
-                try { await saveWorkout(updatedWorkout, selectedStudent.id); setWorkoutPlans((current) => current.some((plan) => plan.id === updatedWorkout.id) ? current.map((plan) => plan.id === updatedWorkout.id ? { ...plan, ...updatedWorkout, exercises: updatedWorkout.exerciseList.length } : plan) : [updatedWorkout, ...current]); setShowWorkoutEditor(false); showAction("Ficha atualizada com sucesso"); }
+                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id, title: form.get('title'), frequency: form.get('frequency'), studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: selectedWorkout?.exerciseList || [] };
+                try { const result = await saveWorkout(updatedWorkout, selectedStudent.id); const saved = { ...updatedWorkout, id: result.workout.id, exercises: updatedWorkout.exerciseList.length }; setWorkoutPlans((current) => [saved, ...current.filter((plan) => plan.id !== saved.id)]); setShowWorkoutEditor(false); showAction("Ficha atualizada com sucesso"); }
                 catch (error) { showAction(`Não foi possível salvar a ficha: ${error.message}`); }
               }}
             >
               <label>
                 Nome do treino
-                <input name="title" defaultValue={selectedWorkout?.title || "Treino A - Pernas e glúteos"} required />
+                <input name="title" defaultValue={selectedWorkout?.title || ""} required />
               </label>
               <label>
                 Frequência
-                  <select name="frequency" defaultValue={selectedWorkout?.frequency || "4x por semana"}>
+                  <select name="frequency" defaultValue={selectedWorkout?.frequency || ""}>
+                  <option value="">Selecione a frequência</option>
                   <option>2x por semana</option>
                   <option>3x por semana</option>
                   <option>4x por semana</option>
@@ -1171,19 +1217,25 @@ export default function Home() {
               onSubmit={async (event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
-                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id || Date.now(), title: selectedWorkout?.title || 'Nova ficha', frequency: selectedWorkout?.frequency || '4x por semana', studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: [...(selectedWorkout?.exerciseList || []), { name: form.get('name'), detail: '3 séries · 10–12 reps', load: form.get('load'), rest: '60s' }] };
-                try { await saveWorkout(updatedWorkout, selectedStudent.id); setWorkoutPlans((current) => current.some((plan) => plan.id === updatedWorkout.id) ? current.map((plan) => plan.id === updatedWorkout.id ? { ...plan, ...updatedWorkout, exercises: updatedWorkout.exerciseList.length } : plan) : [updatedWorkout, ...current]); setShowExerciseModal(false); showAction("Exercício adicionado à ficha"); }
+                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id, title: selectedWorkout?.title || 'Ficha de treino', frequency: selectedWorkout?.frequency || '', studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: [...(selectedWorkout?.exerciseList || []), { name: form.get('name'), detail: `${form.get('sets')} séries · ${form.get('repetitions')} reps`, load: form.get('load'), rest: `${form.get('rest')}s` }] };
+                try { const result = await saveWorkout(updatedWorkout, selectedStudent.id); const saved = { ...updatedWorkout, id: result.workout.id, exercises: updatedWorkout.exerciseList.length }; setWorkoutPlans((current) => [saved, ...current.filter((plan) => plan.id !== saved.id)]); setShowExerciseModal(false); showAction("Exercício adicionado à ficha"); }
                 catch (error) { showAction(`Não foi possível adicionar: ${error.message}`); }
               }}
             >
               <label>
                 Exercício
-                  <input name="name" required placeholder="Ex: Hip thrust" />
+                <select name="name" required defaultValue="">
+                  <option value="" disabled>Selecione do catálogo</option>
+                  {exerciseList.map((exercise) => <option key={exercise}>{exercise}</option>)}
+                </select>
               </label>
+              <label>Séries<input name="sets" type="number" min="1" max="20" required /></label>
+              <label>Repetições<input name="repetitions" required placeholder="8-12" /></label>
               <label>
                 Carga
-                  <input name="load" required placeholder="Ex: 40 kg" />
+                <input name="load" type="number" min="0" step="0.5" required />
               </label>
+              <label>Descanso (segundos)<input name="rest" type="number" min="0" max="3600" required /></label>
               <button className="primary-button" type="submit">
                 Adicionar exercício
               </button>
@@ -1199,9 +1251,9 @@ export default function Home() {
             <h2>{createType === "admin" ? "Novo administrador" : createType === "workout" ? "Nova ficha de treino" : "Novo exercício"}</h2>
             <p>Preencha os dados para adicionar este cadastro ao sistema.</p>
             <form onSubmit={createModuleItem}>
-              {createType === "admin" && <><label>Nome completo<input name="name" required placeholder="Nome do profissional" /></label><label>Usuário<input name="username" required placeholder="usuario" /></label><label>Função<select name="role" defaultValue="Professor"><option>Professor</option><option>Administrador</option></select></label></>}
-              {createType === "workout" && <><label>Nome da ficha<input name="title" required placeholder="Treino A · Corpo inteiro" /></label><label>Aluno<select name="student" defaultValue={students[0]?.name}>{students.map((student) => <option key={student.name}>{student.name}</option>)}</select></label></>}
-              {createType === "exercise" && <><label>Nome do exercício<input name="name" required placeholder="Ex: Remada baixa" /></label><label>Grupo muscular<select defaultValue="Costas"><option>Peito</option><option>Costas</option><option>Pernas</option><option>Ombros</option><option>Braços</option></select></label></>}
+              {createType === "admin" && <><label>Nome completo<input name="name" required placeholder="Nome do profissional" /></label><label>E-mail<input name="email" type="email" required placeholder="nome@academia.com" /></label><label>Função<select name="role" defaultValue="trainer"><option value="trainer">Professor</option><option value="admin">Administrador</option></select></label><label>CREF (professores)<input name="cref" /></label><label>Senha inicial<input name="password" type="password" minLength="12" required autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="12" required autoComplete="new-password" /></label></>}
+              {createType === "workout" && <><label>Nome da ficha<input name="title" required placeholder="Nome da ficha" /></label><label>Aluno<select name="studentId" required defaultValue=""> <option value="" disabled>Selecione um aluno</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label></>}
+              {createType === "exercise" && <><label>Nome do exercício<input name="name" required placeholder="Nome do exercício" /></label><label>Grupo muscular<select name="muscleGroup" required defaultValue=""><option value="" disabled>Selecione o grupo</option><option>Peito</option><option>Costas</option><option>Pernas</option><option>Ombros</option><option>Braços</option><option>Abdômen</option></select></label><label>Equipamento<input name="equipment" placeholder="Equipamento" /></label></>}
               <button className="primary-button" type="submit">Salvar cadastro</button>
             </form>
           </div>

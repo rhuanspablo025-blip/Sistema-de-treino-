@@ -2,15 +2,13 @@
   "name": "sistema-de-treino",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
+  "engines": { "node": ">=20.9.0" },
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "admin:create": "node scripts/create-admin-user.js" },
   "dependencies": {
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^17.4.2",
+    "jose": "^6.1.0",
+    "mongodb": "^6.18.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"

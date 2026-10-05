@@ -1,160 +1,96 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '../../../lib/supabase-server';
+import { randomUUID } from 'node:crypto';
+import { requireStaff, requireUser } from '../../../lib/api-auth';
+import { writeAuditLog } from '../../../lib/audit';
+import { getDatabase } from '../../../lib/mongodb';
 
-export async function requireAuth() {
-  const authClient = await createSupabaseServerClient();
-  const { data: { user }, error } = await authClient.auth.getUser();
-  if (error || !user) return { error: NextResponse.json({ error: 'Não autenticado.' }, { status: 401 }) };
-  const { data: profile } = await authClient.from('profiles').select('role, active').eq('id', user.id).maybeSingle();
-  if (profile?.active === false) return { error: NextResponse.json({ error: 'Usuário desativado.' }, { status: 403 }) };
-  return { user, profile };
-}
+export const runtime = 'nodejs';
+const idPattern = /^[0-9a-f-]{36}$/i;
+const text = (value, limit = 160) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+const keyFor = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-export async function requireStaff() {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
-  const role = auth.user.app_metadata?.role;
-  if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
-  return auth;
-}
-
-export async function GET(request) {
-  const auth = await requireAuth();
-  if (auth.error) return auth.error;
-
+export async function GET() {
+  const access = await requireUser();
+  if (access.response) return access.response;
   try {
-    const authClient = await createSupabaseServerClient();
-    const { data: exercises, error } = await authClient
-      .from('exercises')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
+    const database = await getDatabase();
+    const exercises = await database.collection('exercises').find({ active: true }).sort({ name: 1 }).toArray();
     return NextResponse.json({ exercises });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível carregar os exercícios.' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
     const payload = await request.json();
-    const { name, muscle_group, equipment, category, difficulty } = payload;
-
-    if (!name || name.trim().length < 2) {
-      return NextResponse.json({ error: 'Nome do exercício é obrigatório.' }, { status: 400 });
-    }
-
-    const authClient = await createSupabaseServerClient();
-    const { data: exercise, error } = await authClient
-      .from('exercises')
-      .insert({
-        name: name.trim(),
-        muscle_group,
-        equipment: equipment?.trim() || null,
-        category: category?.trim() || null,
-        description: payload.description?.trim() || null,
-        instructions: payload.instructions?.trim() || null,
-        video_url: payload.video_url?.trim() || null,
-        image_url: payload.image_url?.trim() || null,
-        difficulty,
-        observations: payload.observations?.trim() || null,
-        active: true,
-        created_by: auth.user.id,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const name = text(payload.name, 120);
+    const muscleGroup = text(payload.muscleGroup ?? payload.muscle_group, 100);
+    if (name.length < 2 || !muscleGroup) return NextResponse.json({ error: 'Informe o nome e o grupo muscular.' }, { status: 400 });
+    const database = await getDatabase();
+    const now = new Date();
+    const exercise = {
+      id: randomUUID(), name, nameKey: keyFor(name), muscleGroup,
+      equipment: text(payload.equipment, 100), description: text(payload.description, 1000),
+      instructions: text(payload.instructions, 3000), active: true, createdAt: now, updatedAt: now,
+      createdBy: access.user.id,
+    };
+    await database.collection('exercises').insertOne(exercise);
+    await writeAuditLog(database, { userId: access.user.id, action: 'create', resource: 'exercise', resourceId: exercise.id });
     return NextResponse.json({ exercise }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error.code === 11000) return NextResponse.json({ error: 'Já existe um exercício com esse nome.' }, { status: 409 });
+    return NextResponse.json({ error: 'Não foi possível cadastrar o exercício.' }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
     const payload = await request.json();
-    const { id, name, muscle_group, equipment, category, difficulty, active } = payload;
-
-    if (!id) return NextResponse.json({ error: 'ID do exercício é obrigatório.' }, { status: 400 });
-    if (name && name.trim().length < 2) {
-      return NextResponse.json({ error: 'Nome deve ter ao menos 2 caracteres.' }, { status: 400 });
+    const id = text(payload.id, 64);
+    if (!idPattern.test(id)) return NextResponse.json({ error: 'ID do exercício inválido.' }, { status: 400 });
+    const fields = {};
+    if (payload.name !== undefined) {
+      fields.name = text(payload.name, 120);
+      if (fields.name.length < 2) return NextResponse.json({ error: 'Nome do exercício inválido.' }, { status: 400 });
+      fields.nameKey = keyFor(fields.name);
     }
+    if (payload.muscleGroup !== undefined || payload.muscle_group !== undefined) fields.muscleGroup = text(payload.muscleGroup ?? payload.muscle_group, 100);
+    for (const key of ['equipment', 'description', 'instructions']) if (payload[key] !== undefined) fields[key] = text(payload[key], key === 'instructions' ? 3000 : 1000);
+    if (payload.active !== undefined) fields.active = payload.active === true;
+    fields.updatedAt = new Date();
 
-    const authClient = await createSupabaseServerClient();
-    const { data: exercise, error } = await authClient
-      .from('exercises')
-      .update({
-        ...(name && { name: name.trim() }),
-        ...(muscle_group && { muscle_group }),
-        ...(equipment && { equipment: equipment.trim() }),
-        ...(category && { category: category.trim() }),
-        ...(difficulty && { difficulty }),
-        ...(payload.description !== undefined && { description: payload.description?.trim() || null }),
-        ...(payload.instructions !== undefined && { instructions: payload.instructions?.trim() || null }),
-        ...(payload.video_url !== undefined && { video_url: payload.video_url?.trim() || null }),
-        ...(payload.image_url !== undefined && { image_url: payload.image_url?.trim() || null }),
-        ...(payload.observations !== undefined && { observations: payload.observations?.trim() || null }),
-        ...(active !== undefined && { active }),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ exercise });
+    const database = await getDatabase();
+    const updated = await database.collection('exercises').findOneAndUpdate({ id }, { $set: fields }, { returnDocument: 'after' });
+    if (!updated) return NextResponse.json({ error: 'Exercício não encontrado.' }, { status: 404 });
+    await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'exercise', resourceId: id });
+    return NextResponse.json({ exercise: updated });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error.code === 11000) return NextResponse.json({ error: 'Já existe um exercício com esse nome.' }, { status: 409 });
+    return NextResponse.json({ error: 'Não foi possível atualizar o exercício.' }, { status: 500 });
   }
 }
 
 export async function DELETE(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 });
-
-    const authClient = await createSupabaseServerClient();
-    
-    // Verificar se exercício está sendo usado em fichas
-    const { data: usedIn, error: checkError } = await authClient
-      .from('workout_exercises')
-      .select('id', { count: 'exact' })
-      .eq('exercise_id', id);
-
-    if (checkError) throw checkError;
-
-    if (usedIn && usedIn.length > 0) {
-      // Desativar em vez de deletar
-      const { error: deactivateError } = await authClient
-        .from('exercises')
-        .update({ active: false })
-        .eq('id', id);
-      
-      if (deactivateError) throw deactivateError;
-      return NextResponse.json({ message: 'Exercício desativado (estava em uso).' });
+    const id = new URL(request.url).searchParams.get('id');
+    if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID do exercício inválido.' }, { status: 400 });
+    const database = await getDatabase();
+    const inUse = await database.collection('workouts').countDocuments({ 'exercises.exerciseId': id });
+    if (inUse) {
+      await database.collection('exercises').updateOne({ id }, { $set: { active: false, updatedAt: new Date() } });
+    } else {
+      await database.collection('exercises').deleteOne({ id });
     }
-
-    // Deletar se não estiver em uso
-    const { error: deleteError } = await authClient
-      .from('exercises')
-      .delete()
-      .eq('id', id);
-
-    if (deleteError) throw deleteError;
-    return NextResponse.json({ message: 'Exercício deletado.' });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    await writeAuditLog(database, { userId: access.user.id, action: inUse ? 'deactivate' : 'delete', resource: 'exercise', resourceId: id });
+    return NextResponse.json({ message: inUse ? 'Exercício desativado (está em uso).' : 'Exercício excluído.' });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível excluir o exercício.' }, { status: 500 });
   }
 }

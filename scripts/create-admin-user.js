@@ -1,82 +1,60 @@
 #!/usr/bin/env node
 
-/**
- * Script para criar um usuário ADM no Supabase
- * Uso: node scripts/create-admin-user.js
- */
-
 require('dotenv').config({ path: '.env.local' });
 
-const { createClient } = require('@supabase/supabase-js');
+const { randomUUID } = require('node:crypto');
+const bcrypt = require('bcryptjs');
+const { MongoClient } = require('mongodb');
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const { MONGODB_URI, ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
-  console.error('❌ Erro: Variáveis de ambiente não configuradas.');
-  console.error('   Configure NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAIL e ADMIN_PASSWORD no arquivo .env.local');
+if (!MONGODB_URI || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('Configure MONGODB_URI, ADMIN_EMAIL e ADMIN_PASSWORD em .env.local.');
+  process.exit(1);
+}
+if (ADMIN_PASSWORD.length < 12) {
+  console.error('ADMIN_PASSWORD deve ter pelo menos 12 caracteres.');
+  process.exit(1);
+}
+if (Buffer.byteLength(ADMIN_PASSWORD, 'utf8') > 72) {
+  console.error('ADMIN_PASSWORD deve ter no máximo 72 bytes para bcrypt.');
+  process.exit(1);
+}
+if (!/^\S+@\S+\.\S+$/.test(ADMIN_EMAIL) || !ADMIN_NAME.trim()) {
+  console.error('Informe um ADMIN_EMAIL válido e um ADMIN_NAME.');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
-async function createAdminUser() {
+async function createAdmin() {
+  const client = new MongoClient(MONGODB_URI);
   try {
-    console.log('🔄 Criando usuário ADM...');
+    await client.connect();
+    const database = client.db('sistema_treino');
+    const users = database.collection('users');
+    await users.createIndex({ email: 1 }, { unique: true });
 
-    // Criar usuário na autenticação
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-      email_confirm: true,
-      user_metadata: {
-        full_name: ADMIN_NAME,
-      },
-      app_metadata: {
-        role: 'admin',
-      },
+    const email = ADMIN_EMAIL.trim().toLowerCase();
+    if (await users.findOne({ email })) throw new Error('Já existe um usuário com este e-mail.');
+
+    const now = new Date();
+    await users.insertOne({
+      id: randomUUID(),
+      email,
+      name: ADMIN_NAME.trim(),
+      role: 'admin',
+      active: true,
+      passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
+      createdAt: now,
+      updatedAt: now,
     });
-
-    if (authError) {
-      console.error('❌ Erro ao criar usuário na autenticação:', authError.message);
-      process.exit(1);
-    }
-
-    console.log('✅ Usuário criado na autenticação');
-
-    // Criar perfil
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: authData.user.id,
-        full_name: ADMIN_NAME,
-        role: 'admin',
-        active: true,
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      console.error('❌ Erro ao criar perfil:', profileError.message);
-      // Deletar usuário se o perfil falhar
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      process.exit(1);
-    }
-
-    console.log('✅ Perfil criado com sucesso');
-    console.log('\n🎉 Usuário ADM criado com sucesso!');
-    console.log('   Email:', ADMIN_EMAIL);
-    console.log('   Role: admin');
-    console.log('\n   Você pode fazer login em http://localhost:3000/login');
-  } catch (error) {
-    console.error('❌ Erro inesperado:', error);
-    process.exit(1);
+    console.log(`Administrador criado: ${email}`);
+  } finally {
+    await client.close();
   }
 }
 
-createAdminUser();
+createAdmin().catch((error) => {
+  console.error(error.code === 11000 ? 'Já existe um administrador com este e-mail.' : 'Não foi possível criar o administrador. Verifique as variáveis locais e o acesso ao Atlas.');
+  process.exitCode = 1;
+});

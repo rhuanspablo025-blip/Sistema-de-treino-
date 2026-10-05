@@ -1,152 +1,124 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '../../../lib/supabase-server';
+import { randomUUID } from 'node:crypto';
+import { requireStaff, requireUser } from '../../../lib/api-auth';
+import { getDatabase } from '../../../lib/mongodb';
+import { writeAuditLog } from '../../../lib/audit';
 
-async function requireAuth() {
-  const authClient = await createSupabaseServerClient();
-  const { data: { user }, error } = await authClient.auth.getUser();
-  if (error || !user) return { error: NextResponse.json({ error: 'Não autenticado.' }, { status: 401 }) };
-  const { data: profile } = await authClient.from('profiles').select('role, active').eq('id', user.id).maybeSingle();
-  if (profile?.active === false) return { error: NextResponse.json({ error: 'Usuário desativado.' }, { status: 403 }) };
-  return { user, profile };
+export const runtime = 'nodejs';
+const idPattern = /^[0-9a-f-]{36}$/i;
+const text = (value, limit = 500) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+
+async function canAccessWorkout(database, user, workout) {
+  if (!workout) return false;
+  const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId });
+  if (!plan) return false;
+  if (user.role === 'student') return plan.studentId === user.id;
+  if (user.role === 'trainer') return plan.trainerId === user.id;
+  return ['admin', 'dev'].includes(user.role);
 }
 
-async function requireStaff() {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
-  const role = auth.user.app_metadata?.role;
-  if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
-  return auth;
+async function withExerciseNames(database, workout) {
+  const ids = [...new Set((workout.exercises || []).map((item) => item.exerciseId))];
+  const docs = await database.collection('exercises').find({ id: { $in: ids } }).toArray();
+  const byId = new Map(docs.map((item) => [item.id, item]));
+  return (workout.exercises || []).sort((a, b) => a.order - b.order).map((item) => ({ ...item, exercise: byId.get(item.exerciseId) || null }));
 }
 
 export async function GET(request) {
-  const auth = await requireAuth();
-  if (auth.error) return auth.error;
-
+  const access = await requireUser();
+  if (access.response) return access.response;
   try {
-    const authClient = await createSupabaseServerClient();
-    const { searchParams } = new URL(request.url);
-    const workoutId = searchParams.get('workoutId');
-
-    if (!workoutId) {
-      return NextResponse.json({ error: 'workoutId é obrigatório.' }, { status: 400 });
-    }
-
-    const { data: exercises, error } = await authClient
-      .from('workout_exercises')
-      .select('*, exercise:exercises(*)')
-      .eq('workout_id', workoutId)
-      .order('order_number', { ascending: true });
-
-    if (error) throw error;
-    return NextResponse.json({ exercises });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const workoutId = new URL(request.url).searchParams.get('workoutId');
+    if (!idPattern.test(workoutId || '')) return NextResponse.json({ error: 'workoutId inválido.' }, { status: 400 });
+    const database = await getDatabase();
+    const workout = await database.collection('workouts').findOne({ id: workoutId });
+    if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    return NextResponse.json({ exercises: await withExerciseNames(database, workout) });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível carregar os exercícios do treino.' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
     const payload = await request.json();
-    const { workout_id, exercise_id } = payload;
-
-    if (!workout_id || !exercise_id) {
-      return NextResponse.json({ error: 'workout_id e exercise_id são obrigatórios.' }, { status: 400 });
-    }
-
-    const authClient = await createSupabaseServerClient();
-
-    // Contar exercícios existentes
-    const { data: existing } = await authClient
-      .from('workout_exercises')
-      .select('id', { count: 'exact' })
-      .eq('workout_id', workout_id);
-
-    const orderNumber = (existing?.length || 0) + 1;
-
-    const { data: exercise, error } = await authClient
-      .from('workout_exercises')
-      .insert({
-        workout_id,
-        exercise_id,
-        order_number: orderNumber,
-        series: payload.series || 3,
-        repetitions: payload.repetitions || '10',
-        weight: payload.weight || null,
-        weight_unit: payload.weight_unit || 'kg',
-        rest_seconds: payload.rest_seconds || 60,
-        execution_time_seconds: payload.execution_time_seconds || null,
-        method: payload.method?.trim() || null,
-        observations: payload.observations?.trim() || null,
-        video_url: payload.video_url?.trim() || null,
-      })
-      .select('*, exercise:exercises(*)')
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ exercise }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const workoutId = text(payload.workoutId ?? payload.workout_id, 64);
+    const exerciseId = text(payload.exerciseId ?? payload.exercise_id, 64);
+    if (!idPattern.test(workoutId) || !idPattern.test(exerciseId)) return NextResponse.json({ error: 'IDs inválidos.' }, { status: 400 });
+    const database = await getDatabase();
+    const workout = await database.collection('workouts').findOne({ id: workoutId });
+    if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Treino não encontrado ou sem permissão.' }, { status: 404 });
+    const exercise = await database.collection('exercises').findOne({ id: exerciseId, active: true });
+    if (!exercise) return NextResponse.json({ error: 'Exercício não encontrado.' }, { status: 404 });
+    const sets = Number(payload.sets ?? payload.series ?? 3);
+    const rest = Number(payload.rest ?? payload.restSeconds ?? payload.rest_seconds ?? 60);
+    if (!Number.isInteger(sets) || sets < 1 || sets > 20 || !Number.isInteger(rest) || rest < 0 || rest > 3600) return NextResponse.json({ error: 'Séries ou descanso inválidos.' }, { status: 400 });
+    const now = new Date();
+    const item = {
+      id: randomUUID(), exerciseId, order: (workout.exercises || []).length + 1,
+      sets, repetitions: text(payload.repetitions ?? payload.repeticoes, 40) || '10',
+      load: payload.load ?? payload.weight ?? payload.carga ?? null, rest,
+      observations: text(payload.observations ?? payload.observacoes, 1000), createdAt: now, updatedAt: now,
+    };
+    await database.collection('workouts').updateOne({ id: workoutId }, { $push: { exercises: item }, $set: { updatedAt: now } });
+    await writeAuditLog(database, { userId: access.user.id, action: 'add_exercise', resource: 'workout', resourceId: workoutId, metadata: { exerciseId } });
+    return NextResponse.json({ exercise: { ...item, exercise } }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível adicionar o exercício.' }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
     const payload = await request.json();
-    const { id } = payload;
-
-    if (!id) return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 });
-
-    const authClient = await createSupabaseServerClient();
-    const { data: exercise, error } = await authClient
-      .from('workout_exercises')
-      .update({
-        ...(payload.series !== undefined && { series: payload.series }),
-        ...(payload.repetitions !== undefined && { repetitions: payload.repetitions }),
-        ...(payload.weight !== undefined && { weight: payload.weight }),
-        ...(payload.weight_unit !== undefined && { weight_unit: payload.weight_unit }),
-        ...(payload.rest_seconds !== undefined && { rest_seconds: payload.rest_seconds }),
-        ...(payload.execution_time_seconds !== undefined && { execution_time_seconds: payload.execution_time_seconds }),
-        ...(payload.method !== undefined && { method: payload.method?.trim() || null }),
-        ...(payload.observations !== undefined && { observations: payload.observations?.trim() || null }),
-        ...(payload.video_url !== undefined && { video_url: payload.video_url?.trim() || null }),
-        ...(payload.order_number !== undefined && { order_number: payload.order_number }),
-      })
-      .eq('id', id)
-      .select('*, exercise:exercises(*)')
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ exercise });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const id = text(payload.id, 64);
+    if (!idPattern.test(id)) return NextResponse.json({ error: 'ID do exercício na ficha inválido.' }, { status: 400 });
+    const database = await getDatabase();
+    const workout = await database.collection('workouts').findOne({ 'exercises.id': id });
+    if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    const fields = { 'exercises.$[item].updatedAt': new Date(), updatedAt: new Date() };
+    const sets = payload.sets ?? payload.series;
+    const rest = payload.rest ?? payload.restSeconds ?? payload.rest_seconds;
+    if (sets !== undefined) {
+      const value = Number(sets);
+      if (!Number.isInteger(value) || value < 1 || value > 20) return NextResponse.json({ error: 'Número de séries inválido.' }, { status: 400 });
+      fields['exercises.$[item].sets'] = value;
+    }
+    if (payload.repetitions !== undefined || payload.repeticoes !== undefined) fields['exercises.$[item].repetitions'] = text(payload.repetitions ?? payload.repeticoes, 40);
+    if (payload.load !== undefined || payload.weight !== undefined || payload.carga !== undefined) fields['exercises.$[item].load'] = payload.load ?? payload.weight ?? payload.carga;
+    if (rest !== undefined) {
+      const value = Number(rest);
+      if (!Number.isInteger(value) || value < 0 || value > 3600) return NextResponse.json({ error: 'Descanso inválido.' }, { status: 400 });
+      fields['exercises.$[item].rest'] = value;
+    }
+    if (payload.observations !== undefined || payload.observacoes !== undefined) fields['exercises.$[item].observations'] = text(payload.observations ?? payload.observacoes, 1000);
+    await database.collection('workouts').updateOne({ id: workout.id }, { $set: fields }, { arrayFilters: [{ 'item.id': id }] });
+    const updatedWorkout = await database.collection('workouts').findOne({ id: workout.id });
+    const item = (await withExerciseNames(database, updatedWorkout)).find((entry) => entry.id === id);
+    await writeAuditLog(database, { userId: access.user.id, action: 'update_exercise', resource: 'workout', resourceId: workout.id, metadata: { exerciseId: item.exerciseId } });
+    return NextResponse.json({ exercise: item });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível atualizar o exercício.' }, { status: 500 });
   }
 }
 
 export async function DELETE(request) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 });
-
-    const authClient = await createSupabaseServerClient();
-    const { error } = await authClient
-      .from('workout_exercises')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    const id = new URL(request.url).searchParams.get('id');
+    if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID do exercício na ficha inválido.' }, { status: 400 });
+    const database = await getDatabase();
+    const workout = await database.collection('workouts').findOne({ 'exercises.id': id });
+    if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    await database.collection('workouts').updateOne({ id: workout.id }, { $pull: { exercises: { id } }, $set: { updatedAt: new Date() } });
+    await writeAuditLog(database, { userId: access.user.id, action: 'remove_exercise', resource: 'workout', resourceId: workout.id });
     return NextResponse.json({ message: 'Exercício removido do treino.' });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível remover o exercício.' }, { status: 500 });
   }
 }

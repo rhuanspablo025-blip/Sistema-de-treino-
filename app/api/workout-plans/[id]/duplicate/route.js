@@ -1,121 +1,40 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '../../../../../lib/supabase-server';
+import { randomUUID } from 'node:crypto';
+import { requireStaff } from '../../../../../lib/api-auth';
+import { getDatabase } from '../../../../../lib/mongodb';
+import { writeAuditLog } from '../../../../../lib/audit';
 
-async function requireStaff() {
-  const authClient = await createSupabaseServerClient();
-  const { data: { user }, error } = await authClient.auth.getUser();
-  if (error || !user) return { error: NextResponse.json({ error: 'Não autenticado.' }, { status: 401 }) };
-  const { data: profile } = await authClient.from('profiles').select('role, active').eq('id', user.id).maybeSingle();
-  if (profile?.active === false) return { error: NextResponse.json({ error: 'Usuário desativado.' }, { status: 403 }) };
-  const role = user.app_metadata?.role;
-  if (!['dev', 'admin'].includes(role)) return { error: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
-  return { user, profile };
-}
+export const runtime = 'nodejs';
+const idPattern = /^[0-9a-f-]{36}$/i;
 
 export async function POST(request, { params }) {
-  const auth = await requireStaff();
-  if (auth.error) return auth.error;
-
+  const access = await requireStaff();
+  if (access.response) return access.response;
   try {
-    const { id } = params;
-    if (!id) return NextResponse.json({ error: 'ID da ficha é obrigatório.' }, { status: 400 });
+    const { id } = await params;
+    if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID da ficha inválido.' }, { status: 400 });
+    const database = await getDatabase();
+    const filter = { id, active: true };
+    if (access.user.role === 'trainer') filter.trainerId = access.user.id;
+    const originalPlan = await database.collection('workout_plans').findOne(filter);
+    if (!originalPlan) return NextResponse.json({ error: 'Ficha não encontrada.' }, { status: 404 });
 
-    const authClient = await createSupabaseServerClient();
-
-    // Buscar ficha original
-    const { data: originalPlan, error: fetchError } = await authClient
-      .from('workout_plans_v2')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !originalPlan) {
-      return NextResponse.json({ error: 'Ficha não encontrada.' }, { status: 404 });
+    const now = new Date();
+    const newPlanId = randomUUID();
+    const newPlan = { ...originalPlan, id: newPlanId, trainerId: access.user.id, name: `${originalPlan.name} (Cópia)`, startDate: now.toISOString().slice(0, 10), endDate: null, createdAt: now, updatedAt: now };
+    delete newPlan._id;
+    await database.collection('workout_plans').insertOne(newPlan);
+    const workouts = await database.collection('workouts').find({ workoutPlanId: id }).sort({ order: 1 }).toArray();
+    if (workouts.length) {
+      await database.collection('workouts').insertMany(workouts.map((workout) => {
+        const copy = { ...workout, id: randomUUID(), workoutPlanId: newPlanId, createdAt: now, updatedAt: now, exercises: (workout.exercises || []).map((exercise) => ({ ...exercise, id: randomUUID(), createdAt: now, updatedAt: now })) };
+        delete copy._id;
+        return copy;
+      }));
     }
-
-    // Criar nova ficha
-    const { data: newPlan, error: createError } = await authClient
-      .from('workout_plans_v2')
-      .insert({
-        student_id: originalPlan.student_id,
-        professor_id: auth.user.id,
-        name: `${originalPlan.name} (Cópia)`,
-        goal: originalPlan.goal,
-        status: 'ativa',
-        observations: originalPlan.observations,
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: null,
-        frequency: originalPlan.frequency,
-      })
-      .select()
-      .single();
-
-    if (createError) throw createError;
-
-    // Buscar todos os treinos da ficha original
-    const { data: originalWorkouts, error: workoutsError } = await authClient
-      .from('workouts')
-      .select('*')
-      .eq('workout_plan_id', id)
-      .order('order_number', { ascending: true });
-
-    if (workoutsError) throw workoutsError;
-
-    // Mapear IDs antigos para novos
-    const workoutMap = {};
-
-    // Duplicar treinos
-    for (const workout of originalWorkouts || []) {
-      const { data: newWorkout, error: newWorkoutError } = await authClient
-        .from('workouts')
-        .insert({
-          workout_plan_id: newPlan.id,
-          name: workout.name,
-          day_of_week: workout.day_of_week,
-          description: workout.description,
-          order_number: workout.order_number,
-          observations: workout.observations,
-        })
-        .select()
-        .single();
-
-      if (newWorkoutError) throw newWorkoutError;
-      workoutMap[workout.id] = newWorkout.id;
-
-      // Buscar exercícios do treino original
-      const { data: originalExercises, error: exercisesError } = await authClient
-        .from('workout_exercises')
-        .select('*')
-        .eq('workout_id', workout.id)
-        .order('order_number', { ascending: true });
-
-      if (exercisesError) throw exercisesError;
-
-      // Duplicar exercícios
-      for (const exercise of originalExercises || []) {
-        const { error: newExerciseError } = await authClient
-          .from('workout_exercises')
-          .insert({
-            workout_id: newWorkout.id,
-            exercise_id: exercise.exercise_id,
-            order_number: exercise.order_number,
-            series: exercise.series,
-            repetitions: exercise.repetitions,
-            weight: exercise.weight,
-            weight_unit: exercise.weight_unit,
-            rest_seconds: exercise.rest_seconds,
-            execution_time_seconds: exercise.execution_time_seconds,
-            method: exercise.method,
-            observations: exercise.observations,
-            video_url: exercise.video_url,
-          });
-
-        if (newExerciseError) throw newExerciseError;
-      }
-    }
-
+    await writeAuditLog(database, { userId: access.user.id, action: 'duplicate', resource: 'workout_plan', resourceId: newPlanId, metadata: { sourcePlanId: id } });
     return NextResponse.json({ plan: newPlan, message: 'Ficha duplicada com sucesso.' }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível duplicar a ficha.' }, { status: 500 });
   }
 }

@@ -1,42 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { SESSION_COOKIE, verifySession } from './lib/session';
 
 export async function proxy(request) {
-  const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (request.nextUrl.pathname.startsWith('/login')) return NextResponse.next();
-  if (!hasSupabaseConfig) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  let response = NextResponse.next({ request });
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-      },
-    },
-  });
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return NextResponse.redirect(loginUrl);
-  }
-
-  const { data: profile } = await supabase.from('profiles').select('active').eq('id', user.id).maybeSingle();
-  if (profile?.active === false) {
-    await supabase.auth.signOut();
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('error', 'inactive');
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return response;
+  const pathname = request.nextUrl.pathname;
+  if (pathname === '/login' || pathname === '/privacy' || pathname.startsWith('/api/')) return NextResponse.next();
+  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  if (session?.sub) return NextResponse.next();
+  return NextResponse.redirect(new URL('/login', request.url));
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };

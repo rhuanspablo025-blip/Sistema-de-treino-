@@ -1,5 +1,7 @@
 # 🎯 PLANO DE AÇÃO - SISTEMA DE FICHAS DE TREINO
 
+> Documento histórico de uma auditoria anterior à migração para MongoDB. A implementação e configuração atuais estão descritas em `README.md`.
+
 ## RELATÓRIO DE AUDITORIA
 
 ### ✅ Funcionalidades Operacionais

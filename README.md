@@ -1,49 +1,29 @@
 # Atlas Training
 
-Sistema web para gestão de alunos e fichas de treino de uma academia.
+Sistema web para gestão de alunos e fichas de treino de uma academia, com autenticação própria e MongoDB Atlas.
 
-## Rodar localmente
+## Configuração local
 
-```bash
-npm install
-npm run dev
-```
+1. Instale Node.js 20.9 ou superior e execute `npm install`.
+2. Crie um cluster no MongoDB Atlas, um usuário de banco e libere o IP do ambiente que executará o app.
+3. Copie `.env.example` para `.env.local` e preencha `MONGODB_URI` com a URI do usuário de aplicação.
+4. Para criar o primeiro administrador, preencha `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
+5. Inicie com `npm run dev` e abra `http://localhost:3000`.
 
-Depois, abra `http://localhost:3000`.
+Entre com o e-mail cadastrado. Para contas no domínio `@atlas.training`, também é aceito o nome de usuário antes do `@`.
 
 ## Publicar na Vercel
 
-1. Suba este repositório para o GitHub.
-2. Importe o repositório em [vercel.com](https://vercel.com).
-3. Mantenha o framework como **Next.js** e publique.
+1. Importe este repositório no painel da Vercel e mantenha o framework **Next.js**.
+2. Em **Settings > Environment Variables**, configure `MONGODB_URI`.
+3. Faça redeploy após salvar as variáveis. O MongoDB é acessado somente pelo servidor; a URI não deve usar prefixo `NEXT_PUBLIC_`.
 
-## Autenticação e banco
+O banco é fixado pelo código como `sistema_treino`; a chave de sessão é derivada no servidor da URI privada e não precisa de outra variável. Rotacionar a URI invalida as sessões atuais. No Atlas, o usuário da aplicação deve ter somente a role integrada `readWrite` no banco `sistema_treino`; não use `atlasAdmin` nem acesso a todos os recursos. Configure uma regra de rede apropriada para a Vercel. Não publique a URI no repositório.
 
-A base de autenticação usa Supabase. Crie um projeto no Supabase, execute `supabase-schema.sql` no SQL Editor e crie os usuários em **Authentication > Users**. Depois, promova o administrador na tabela `profiles`:
+Após iniciar e entrar com uma conta administradora, consulte `/api/health/database` para confirmar a conexão. A resposta não inclui a URI nem credenciais.
 
-```sql
-update public.profiles set role = 'admin' where id = 'UUID_DO_ADMIN';
-```
+## Migração dos dados existentes
 
-Configure estas variáveis localmente em `.env.local` e também na Vercel:
+A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `email`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
-SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
-
-# Opcional: somente para você testar o perfil corporal avançado
-NEXT_PUBLIC_PROFILE_DEV=false
-```
-
-`SUPABASE_SERVICE_ROLE_KEY` é usada somente pelas rotas do servidor para criar, editar e excluir usuários. Nunca a exponha no navegador.
-
-## Segurança de produção
-
-Antes de publicar, execute `supabase-security-migration.sql` no Supabase SQL Editor para atualizar bancos existentes com as políticas RLS corrigidas. Rotacione a senha administrativa que existia em versões anteriores e configure `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` somente nas variáveis de ambiente da Vercel ou em `.env.local`.
-
-No painel **Supabase Auth > Rate Limits**, habilite limites para autenticação por senha e configure CAPTCHA (Turnstile ou hCaptcha) para login. Esses controles são aplicados pelo serviço de autenticação e não podem ser garantidos apenas pelo código do frontend.
-
-O projeto aplica headers HTTP de segurança em `next.config.js`. A política de privacidade está disponível em `/privacy`; complete o canal de contato do controlador antes do uso com dados reais.
-
-Com as variáveis presentes, as rotas ficam protegidas e o login usa sessão segura por cookies. O nome exibido é `Rhuan` e o usuário de acesso é `Rpss2`. No Supabase, cadastre o usuário com o e-mail técnico `rpss2@atlas.training`; o e-mail fica oculto na interface. Para o acesso total do dev, defina a claim `app_metadata.role = dev` no usuário Rhuan. O schema inclui `body_measurements`, que guarda o histórico de medidas. Defina `NEXT_PUBLIC_PROFILE_DEV=true` apenas no seu ambiente de desenvolvimento para abrir o perfil corporal avançado. Para usuários comuns, a área aparece como “Perfil em desenvolvimento”.
+A aplicação armazena senhas com bcrypt e usa cookie HTTP-only assinado para as sessões. A política de privacidade está em `/privacy`; revise os dados de contato do controlador antes de usar dados pessoais reais.
