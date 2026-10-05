@@ -6,7 +6,7 @@ import { writeAuditLog } from '../../../lib/audit';
 import { getDatabase } from '../../../lib/mongodb';
 
 export const runtime = 'nodejs';
-const validRoles = new Set(['admin', 'trainer', 'student']);
+const validRoles = new Set(['admin', 'dev', 'trainer', 'student']);
 
 function text(value, maximumLength = 160) {
   return typeof value === 'string' ? value.trim().slice(0, maximumLength) : '';

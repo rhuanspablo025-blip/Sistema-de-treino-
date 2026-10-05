@@ -8,7 +8,8 @@ Sistema web para gestão de alunos e fichas de treino de uma academia, com auten
 2. Crie um cluster no MongoDB Atlas, um usuário de banco e libere o IP do ambiente que executará o app.
 3. Copie `.env.example` para `.env.local` e preencha `MONGODB_URI` com a URI do usuário de aplicação.
 4. Para criar o primeiro administrador, preencha `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
-5. Inicie com `npm run dev` e abra `http://localhost:3000`.
+5. Para criar o usuário mestre de desenvolvimento, configure `DEV_EMAIL`, `DEV_PASSWORD` (mínimo 16 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
+6. Inicie com `npm run dev` e abra `http://localhost:3000`.
 
 Entre com o e-mail cadastrado. Para contas no domínio `@atlas.training`, também é aceito o nome de usuário antes do `@`.
 

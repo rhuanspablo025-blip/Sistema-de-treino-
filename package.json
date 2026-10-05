@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "admin:create": "node scripts/create-admin-user.js"
+    "admin:create": "node scripts/create-admin-user.js",
+    "dev:create": "node scripts/create-dev-user.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
