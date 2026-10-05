@@ -7,7 +7,7 @@ import { writeAuditLog } from '../../../../lib/audit';
 export const runtime = 'nodejs';
 
 const text = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
-const accepted = () => NextResponse.json({ message: 'Se este e-mail ainda não estiver cadastrado, o pedido será enviado para aprovação do administrador.' }, { status: 202 });
+const accepted = () => NextResponse.json({ message: 'Se você acabou de criar a conta, já pode entrar. Se o e-mail já tinha cadastro, use Esqueci minha senha ou fale com a academia.' }, { status: 202 });
 
 export async function POST(request) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request) {
       email,
       passwordHash: await bcrypt.hash(password, 12),
       role: 'student',
-      active: false,
+      active: true,
       sessionVersion: 0,
       createdAt: now,
       updatedAt: now,
@@ -48,11 +48,11 @@ export async function POST(request) {
         goal,
         trainerId: null,
         measurements: [],
-        active: false,
+        active: true,
         createdAt: now,
         updatedAt: now,
       });
-      await writeAuditLog(database, { userId, action: 'self_register', resource: 'user', resourceId: userId, metadata: { role: 'student' } });
+      await writeAuditLog(database, { userId, action: 'self_register', resource: 'user', resourceId: userId, metadata: { role: 'student', active: true } });
       return accepted();
     } catch (error) {
       await database.collection('users').deleteOne({ id: userId });

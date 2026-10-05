@@ -22,7 +22,7 @@ export default function RegisterPage() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível enviar o cadastro.');
-      setMessage(body.message || 'Cadastro recebido. Aguarde a aprovação do administrador.');
+      setMessage(body.message || 'Cadastro concluído. Você já pode entrar com e-mail e senha.');
       formElement.reset();
     } catch (submitError) {
       setError(submitError.message);
@@ -36,7 +36,7 @@ export default function RegisterPage() {
     <section className="login-card">
       <p className="eyebrow">NOVO ALUNO</p>
       <h1>Criar conta</h1>
-      <p className="login-copy">Solicite seu acesso à área de treinos.</p>
+      <p className="login-copy">Crie sua conta para acessar as fichas da academia.</p>
       <form onSubmit={handleSubmit}>
         <label>Nome completo<input name="name" required minLength="2" maxLength="120" autoComplete="name" /></label>
         <label>E-mail<input name="email" type="email" required maxLength="254" autoComplete="email" /></label>
