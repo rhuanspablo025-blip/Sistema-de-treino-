@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { saveMeasurements, saveWorkout } from "../lib/atlas-data";
+import { saveMeasurements } from "../lib/atlas-data";
+import WorkoutPlanManager from "../components/WorkoutPlanManager";
 
 const SimpleIcon = ({ children, size = 18 }) => (
   <span className="simple-icon" style={{ fontSize: size }}>
@@ -125,7 +126,7 @@ function UserManagement() {
   </section>;
 }
 
-function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, onEditWorkout, canManageUsers }) {
+function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating }) {
   const moduleData = {
     overview: {
       kicker: "VISÃO GERAL",
@@ -148,6 +149,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
       copy: "Mantenha sua biblioteca organizada para montar treinos mais rápido.",
     },
   }[view];
+  if (view === "workouts") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("exercises")} />;
   if (view === "overview")
     return (
       <div className="page-content">
@@ -193,7 +195,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
               </span>
               <ChevronRight size={16} />
             </button>
-            <button onClick={() => onCreate("workout")}>
+            <button onClick={() => onNavigate("workouts")}>
               <ClipboardList size={17} />
               <span>
                 Nova ficha<strong>Montar treino por exercícios</strong>
@@ -235,32 +237,6 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
       </div>
       {view === "admins" && (
         <UserManagement />
-      )}
-      {view === "workouts" && (
-        <section className="panel module-panel">
-          <div className="table-list">
-            {workoutPlans.map((plan) => (
-              <div className="table-row" key={plan.id}>
-                <span className="table-icon">
-                  <ClipboardList size={16} />
-                </span>
-                <span>
-                  <strong>{plan.title}</strong>
-                  <small>
-                    Aluno: {plan.student} · Criada por {plan.admin}
-                  </small>
-                </span>
-                <em>{plan.exercises} exercícios</em>
-                <button
-                  className="outline-button small-button"
-                  onClick={() => onEditWorkout(plan)}
-                >
-                  Editar
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
       )}
       {view === "exercises" && (
         <section className="panel module-panel">
@@ -677,8 +653,6 @@ export default function Home() {
   const [mobileNav, setMobileNav] = useState(false);
   const [mode, setMode] = useState("admin");
   const isStaff = ['dev', 'admin', 'trainer'].includes(currentUser?.role);
-  const [showWorkoutEditor, setShowWorkoutEditor] = useState(false);
-  const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [toast, setToast] = useState("");
   const [adminView, setAdminView] = useState("students");
   const [createType, setCreateType] = useState(null);
@@ -743,15 +717,11 @@ export default function Home() {
         response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), username: form.get('username'), password: form.get('password'), confirmPassword: form.get('confirmPassword'), cref: form.get('cref'), role: form.get('role'), active: true }) });
       } else if (createType === 'exercise') {
         response = await fetch('/api/exercises', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), muscleGroup: form.get('muscleGroup'), equipment: form.get('equipment') }) });
-      } else if (createType === 'workout') {
-        const student = students.find((item) => item.id === form.get('studentId'));
-        response = await fetch('/api/workout-plans', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('title'), studentId: student?.id, objective: student?.goal }) });
       }
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível salvar o cadastro.');
       if (createType === 'admin') setAdminList((current) => [{ name: body.user.name, username: body.user.username, role: body.user.role, initials: body.user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() }, ...current]);
       if (createType === 'exercise') setExerciseList((current) => [...current, body.exercise.name]);
-      if (createType === 'workout') setWorkoutPlans((current) => [{ id: body.plan.id, title: body.plan.name, student: students.find((item) => item.id === body.plan.studentId)?.name || 'Aluno', studentId: body.plan.studentId, admin: currentUser.name, exercises: 0, frequency: '', goal: body.plan.objective, exerciseList: [] }, ...current]);
       setCreateType(null);
       showAction('Cadastro salvo com sucesso.');
     } catch (error) {
@@ -882,15 +852,8 @@ export default function Home() {
             onAction={showAction}
             onNavigate={setAdminView}
             onCreate={setCreateType}
-            onEditWorkout={(plan) => {
-              const student = students.find((item) => item.id === plan.studentId);
-              if (!student) return;
-              setSelectedStudent(student);
-              setAdminView('students');
-              setMode('admin');
-              setShowWorkoutEditor(true);
-            }}
             canManageUsers={['admin', 'dev'].includes(currentUser?.role)}
+            isHydrating={isHydrating}
           />
         ) : (
           <div className="page-content">
@@ -1032,7 +995,7 @@ export default function Home() {
                   </div>
                   <button
                     className="outline-button"
-                    onClick={() => setShowWorkoutEditor(true)}
+                    onClick={() => setAdminView('workouts')}
                   >
                     <span className="edit-icon">✎</span> Editar ficha
                   </button>
@@ -1056,7 +1019,7 @@ export default function Home() {
                   </h3>
                   <button
                     className="icon-button"
-                    onClick={() => setShowExerciseModal(true)}
+                    onClick={() => setAdminView('workouts')}
                     aria-label="Adicionar exercício"
                   >
                     <Plus size={18} />
@@ -1151,108 +1114,15 @@ export default function Home() {
           </div>
         </div>
       )}
-      {showWorkoutEditor && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <button
-              className="modal-close"
-              onClick={() => setShowWorkoutEditor(false)}
-              aria-label="Fechar"
-            >
-              <X size={18} />
-            </button>
-            <span className="modal-kicker">
-              <ClipboardList size={16} />
-            </span>
-            <h2>Editar ficha</h2>
-            <p>
-              Atualize os dados principais da ficha de {selectedStudent.name}.
-            </p>
-            <form
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id, title: form.get('title'), frequency: form.get('frequency'), studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: selectedWorkout?.exerciseList || [] };
-                try { const result = await saveWorkout(updatedWorkout, selectedStudent.id); const saved = { ...updatedWorkout, id: result.workout.id, exercises: updatedWorkout.exerciseList.length }; setWorkoutPlans((current) => [saved, ...current.filter((plan) => plan.id !== saved.id)]); setShowWorkoutEditor(false); showAction("Ficha atualizada com sucesso"); }
-                catch (error) { showAction(`Não foi possível salvar a ficha: ${error.message}`); }
-              }}
-            >
-              <label>
-                Nome do treino
-                <input name="title" defaultValue={selectedWorkout?.title || ""} required />
-              </label>
-              <label>
-                Frequência
-                  <select name="frequency" defaultValue={selectedWorkout?.frequency || ""}>
-                  <option value="">Selecione a frequência</option>
-                  <option>2x por semana</option>
-                  <option>3x por semana</option>
-                  <option>4x por semana</option>
-                  <option>5x por semana</option>
-                </select>
-              </label>
-              <button className="primary-button" type="submit">
-                Salvar alterações
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-      {showExerciseModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <button
-              className="modal-close"
-              onClick={() => setShowExerciseModal(false)}
-              aria-label="Fechar"
-            >
-              <X size={18} />
-            </button>
-            <span className="modal-kicker">
-              <Dumbbell size={16} />
-            </span>
-            <h2>Adicionar exercício</h2>
-            <p>Inclua um novo exercício na ficha atual.</p>
-            <form
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const updatedWorkout = { ...(selectedWorkout || {}), id: selectedWorkout?.id, title: selectedWorkout?.title || 'Ficha de treino', frequency: selectedWorkout?.frequency || '', studentId: selectedStudent.id, student: selectedStudent.name, goal: selectedStudent.goal, exerciseList: [...(selectedWorkout?.exerciseList || []), { name: form.get('name'), detail: `${form.get('sets')} séries · ${form.get('repetitions')} reps`, load: form.get('load'), rest: `${form.get('rest')}s` }] };
-                try { const result = await saveWorkout(updatedWorkout, selectedStudent.id); const saved = { ...updatedWorkout, id: result.workout.id, exercises: updatedWorkout.exerciseList.length }; setWorkoutPlans((current) => [saved, ...current.filter((plan) => plan.id !== saved.id)]); setShowExerciseModal(false); showAction("Exercício adicionado à ficha"); }
-                catch (error) { showAction(`Não foi possível adicionar: ${error.message}`); }
-              }}
-            >
-              <label>
-                Exercício
-                <select name="name" required defaultValue="">
-                  <option value="" disabled>Selecione do catálogo</option>
-                  {exerciseList.map((exercise) => <option key={exercise}>{exercise}</option>)}
-                </select>
-              </label>
-              <label>Séries<input name="sets" type="number" min="1" max="20" required /></label>
-              <label>Repetições<input name="repetitions" required placeholder="8-12" /></label>
-              <label>
-                Carga
-                <input name="load" type="number" min="0" step="0.5" required />
-              </label>
-              <label>Descanso (segundos)<input name="rest" type="number" min="0" max="3600" required /></label>
-              <button className="primary-button" type="submit">
-                Adicionar exercício
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
       {createType && (
         <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCreateType(null)}>
           <div className="modal">
             <button className="modal-close" onClick={() => setCreateType(null)} aria-label="Fechar"><X size={18} /></button>
             <span className="modal-kicker"><Plus size={16} /></span>
-            <h2>{createType === "admin" ? "Novo administrador" : createType === "workout" ? "Nova ficha de treino" : "Novo exercício"}</h2>
+            <h2>{createType === "admin" ? "Novo administrador" : "Novo exercício"}</h2>
             <p>Preencha os dados para adicionar este cadastro ao sistema.</p>
             <form onSubmit={createModuleItem}>
               {createType === "admin" && <><label>Nome completo<input name="name" required placeholder="Nome do profissional" /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" autoComplete="username" placeholder="nome_usuario" /></label><label>Função<select name="role" defaultValue="trainer"><option value="trainer">Professor</option><option value="admin">Administrador</option><option value="dev">Desenvolvedor</option></select></label><label>CREF (professores)<input name="cref" /></label><label>Senha inicial<input name="password" type="password" minLength="8" required autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required autoComplete="new-password" /></label></>}
-              {createType === "workout" && <><label>Nome da ficha<input name="title" required placeholder="Nome da ficha" /></label><label>Aluno<select name="studentId" required defaultValue=""> <option value="" disabled>Selecione um aluno</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label></>}
               {createType === "exercise" && <><label>Nome do exercício<input name="name" required placeholder="Nome do exercício" /></label><label>Grupo muscular<select name="muscleGroup" required defaultValue=""><option value="" disabled>Selecione o grupo</option><option>Peito</option><option>Costas</option><option>Pernas</option><option>Ombros</option><option>Braços</option><option>Abdômen</option></select></label><label>Equipamento<input name="equipment" placeholder="Equipamento" /></label></>}
               <button className="primary-button" type="submit">Salvar cadastro</button>
             </form>

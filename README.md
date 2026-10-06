@@ -25,6 +25,10 @@ A senha pode ser redefinida por um administrador na tela de gerenciamento de usu
 
 Após iniciar e entrar com uma conta administradora, consulte `/api/health/database` para confirmar a conexão. A resposta não inclui a URI nem credenciais.
 
+## Fichas de treino
+
+Os metadados da ficha ficam em `workout_plans`; cada dia semanal é um documento em `workouts` ligado por `workoutPlanId`, e sua lista ordenada de prescrições referencia o catálogo compartilhado `exercises` por `exerciseId`. Séries, repetições, carga, intervalo, tempo, método e observações ficam na prescrição do dia. Criação e edição salvam ficha e dias em transação; dias removidos com histórico são arquivados, e a exclusão da ficha é lógica para preservar registros de treino e auditoria.
+
 ## Migração dos dados existentes
 
 A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `username`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro. Na inicialização, contas antigas convertem o trecho anterior ao `@` em username. Contas sem username válido ou com colisão recebem um username determinístico `usuario-...`, registrado no log da aplicação, e os campos de e-mail são removidos.

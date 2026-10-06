@@ -56,8 +56,8 @@ export async function POST(request) {
     if (!await mayAccessStudent(database, access.user, studentId)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     const workout = await database.collection('workouts').findOne({ id: workoutId, 'exercises.exerciseId': exerciseId });
     if (!workout) return NextResponse.json({ error: 'O exercício não pertence ao treino informado.' }, { status: 400 });
-    const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId, studentId });
-    if (!plan) return NextResponse.json({ error: 'O treino não pertence à ficha deste aluno.' }, { status: 400 });
+    const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId, studentId, active: true, deletedAt: { $exists: false } });
+    if (!plan) return NextResponse.json({ error: 'O treino não pertence a uma ficha ativa deste aluno.' }, { status: 400 });
 
     const now = new Date();
     const record = {

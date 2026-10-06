@@ -18,7 +18,7 @@ export async function GET() {
     if (access.user.role === 'trainer') planFilter.trainerId = access.user.id;
     const plans = await database.collection('workout_plans').find(planFilter).sort({ updatedAt: -1 }).toArray();
     const planIds = plans.map((plan) => plan.id);
-    const workouts = await database.collection('workouts').find({ workoutPlanId: { $in: planIds } }).sort({ order: 1 }).toArray();
+    const workouts = await database.collection('workouts').find({ workoutPlanId: { $in: planIds }, archived: { $ne: true } }).sort({ order: 1 }).toArray();
     const exerciseIds = [...new Set(workouts.flatMap((workout) => (workout.exercises || []).map((item) => item.exerciseId)))];
     const exerciseDocs = exerciseIds.length ? await database.collection('exercises').find({ id: { $in: exerciseIds } }).toArray() : [];
     const exerciseNames = new Map(exerciseDocs.map((exercise) => [exercise.id, exercise.name]));
