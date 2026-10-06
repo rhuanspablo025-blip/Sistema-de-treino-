@@ -15,8 +15,8 @@ if (!MONGODB_URI || !DEV_PASSWORD) {
   console.error('Configure MONGODB_URI e DEV_PASSWORD em .env.local.');
   process.exit(1);
 }
-if (DEV_PASSWORD.length < 16 || Buffer.byteLength(DEV_PASSWORD, 'utf8') > 72) {
-  console.error('DEV_PASSWORD deve ter entre 16 e 72 bytes.');
+if (DEV_PASSWORD.length < 8 || Buffer.byteLength(DEV_PASSWORD, 'utf8') > 72) {
+  console.error('DEV_PASSWORD deve ter pelo menos 8 caracteres e no máximo 72 bytes.');
   process.exit(1);
 }
 if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(DEV_USERNAME) || !DEV_NAME) {

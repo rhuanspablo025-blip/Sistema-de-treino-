@@ -15,8 +15,8 @@ if (!MONGODB_URI || !ADMIN_USERNAME || !ADMIN_PASSWORD) {
   console.error('Configure MONGODB_URI, ADMIN_USERNAME e ADMIN_PASSWORD em .env.local.');
   process.exit(1);
 }
-if (ADMIN_PASSWORD.length < 12) {
-  console.error('ADMIN_PASSWORD deve ter pelo menos 12 caracteres.');
+if (ADMIN_PASSWORD.length < 8) {
+  console.error('ADMIN_PASSWORD deve ter pelo menos 8 caracteres.');
   process.exit(1);
 }
 if (Buffer.byteLength(ADMIN_PASSWORD, 'utf8') > 72) {

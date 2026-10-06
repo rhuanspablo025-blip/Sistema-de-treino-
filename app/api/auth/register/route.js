@@ -25,7 +25,7 @@ export async function POST(request) {
     const goal = text(payload.goal, 240);
     const phone = text(payload.phone, 40);
     if (name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome, usuário válido (3 a 30 caracteres: letras, números, hífen ou sublinhado) e senha.' }, { status: 400 });
-    if (password.length < 12 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter entre 12 e 72 bytes.' }, { status: 400 });
+    if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();

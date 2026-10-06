@@ -84,7 +84,7 @@ export async function POST(request) {
     if (!validRoles.has(role)) return NextResponse.json({ error: 'Perfil inválido.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
     if (!['admin', 'dev'].includes(creator.role) && !(creator.role === 'trainer' && role === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
-    if (password.length < 12 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter entre 12 e 72 bytes.' }, { status: 400 });
+    if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();
@@ -125,7 +125,7 @@ export async function PATCH(request) {
     const password = typeof payload.password === 'string' ? payload.password : '';
     if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !normalizedUsername || !validRoles.has(role)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
-    if (password && (password.length < 12 || Buffer.byteLength(password, 'utf8') > 72)) return NextResponse.json({ error: 'A senha deve ter entre 12 e 72 bytes.' }, { status: 400 });
+    if (password && (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72)) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password && password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();

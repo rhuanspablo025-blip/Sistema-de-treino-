@@ -43,8 +43,8 @@ export default function RegisterPage() {
         <label>Tipo de usuário<select name="role" defaultValue="student"><option value="student">Aluno</option></select></label>
         <label>Telefone (opcional)<input name="phone" type="tel" maxLength="40" autoComplete="tel" /></label>
         <label>Objetivo (opcional)<input name="goal" maxLength="240" /></label>
-        <label>Senha<input name="password" type="password" required minLength="12" maxLength="72" autoComplete="new-password" /></label>
-        <label>Confirmar senha<input name="confirmPassword" type="password" required minLength="12" maxLength="72" autoComplete="new-password" /></label>
+        <label>Senha<input name="password" type="password" required minLength="8" maxLength="72" autoComplete="new-password" /></label>
+        <label>Confirmar senha<input name="confirmPassword" type="password" required minLength="8" maxLength="72" autoComplete="new-password" /></label>
         {error && <p className="login-error" role="alert">{error}</p>}
         {message && <p className="profile-status" role="status">{message}</p>}
         <button className="primary-button" disabled={loading}>{loading ? 'Enviando...' : 'Solicitar cadastro'}</button>
