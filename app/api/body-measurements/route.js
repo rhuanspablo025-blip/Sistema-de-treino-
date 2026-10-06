@@ -10,7 +10,7 @@ const fields = ['height', 'weight', 'shoulder', 'chest', 'waist', 'hip', 'armLef
 
 async function canAccess(database, user, studentId) {
   if (user.role === 'student') return user.id === studentId;
-  if (user.role === 'admin' || user.role === 'dev') return true;
+  if (user.role === 'admin' || user.role === 'dev' || user.role === 'SUPER_ADMIN') return true;
   return Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));
 }
 

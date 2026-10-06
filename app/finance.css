@@ -1,0 +1,6 @@
+.finance-action-danger { padding: 5px 8px; border: 1px solid #edc5bd; border-radius: 5px; color: #9a4638; background: #fff5f2; font-size: 10px; font-weight: 700; }
+.finance-action-danger:hover { border-color: #cc8b7e; background: #ffebe5; }
+.financial-access-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 5vw 0; padding: 10px 13px; border: 1px solid #edd1b6; border-radius: 6px; color: #775d43; background: #fff8ef; font-size: 12px; }
+.financial-access-banner a { color: var(--coral); font-weight: 700; text-decoration: none; }
+.financial-access-banner.is-warning { border-color: #d6e1eb; color: #405b70; background: #f4f9fc; }
+.financial-access-banner.is-warning a { color: #356d8c; }

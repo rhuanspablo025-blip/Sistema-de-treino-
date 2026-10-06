@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { saveMeasurements } from "../lib/atlas-data";
 import WorkoutPlanManager from "../components/WorkoutPlanManager";
+import FinancialManager from "../components/FinancialManager";
+import { isSuperAdmin as isSuperAdminAccount } from "../lib/roles";
 
 const SimpleIcon = ({ children, size = 18 }) => (
   <span className="simple-icon" style={{ fontSize: size }}>
@@ -35,6 +37,7 @@ const navItems = [
   { label: "Administradores", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
   { label: "Exercícios", icon: Dumbbell, key: "exercises" },
+  { label: "Financeiro", icon: BarChart3, key: "finance" },
 ];
 
 function UserManagement() {
@@ -126,7 +129,7 @@ function UserManagement() {
   </section>;
 }
 
-function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating }) {
+function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
   const moduleData = {
     overview: {
       kicker: "VISÃO GERAL",
@@ -149,6 +152,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
       copy: "Mantenha sua biblioteca organizada para montar treinos mais rápido.",
     },
   }[view];
+  if (view === 'finance') return isSuperAdminAccount(currentUser) ? <FinancialManager /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
   if (view === "workouts") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("exercises")} />;
   if (view === "overview")
     return (
@@ -652,7 +656,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [mode, setMode] = useState("admin");
-  const isStaff = ['dev', 'admin', 'trainer'].includes(currentUser?.role);
+  const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role);
   const [toast, setToast] = useState("");
   const [adminView, setAdminView] = useState("students");
   const [createType, setCreateType] = useState(null);
@@ -749,7 +753,7 @@ export default function Home() {
           <ChevronDown size={15} />
         </div>
         {isStaff && <nav className="main-nav">
-          {navItems.filter(({ key }) => key !== 'admins' || ['admin', 'dev'].includes(currentUser?.role)).map(({ label, icon: Icon, key }) => (
+          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'finance' || isSuperAdminAccount(currentUser))).map(({ label, icon: Icon, key }) => (
             <button
               className={
                 adminView === key && mode === "admin"
@@ -836,6 +840,7 @@ export default function Home() {
             </span>
           </div>
         </header>
+        {currentUser?.financialAccess?.level && currentUser.financialAccess.level !== 'ACTIVE' && <div className={`financial-access-banner ${currentUser.financialAccess.level === 'WARNING' ? 'is-warning' : ''}`} role="status"><span>{currentUser.financialAccess.restricted ? 'Seu acesso está restrito por pendência financeira.' : 'Há uma cobrança próxima do vencimento na sua conta.'}</span><a href="/billing">Ver cobrança</a></div>}
         {mode === "student" ? (
           <StudentView
             student={selectedStudent}
@@ -852,8 +857,9 @@ export default function Home() {
             onAction={showAction}
             onNavigate={setAdminView}
             onCreate={setCreateType}
-            canManageUsers={['admin', 'dev'].includes(currentUser?.role)}
+            canManageUsers={['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)}
             isHydrating={isHydrating}
+            currentUser={currentUser}
           />
         ) : (
           <div className="page-content">

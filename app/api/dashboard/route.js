@@ -5,11 +5,11 @@ import { getDatabase } from '../../../lib/mongodb';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const access = await requireUser();
+  const access = await requireUser({ allowBlocked: true });
   if (access.response) return access.response;
   try {
     const database = await getDatabase();
-    const staff = ['admin', 'dev', 'trainer'].includes(access.user.role);
+    const staff = ['admin', 'dev', 'trainer', 'SUPER_ADMIN'].includes(access.user.role);
     const studentFilter = staff ? { active: true } : { userId: access.user.id, active: true };
     if (access.user.role === 'trainer') studentFilter.trainerId = access.user.id;
     const profiles = await database.collection('students').find(studentFilter).sort({ name: 1 }).toArray();
@@ -51,7 +51,7 @@ export async function GET() {
       staff ? database.collection('users').find({ role: { $in: ['admin', 'trainer', 'dev'] }, active: true }, { projection: { id: 1, username: 1, name: 1, role: 1 } }).toArray() : [],
     ]);
     return NextResponse.json({
-      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role },
+      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, financialAccess: access.financialAccess },
       students, workouts: workoutViews,
       admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
       exercises: exerciseCatalog.map((exercise) => exercise.name),

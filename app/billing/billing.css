@@ -1,0 +1,39 @@
+.billing-page { min-height: 100vh; background: var(--paper); }
+.billing-topbar { display: flex; align-items: center; justify-content: space-between; min-height: 68px; padding: 0 max(18px, calc((100vw - 1020px) / 2)); border-bottom: 1px solid var(--line); background: #fff; }
+.billing-brand { color: var(--ink); font: 700 22px 'Space Grotesk', sans-serif; text-decoration: none; }
+.billing-brand span { color: var(--coral); }
+.billing-content { width: min(100% - 36px, 900px); margin: 46px auto; }
+.billing-content h1 { margin: 0; font: 700 30px 'Space Grotesk', sans-serif; }
+.billing-intro { margin: 9px 0 24px; color: var(--muted); font-size: 13px; }
+.billing-error, .billing-provider-note { margin: 14px 0; padding: 12px 14px; border: 1px solid #edd1b6; border-radius: 7px; color: #775d43; background: #fff8ef; font-size: 12px; }
+.billing-state { display: grid; gap: 7px; min-height: 140px; align-content: center; justify-items: center; padding: 22px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); text-align: center; font-size: 12px; }
+.billing-state strong { color: var(--ink); font: 600 17px 'Space Grotesk', sans-serif; }
+.billing-invoices { display: grid; gap: 12px; }
+.billing-invoice, .billing-history { padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.billing-invoice header { display: flex; justify-content: space-between; gap: 12px; }
+.billing-invoice header small, .billing-history small { color: var(--muted); font-size: 10px; }
+.billing-invoice h2 { margin: 5px 0 0; font: 700 25px 'Space Grotesk', sans-serif; }
+.billing-status { align-self: flex-start; padding: 5px 8px; border-radius: 5px; color: #88651b; background: #fff5dc; font-size: 10px; font-weight: 700; }
+.billing-status.paid { color: #276b51; background: #e7f3eb; }
+.billing-status.overdue { color: #9a4638; background: #fff1ed; }
+.billing-invoice-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 15px 0; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.billing-invoice-meta span { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+.billing-invoice-meta strong { color: var(--ink); font-size: 11px; }
+.billing-methods { display: flex; flex-wrap: wrap; gap: 8px; }
+.billing-methods button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: #fff; font-size: 11px; font-weight: 700; }
+.billing-methods button:first-child { border-color: var(--coral); color: #fff; background: var(--coral); }
+.billing-methods button:disabled { cursor: not-allowed; opacity: .5; }
+.billing-checkout { display: grid; justify-items: start; gap: 9px; margin-top: 14px; padding: 13px; border: 1px solid var(--line); border-radius: 6px; background: #f8faf8; font-size: 11px; }
+.billing-checkout textarea { width: 100%; min-height: 74px; resize: vertical; padding: 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: #fff; font: 11px/1.5 ui-monospace, monospace; }
+.billing-checkout button { min-height: 34px; padding: 0 11px; border: 1px solid var(--coral); border-radius: 5px; color: #fff; background: var(--coral); font-size: 11px; font-weight: 700; }
+.billing-checkout a { color: var(--coral); font-weight: 700; }
+.billing-pix-qr { width: 190px; height: 190px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
+.billing-boleto-line { max-width: 100%; margin: 0; overflow-wrap: anywhere; font: 11px/1.5 ui-monospace, monospace; }
+.billing-tax-id { display: grid; gap: 5px; max-width: 300px; margin: 14px 0 8px; color: var(--muted); font-size: 11px; }
+.billing-tax-id input { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: #fff; font: inherit; }
+.billing-history { margin-top: 22px; }
+.billing-history h2 { margin: 0 0 10px; font: 600 17px 'Space Grotesk', sans-serif; }
+.billing-history > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 11px; }
+.billing-history > div small { grid-column: 1 / -1; }
+.billing-history > p { color: var(--muted); font-size: 12px; }
+@media (max-width: 600px) { .billing-content { margin: 28px auto; }.billing-content h1 { font-size: 24px; }.billing-invoice-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }.billing-topbar { min-height: 58px; } }

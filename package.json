@@ -11,6 +11,7 @@
     "start": "next start",
     "test": "node --test",
     "admin:create": "node scripts/create-admin-user.js",
+    "super-admin:setup": "node scripts/setup-super-admin.js",
     "dev:create": "node scripts/create-dev-user.js"
   },
   "dependencies": {

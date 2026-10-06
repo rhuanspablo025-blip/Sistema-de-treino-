@@ -14,7 +14,7 @@ async function canAccessWorkout(database, user, workout) {
   if (!plan) return false;
   if (user.role === 'student') return plan.studentId === user.id && plan.active !== false && !plan.deletedAt;
   if (user.role === 'trainer') return plan.trainerId === user.id;
-  return ['admin', 'dev'].includes(user.role);
+  return ['admin', 'dev', 'SUPER_ADMIN'].includes(user.role);
 }
 
 async function withExerciseNames(database, workout) {

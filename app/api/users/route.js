@@ -5,6 +5,8 @@ import { getCurrentUser } from '../../../lib/auth';
 import { writeAuditLog } from '../../../lib/audit';
 import { getDatabase } from '../../../lib/mongodb';
 import { normalizeUsername } from '../../../lib/usernames';
+import { isAdminRole, isSuperAdmin } from '../../../lib/roles';
+import { getFinancialAccess } from '../../../lib/finance-access';
 
 export const runtime = 'nodejs';
 const validRoles = new Set(['admin', 'dev', 'trainer', 'student']);
@@ -35,6 +37,7 @@ function profileDocument(user, payload = {}, existing = {}) {
     goal: text(payload.goal ?? existing.goal, 240),
     trainerId: text(payload.trainerId ?? existing.trainerId, 64) || null,
     measurements: existing.measurements || [],
+    ownerAdminId: text(payload.ownerAdminId ?? existing.ownerAdminId, 64) || null,
     active: user.active,
     createdAt: existing.createdAt || now,
     updatedAt: now,
@@ -44,6 +47,7 @@ function profileDocument(user, payload = {}, existing = {}) {
     userId: user.id,
     name: user.name,
     cref: text(payload.cref ?? existing.cref, 40),
+    ownerAdminId: text(payload.ownerAdminId ?? existing.ownerAdminId, 64) || null,
     active: user.active,
     createdAt: existing.createdAt || now,
     updatedAt: now,
@@ -54,7 +58,7 @@ function profileDocument(user, payload = {}, existing = {}) {
 async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) return { response: NextResponse.json({ error: 'Não autenticado.' }, { status: 401 }) };
-  if (!['admin', 'dev'].includes(user.role)) return { response: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
+  if (!isAdminRole(user.role)) return { response: NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) };
   return { user };
 }
 
@@ -63,7 +67,8 @@ export async function GET() {
   if (access.response) return access.response;
   try {
     const database = await getDatabase();
-    const users = await database.collection('users').find({}, { projection: { id: 1, username: 1, name: 1, role: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
+    const roleFilter = isSuperAdmin(access.user) ? {} : { role: { $ne: 'SUPER_ADMIN' } };
+    const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
     return NextResponse.json({ users: users.map(publicUser) });
   } catch {
     return NextResponse.json({ error: 'Não foi possível carregar os usuários.' }, { status: 500 });
@@ -73,6 +78,8 @@ export async function GET() {
 export async function POST(request) {
   const creator = await getCurrentUser();
   if (!creator) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const financialAccess = await getFinancialAccess(creator);
+  if (financialAccess.blocked || financialAccess.restricted) return NextResponse.json({ error: 'Conta restrita por pendência financeira.' }, { status: 423 });
   try {
     const payload = await request.json();
     const name = text(payload.name, 120);
@@ -83,7 +90,7 @@ export async function POST(request) {
     if (name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome e usuário válidos (3 a 30 caracteres).'}, { status: 400 });
     if (!validRoles.has(role)) return NextResponse.json({ error: 'Perfil inválido.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
-    if (!['admin', 'dev'].includes(creator.role) && !(creator.role === 'trainer' && role === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    if (!isAdminRole(creator.role) && !(creator.role === 'trainer' && role === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
@@ -93,11 +100,19 @@ export async function POST(request) {
     if (role === 'student' && requestedTrainerId && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
     if (creator.role === 'trainer' && !await database.collection('trainers').findOne({ userId: creator.id, active: true })) return NextResponse.json({ error: 'Perfil de professor não encontrado.' }, { status: 403 });
     const now = new Date();
-    const user = { id: randomUUID(), name, username: normalizedUsername, passwordHash: await bcrypt.hash(password, 12), role, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
+    const userId = randomUUID();
+    const ownerAdminId = role === 'admin'
+      ? (creator.role === 'SUPER_ADMIN' ? userId : creator.role === 'admin' ? creator.id : null)
+      : creator.role === 'trainer'
+        ? (creator.ownerAdminId || creator.id)
+        : creator.role === 'admin' ? creator.id : null;
+    if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
+    const user = { id: userId, name, username: normalizedUsername, ownerAdminId, passwordHash: await bcrypt.hash(password, 12), role, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
+    const ownerPayload = { ...payload, ownerAdminId };
     await database.collection('users').insertOne(user);
     try {
-      if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...payload, trainerId: payload.trainerId || (creator.role === 'trainer' ? creator.id : '') }));
-      if (role === 'trainer') await database.collection('trainers').insertOne(profileDocument(user, payload));
+      if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...ownerPayload, trainerId: payload.trainerId || (creator.role === 'trainer' ? creator.id : '') }));
+      if (role === 'trainer') await database.collection('trainers').insertOne(profileDocument(user, ownerPayload));
       await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, username: normalizedUsername } });
     } catch (error) {
       await database.collection('users').deleteOne({ id: user.id });
@@ -133,7 +148,10 @@ export async function PATCH(request) {
     if (await users.findOne({ username: normalizedUsername, id: { $ne: id } })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
     const existing = await users.findOne({ id });
     if (!existing) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
-    const updated = { ...existing, name, username: normalizedUsername, role, active: payload.active !== false, updatedAt: new Date() };
+    if (existing.role === 'SUPER_ADMIN' || role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A role SUPER_ADMIN é protegida e não pode ser alterada por esta API.' }, { status: 403 });
+    if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
+    const updated = { ...existing, name, username: normalizedUsername, role, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
+    if (existing.role !== role || (existing.active !== false) !== updated.active) updated.sessionVersion = (existing.sessionVersion || 0) + 1;
     if (password) {
       updated.passwordHash = await bcrypt.hash(password, 12);
       updated.sessionVersion = (existing.sessionVersion || 0) + 1;
@@ -154,6 +172,8 @@ export async function PATCH(request) {
     if (role === 'student') await students.insertOne(profileDocument(updated, payload, priorStudent || {}));
     if (role === 'trainer') await trainers.insertOne(profileDocument(updated, payload, priorTrainer || {}));
     await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'user', resourceId: id, metadata: { role, active: updated.active } });
+    if (existing.role !== role) await writeAuditLog(database, { userId: access.user.id, action: 'permission_change', resource: 'user', resourceId: id, metadata: { previousRole: existing.role, role } });
+    if (password) await writeAuditLog(database, { userId: access.user.id, action: 'password_change', resource: 'user', resourceId: id, metadata: { accountUsername: normalizedUsername } });
     return NextResponse.json({ user: publicUser(updated) });
   } catch (error) {
     if (error.code === 11000 && error.keyPattern?.username) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
@@ -168,6 +188,8 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id');
     if (!id || id === access.user.id || !/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Não é possível excluir este usuário.' }, { status: 400 });
     const database = await getDatabase();
+    const target = await database.collection('users').findOne({ id }, { projection: { role: 1 } });
+    if (target?.role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A conta proprietária não pode ser desativada por esta API.' }, { status: 403 });
     const result = await database.collection('users').updateOne({ id }, { $set: { active: false, updatedAt: new Date() } });
     if (!result.matchedCount) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
     await database.collection('students').updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });

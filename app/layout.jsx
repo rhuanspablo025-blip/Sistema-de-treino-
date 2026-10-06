@@ -1,5 +1,6 @@
 import './globals.css';
 import './workout-plans.css';
+import './finance.css';
 
 export const metadata = {
   title: 'Atlas Training | Gestão de treinos',
