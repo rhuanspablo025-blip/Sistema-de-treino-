@@ -40,7 +40,7 @@ export default function LoginPage() {
       <h1>Bem-vindo de volta</h1>
       <p className="login-copy">Entre para acessar as fichas de treino da sua academia.</p>
       <form onSubmit={handleSubmit}>
-        <label><span>Nome de usuário</span><div className="login-input"><UserIcon /><input name="username" type="text" required minLength="3" maxLength="32" autoComplete="username" placeholder="seu.usuario" /></div></label>
+        <label><span>Usuário</span><div className="login-input"><UserIcon /><input name="username" type="text" required minLength="3" maxLength="30" autoComplete="username" placeholder="seu_usuario" /></div></label>
         <label><span>Senha</span><div className="login-input"><LockKeyhole /><input name="password" type="password" required autoComplete="current-password" placeholder="Sua senha" /></div></label>
         {error && <p className="login-error" role="alert">{error}</p>}
         <button className="primary-button" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}<ArrowRight /></button>

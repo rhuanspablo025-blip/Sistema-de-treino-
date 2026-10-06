@@ -8,14 +8,21 @@ export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
-    const { username, password } = await request.json();
-    const usernameKey = normalizeUsername(username);
-    if (!usernameKey || typeof password !== 'string' || !password) return NextResponse.json({ error: 'Informe usuário e senha.' }, { status: 400 });
+    let payload;
+    try {
+      payload = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Informe usuário e senha.' }, { status: 400 });
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return NextResponse.json({ error: 'Informe usuário e senha.' }, { status: 400 });
+    const { username, password } = payload;
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername || typeof password !== 'string' || !password) return NextResponse.json({ error: 'Informe usuário e senha.' }, { status: 400 });
 
     const database = await getDatabase();
-    const user = await database.collection('users').findOne({ usernameKey });
+    const user = await database.collection('users').findOne({ username: normalizedUsername });
     if (!user || user.active === false || !(await bcrypt.compare(String(password), user.passwordHash || ''))) {
-      return NextResponse.json({ error: 'Usuário ou senha inválidos, ou usuário desativado.' }, { status: 401 });
+      return NextResponse.json({ error: 'Usuário ou senha inválidos.' }, { status: 401 });
     }
 
     const token = await createSession(user);

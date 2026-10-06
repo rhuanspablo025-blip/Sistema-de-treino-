@@ -11,7 +11,7 @@ Sistema web para gestão de alunos e fichas de treino de uma academia, com auten
 5. Para criar o usuário mestre de desenvolvimento, configure `DEV_USERNAME`, `DEV_PASSWORD` (mínimo 16 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
 6. Inicie com `npm run dev` e abra `http://localhost:3000`.
 
-O login usa somente username, único e sem distinção entre maiúsculas e minúsculas. São aceitos de 3 a 32 caracteres: letras ASCII, números, ponto, hífen e sublinhado. O cadastro público cria contas ativas de aluno; a tela de cadastro informa se o username já está em uso.
+O login usa somente username, único e sem distinção entre maiúsculas e minúsculas. São aceitos de 3 a 30 caracteres: letras ASCII, números, hífen e sublinhado, sem espaços. O cadastro público cria contas ativas de aluno; a tela de cadastro informa se o username já está em uso. Perfis administrativos e de professor são criados somente por usuários autorizados. O `id` UUID é a identidade da aplicação usada por sessões e relações (`userId`); o `_id` automático do Mongo permanece como chave interna do documento.
 
 ## Publicar na Vercel
 
@@ -27,6 +27,6 @@ Após iniciar e entrar com uma conta administradora, consulte `/api/health/datab
 
 ## Migração dos dados existentes
 
-A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `username`, `usernameKey`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro. Na inicialização, contas antigas convertem o trecho anterior ao `@` em username; colisões recebem sufixo determinístico e os campos de e-mail são removidos.
+A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `username`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro. Na inicialização, contas antigas convertem o trecho anterior ao `@` em username. Contas sem username válido ou com colisão recebem um username determinístico `usuario-...`, registrado no log da aplicação, e os campos de e-mail são removidos.
 
 A aplicação armazena senhas com bcrypt e usa cookie HTTP-only assinado para as sessões. A política de privacidade está em `/privacy`; revise os dados de contato do controlador antes de usar dados pessoais reais.

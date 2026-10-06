@@ -5,6 +5,7 @@ require('dotenv').config({ path: '.env.local' });
 const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
+const { migrateLegacyUsernames, ensureUniqueUserIndexes } = require('../lib/username-utils.cjs');
 
 const { MONGODB_URI, ADMIN_PASSWORD } = process.env;
 const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
@@ -22,8 +23,8 @@ if (Buffer.byteLength(ADMIN_PASSWORD, 'utf8') > 72) {
   console.error('ADMIN_PASSWORD deve ter no máximo 72 bytes para bcrypt.');
   process.exit(1);
 }
-if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(ADMIN_USERNAME) || !ADMIN_NAME.trim()) {
-  console.error('Informe um ADMIN_USERNAME de 3 a 32 caracteres e um ADMIN_NAME.');
+if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(ADMIN_USERNAME) || !ADMIN_NAME.trim()) {
+  console.error('Informe um ADMIN_USERNAME de 3 a 30 caracteres e um ADMIN_NAME.');
   process.exit(1);
 }
 
@@ -33,15 +34,15 @@ async function createAdmin() {
     await client.connect();
     const database = client.db('sistema_treino');
     const users = database.collection('users');
-    await users.createIndex({ usernameKey: 1 }, { unique: true });
+    await migrateLegacyUsernames(database);
+    await ensureUniqueUserIndexes(users);
 
-    if (await users.findOne({ usernameKey: ADMIN_USERNAME })) throw new Error('Já existe um usuário com este username.');
+    if (await users.findOne({ username: ADMIN_USERNAME })) throw new Error('Já existe um usuário com este username.');
 
     const now = new Date();
     await users.insertOne({
       id: randomUUID(),
       username: ADMIN_USERNAME,
-      usernameKey: ADMIN_USERNAME,
       name: ADMIN_NAME.trim(),
       role: 'admin',
       active: true,

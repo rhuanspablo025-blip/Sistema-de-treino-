@@ -6,7 +6,7 @@ export default function ForgotPasswordPage() {
     <section className="login-card">
       <p className="eyebrow">RECUPERAÇÃO DE ACESSO</p>
       <h1>Redefinir senha</h1>
-      <p className="login-copy">Peça a um administrador da academia para redefinir sua senha. Sua conta é identificada pelo nome de usuário, não por e-mail.</p>
+      <p className="login-copy">Peça a um administrador da academia para redefinir sua senha.</p>
       <div className="login-links"><a href="/login">Voltar ao login</a></div>
     </section>
     <p className="login-footer">Atlas Training · Gestão inteligente de treinos</p>

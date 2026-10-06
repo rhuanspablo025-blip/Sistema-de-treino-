@@ -5,6 +5,7 @@ require('dotenv').config({ path: '.env.local' });
 const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
+const { migrateLegacyUsernames, ensureUniqueUserIndexes } = require('../lib/username-utils.cjs');
 
 const { MONGODB_URI, DEV_PASSWORD } = process.env;
 const DEV_USERNAME = (process.env.DEV_USERNAME || 'dev').trim().toLowerCase();
@@ -18,8 +19,8 @@ if (DEV_PASSWORD.length < 16 || Buffer.byteLength(DEV_PASSWORD, 'utf8') > 72) {
   console.error('DEV_PASSWORD deve ter entre 16 e 72 bytes.');
   process.exit(1);
 }
-if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(DEV_USERNAME) || !DEV_NAME) {
-  console.error('Informe um DEV_USERNAME de 3 a 32 caracteres e DEV_NAME.');
+if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(DEV_USERNAME) || !DEV_NAME) {
+  console.error('Informe um DEV_USERNAME de 3 a 30 caracteres e DEV_NAME.');
   process.exit(1);
 }
 
@@ -29,9 +30,10 @@ async function createDevUser() {
     await client.connect();
     const database = client.db('sistema_treino');
     const users = database.collection('users');
-    await users.createIndex({ usernameKey: 1 }, { unique: true });
+    await migrateLegacyUsernames(database);
+    await ensureUniqueUserIndexes(users);
 
-    if (await users.findOne({ usernameKey: DEV_USERNAME })) {
+    if (await users.findOne({ username: DEV_USERNAME })) {
       console.error('A conta DEV já existe; nenhuma alteração foi feita.');
       process.exitCode = 1;
       return;
@@ -42,7 +44,6 @@ async function createDevUser() {
     await users.insertOne({
       id,
       username: DEV_USERNAME,
-      usernameKey: DEV_USERNAME,
       name: DEV_NAME,
       role: 'dev',
       active: true,

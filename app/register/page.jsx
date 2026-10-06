@@ -39,7 +39,8 @@ export default function RegisterPage() {
       <p className="login-copy">Crie sua conta para acessar as fichas da academia.</p>
       <form onSubmit={handleSubmit}>
         <label>Nome completo<input name="name" required minLength="2" maxLength="120" autoComplete="name" /></label>
-        <label>Nome de usuário<input name="username" required minLength="3" maxLength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" title="Use de 3 a 32 letras, números, pontos, hífens ou sublinhados." autoComplete="username" /></label>
+        <label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" title="Use de 3 a 30 letras, números, hífens ou sublinhados, sem espaços." autoComplete="username" /></label>
+        <label>Tipo de usuário<select name="role" defaultValue="student"><option value="student">Aluno</option></select></label>
         <label>Telefone (opcional)<input name="phone" type="tel" maxLength="40" autoComplete="tel" /></label>
         <label>Objetivo (opcional)<input name="goal" maxLength="240" /></label>
         <label>Senha<input name="password" type="password" required minLength="12" maxLength="72" autoComplete="new-password" /></label>

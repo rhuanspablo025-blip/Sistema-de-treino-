@@ -48,7 +48,7 @@ export async function GET() {
 
     const [exerciseCatalog, adminUsers] = await Promise.all([
       database.collection('exercises').find({ active: true }).sort({ name: 1 }).toArray(),
-      staff ? database.collection('users').find({ role: { $in: ['admin', 'trainer', 'dev'] }, active: true }, { projection: { passwordHash: 0 } }).toArray() : [],
+      staff ? database.collection('users').find({ role: { $in: ['admin', 'trainer', 'dev'] }, active: true }, { projection: { id: 1, username: 1, name: 1, role: 1 } }).toArray() : [],
     ]);
     return NextResponse.json({
       currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role },
