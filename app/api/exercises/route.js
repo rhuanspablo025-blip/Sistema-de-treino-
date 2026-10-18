@@ -9,12 +9,14 @@ const idPattern = /^[0-9a-f-]{36}$/i;
 const text = (value, limit = 160) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const keyFor = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-export async function GET() {
+export async function GET(request) {
   const access = await requireUser();
   if (access.response) return access.response;
   try {
     const database = await getDatabase();
-    const exercises = await database.collection('exercises').find({ active: true }).sort({ name: 1 }).toArray();
+    const status = new URL(request.url).searchParams.get('status');
+    const filter = status === 'all' && ['admin', 'dev', 'trainer', 'SUPER_ADMIN'].includes(access.user.role) ? {} : { active: true };
+    const exercises = await database.collection('exercises').find(filter).sort({ name: 1 }).toArray();
     return NextResponse.json({ exercises });
   } catch {
     return NextResponse.json({ error: 'Não foi possível carregar os exercícios.' }, { status: 500 });
@@ -82,7 +84,11 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id');
     if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID do exercício inválido.' }, { status: 400 });
     const database = await getDatabase();
-    const inUse = await database.collection('workouts').countDocuments({ 'exercises.exerciseId': id });
+    const [planUse, templateUse] = await Promise.all([
+      database.collection('workouts').countDocuments({ 'exercises.exerciseId': id }),
+      database.collection('workout_templates').countDocuments({ 'days.exercises.exerciseId': id, deletedAt: { $exists: false } }),
+    ]);
+    const inUse = planUse + templateUse;
     if (inUse) {
       await database.collection('exercises').updateOne({ id }, { $set: { active: false, updatedAt: new Date() } });
     } else {

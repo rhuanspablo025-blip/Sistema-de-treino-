@@ -109,6 +109,20 @@
 .plans-detail-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
 .plans-detail-footer small { color: var(--muted); font-size: 10px; }
 .plans-toast { position: fixed; z-index: 30; right: 20px; bottom: 20px; max-width: min(420px, calc(100vw - 40px)); padding: 12px 16px; border: 1px solid #d1e5d6; border-radius: 7px; color: #276b51; background: #f2faf3; box-shadow: 0 8px 28px #17221f14; font-size: 12px; }
+.plans-section-tabs { display:flex; gap:8px; overflow-x:auto; margin:0 0 16px; padding:4px; border:1px solid var(--line); border-radius:8px; background:var(--paper); }
+.plans-section-tabs button { flex:0 0 auto; min-height:38px; padding:8px 14px; border:0; border-radius:6px; color:var(--muted); background:transparent; cursor:pointer; }
+.plans-section-tabs button.active { color:var(--ink); background:var(--line); }
+.exercise-admin-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px 0; }
+.exercise-admin-card { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; align-items:start; padding:14px; border:1px solid var(--line); border-radius:8px; }
+.exercise-admin-card > div { display:grid; gap:5px; min-width:0; }
+.exercise-admin-card > div span,.exercise-admin-card small { color:var(--muted); font-size:11px; }
+.exercise-admin-card footer { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:14px; border-top:1px solid var(--line); padding-top:9px; }
+.plans-text-button.danger { color:#c84f3e; }
+.exercise-editor { display:grid; gap:12px; }
+.exercise-editor > header,.exercise-editor > footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.exercise-editor > header h2 { margin:0; }
+.exercise-editor > footer { justify-content:flex-end; margin-top:8px; }
+.exercise-editor > label input,.exercise-editor > label textarea { width:100%; }
 .plans-toast-error { display: flex; align-items: center; gap: 12px; border-color: #edc5bd; color: #9a4638; background: #fff5f2; }
 .plans-toast button { border: 0; color: inherit; background: transparent; }
 @media (max-width: 1050px) { .plans-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }.plans-search { grid-column: 1 / -1; } }
@@ -124,6 +138,9 @@
   .plans-card-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .plans-card-footer { align-items: flex-start; flex-direction: column; }
   .plans-card-actions { width: 100%; justify-content: space-between; }
+  .plans-section-tabs { margin-right:-3px; }
+  .plans-section-tabs button { padding-inline:11px; font-size:11px; }
+  .exercise-admin-grid { grid-template-columns:minmax(0,1fr); }
   .plans-editor-header { grid-template-columns: auto 1fr auto; gap: 8px; padding: 10px 12px; }
   .plans-editor-header > .outline-button, .plans-editor-header > .primary-button { min-width: 0; padding: 9px; font-size: 10px; }
   .plans-editor-header h1 { font-size: 16px; }

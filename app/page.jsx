@@ -36,7 +36,6 @@ const navItems = [
   { label: "Cadastro de alunos", icon: UsersRound, key: "students" },
   { label: "Cadastros", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
-  { label: "Exercícios", icon: Dumbbell, key: "exercises" },
   { label: "Financeiro", icon: BarChart3, key: "finance" },
 ];
 
@@ -172,7 +171,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
     },
   }[view];
   if (view === 'finance') return isSuperAdminAccount(currentUser) ? <FinancialManager /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
-  if (view === "workouts") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("exercises")} canEdit={currentUser?.role === 'trainer'} />;
+  if (view === "workouts" || view === "exercises") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("workouts")} canEdit={['admin','dev','trainer','SUPER_ADMIN'].includes(currentUser?.role)} initialTab={view === 'exercises' ? 'library' : 'plans'} />;
   if (view === "admins") return <UserManagement trainers={adminList.filter((user) => user.role === 'trainer')} />;
   if (view === "overview")
     return (

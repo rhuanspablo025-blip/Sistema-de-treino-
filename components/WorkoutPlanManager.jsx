@@ -44,7 +44,7 @@ function plainExercise(item) {
   return { ...fields };
 }
 
-export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved }) {
+export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved, initialTab = 'plans' }) {
   const [plans, setPlans] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,17 +63,26 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   const [toast, setToast] = useState('');
   const [exerciseSearch, setExerciseSearch] = useState({});
   const [pendingExercise, setPendingExercise] = useState({});
+  const [section, setSection] = useState(initialTab);
+  const [libraryQuery, setLibraryQuery] = useState('');
+  const [libraryStatus, setLibraryStatus] = useState('active');
+  const [exerciseEditor, setExerciseEditor] = useState(null);
+  const [templates, setTemplates] = useState([]);
+
+  useEffect(() => { setSection(initialTab); }, [initialTab]);
 
   async function loadData(showLoading = false) {
     if (showLoading) setLoading(true);
     setLoadError('');
     try {
-      const [planData, exerciseData] = await Promise.all([
+      const [planData, exerciseData, templateData] = await Promise.all([
         requestJson('/api/workout-plans?status=all'),
-        requestJson('/api/exercises'),
+        requestJson('/api/exercises?status=all'),
+        requestJson('/api/workout-templates'),
       ]);
       setPlans(planData.plans || []);
       setCatalog(exerciseData.exercises || []);
+      setTemplates(templateData.templates || []);
     } catch (error) {
       setLoadError(error.message || 'Não foi possível carregar as fichas.');
     } finally {
@@ -91,6 +100,54 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   function showToast(message) {
     setToast(message);
     window.setTimeout(() => setToast(''), 3200);
+  }
+
+  async function saveExercise(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(form.entries());
+    try {
+      const result = await requestJson('/api/exercises', { method: exerciseEditor?.id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(exerciseEditor?.id ? { ...payload, id: exerciseEditor.id } : payload) });
+      setExerciseEditor(null);
+      await loadData();
+      showToast(exerciseEditor?.id ? 'Exercício atualizado.' : 'Exercício cadastrado.');
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function changeExerciseStatus(exercise) {
+    try { await requestJson('/api/exercises', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: exercise.id, active: !exercise.active }) }); await loadData(); }
+    catch (error) { showToast(error.message); }
+  }
+
+  async function deleteExercise(exercise) {
+    if (!window.confirm(`Excluir “${exercise.name}”? Exercícios já usados serão apenas inativados para preservar as fichas.`)) return;
+    try { const result = await requestJson(`/api/exercises?id=${encodeURIComponent(exercise.id)}`, { method: 'DELETE' }); await loadData(); showToast(result.message); }
+    catch (error) { showToast(error.message); }
+  }
+
+  async function saveAsTemplate(plan) {
+    const name = window.prompt('Nome do modelo reutilizável:', plan.name);
+    if (!name?.trim()) return;
+    try {
+      const details = await requestJson(`/api/workout-plans/${encodeURIComponent(plan.id)}`);
+      await requestJson('/api/workout-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, objective: details.plan.objective, objectiveDetails: details.plan.objectiveDetails, level: details.plan.level, observations: details.plan.observations, days: details.days.map((day) => ({ ...day, exercises: day.exercises.map(({ id, exercise, ...item }) => item) })) }) });
+      await loadData(); showToast('Modelo reutilizável criado.');
+    } catch (error) { showToast(error.message); }
+  }
+
+  function applyTemplate(template) {
+    const student = students[0];
+    if (!student) { onNewStudent(); return; }
+    setSection('plans');
+    setEditor({ id: null, plan: { ...blankPlan(student.id), name: template.name, objective: template.objective, objectiveDetails: template.objectiveDetails, level: template.level, observations: template.observations }, days: template.days.map((day) => ({ ...day, id: undefined, exercises: day.exercises.map(({ id, ...item }) => ({ ...item })) })) });
+  }
+
+  async function changeTemplateStatus(template, remove = false) {
+    try {
+      if (remove) await requestJson(`/api/workout-templates?id=${encodeURIComponent(template.id)}`, { method: 'DELETE' });
+      else await requestJson('/api/workout-templates', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: template.id, active: !template.active }) });
+      await loadData();
+    } catch (error) { showToast(error.message); }
   }
 
   const totalCount = plans.length;
@@ -151,6 +208,12 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
     } catch (error) {
       showToast(error.message || 'Não foi possível abrir a ficha para edição.');
     }
+  }
+
+  function openTemplateEditor(template = null) {
+    setSection('templates');
+    setEditorError('');
+    setEditor({ templateMode: true, id: null, plan: { ...blankPlan(''), name: template?.name || '', objective: template?.objective || 'Hipertrofia', objectiveDetails: template?.objectiveDetails || '', level: template?.level || 'Iniciante', observations: template?.observations || '' }, days: template?.days ? template.days.map((day) => ({ ...day, exercises: day.exercises.map(({ id, ...exercise }) => ({ ...exercise })) })) : [] });
   }
 
   function updatePlan(field, value) {
@@ -257,21 +320,21 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
 
   async function saveEditor(event) {
     event.preventDefault();
-    const confirmPassword = requestPassword();
-    if (!confirmPassword) return;
+    const confirmPassword = editor.templateMode ? '' : requestPassword();
+    if (!editor.templateMode && !confirmPassword) return;
     setSaving(true);
     setEditorError('');
     try {
       const payload = { ...editor.plan, id: editor.id || undefined, days: editor.days, confirmPassword };
-      const result = await requestJson('/api/workout-plans', {
-        method: editor.id ? 'PUT' : 'POST',
+      const result = await requestJson(editor.templateMode ? '/api/workout-templates' : '/api/workout-plans', {
+        method: editor.templateMode ? 'POST' : editor.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       setEditor(null);
       await loadData();
       onSaved?.(result);
-      showToast(editor.id ? 'Ficha atualizada com sucesso.' : 'Ficha criada com sucesso.');
+      showToast(editor.templateMode ? 'Modelo reutilizável criado.' : editor.id ? 'Ficha atualizada com sucesso.' : 'Ficha criada com sucesso.');
       if (result.plan?.id) setDetails(null);
     } catch (error) {
       setEditorError(error.message || 'Não foi possível salvar a ficha.');
@@ -319,22 +382,22 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
     return <div className="plans-editor" role="dialog" aria-modal="true" aria-labelledby="plans-editor-title">
       <header className="plans-editor-header">
         <button type="button" className="outline-button" onClick={() => { setEditor(null); setEditorError(''); }}>Voltar</button>
-        <div><p className="eyebrow">{editor.id ? 'EDIÇÃO DE FICHA' : 'NOVA FICHA'}</p><h1 id="plans-editor-title">{editor.id ? 'Editar ficha' : 'Criar ficha de treino'}</h1></div>
-        <button type="submit" form="workout-plan-form" className="primary-button" disabled={saving || students.length === 0 || studentsLoading}>{saving ? 'Salvando...' : 'Salvar ficha'}</button>
+        <div><p className="eyebrow">{editor.templateMode ? 'MODELO REUTILIZÁVEL' : editor.id ? 'EDIÇÃO DE FICHA' : 'NOVA FICHA'}</p><h1 id="plans-editor-title">{editor.templateMode ? 'Criar modelo de treino' : editor.id ? 'Editar ficha' : 'Criar ficha de treino'}</h1></div>
+        <button type="submit" form="workout-plan-form" className="primary-button" disabled={saving || (!editor.templateMode && (students.length === 0 || studentsLoading))}>{saving ? 'Salvando...' : editor.templateMode ? 'Salvar modelo' : 'Salvar ficha'}</button>
       </header>
       {editorError && <p className="plans-error" role="alert">{editorError}</p>}
       <form id="workout-plan-form" className="plans-editor-content" onSubmit={saveEditor}>
         <section className="plans-section">
           <div className="plans-section-heading"><div><p className="eyebrow">ETAPA 1</p><h2>Informações gerais</h2></div><span>Dados principais e revisão</span></div>
-          {!studentsLoading && students.length === 0 ? <div className="plans-notice"><div><strong>Nenhum aluno cadastrado</strong><span>Cadastre um aluno antes de criar uma ficha.</span></div><button type="button" className="outline-button" onClick={() => { setEditor(null); onNewStudent(); }}>Cadastrar aluno</button></div> : null}
+          {!editor.templateMode && !studentsLoading && students.length === 0 ? <div className="plans-notice"><div><strong>Nenhum aluno cadastrado</strong><span>Cadastre um aluno antes de criar uma ficha.</span></div><button type="button" className="outline-button" onClick={() => { setEditor(null); onNewStudent(); }}>Cadastrar aluno</button></div> : null}
           <div className="plans-form-grid">
             <label className="plans-field plans-field-wide">Nome da ficha<input value={editor.plan.name} required maxLength="120" onChange={(event) => updatePlan('name', event.target.value)} placeholder="Ex.: Base de força A/B" /></label>
-            <label className="plans-field">Aluno<select value={editor.plan.studentId} required disabled={Boolean(editor.id)} onChange={(event) => updatePlan('studentId', event.target.value)}><option value="">Selecione um aluno</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+            {!editor.templateMode && <label className="plans-field">Aluno<select value={editor.plan.studentId} required disabled={Boolean(editor.id)} onChange={(event) => updatePlan('studentId', event.target.value)}><option value="">Selecione um aluno</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>}
             <label className="plans-field">Objetivo<select value={editor.plan.objective} onChange={(event) => updatePlan('objective', event.target.value)}>{OBJECTIVES.map((objective) => <option key={objective}>{objective}</option>)}</select></label>
             {editor.plan.objective === 'Personalizado' && <label className="plans-field">Objetivo personalizado<input maxLength="240" value={editor.plan.objectiveDetails} onChange={(event) => updatePlan('objectiveDetails', event.target.value)} placeholder="Descreva o objetivo" /></label>}
             <label className="plans-field">Nível<select value={editor.plan.level} onChange={(event) => updatePlan('level', event.target.value)}>{LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label>
-            <label className="plans-field">Data de início<input type="date" required value={editor.plan.startDate} onChange={(event) => updatePlan('startDate', event.target.value)} /></label>
-            <label className="plans-field">Revisar em<input type="date" value={editor.plan.endDate} min={editor.plan.startDate} onChange={(event) => updatePlan('endDate', event.target.value)} /></label>
+            {!editor.templateMode && <><label className="plans-field">Data de início<input type="date" required value={editor.plan.startDate} onChange={(event) => updatePlan('startDate', event.target.value)} /></label>
+            <label className="plans-field">Revisar em<input type="date" value={editor.plan.endDate} min={editor.plan.startDate} onChange={(event) => updatePlan('endDate', event.target.value)} /></label></>}
             <label className="plans-field plans-field-wide">Observações gerais<textarea rows="3" maxLength="2000" value={editor.plan.observations} onChange={(event) => updatePlan('observations', event.target.value)} placeholder="Orientações gerais para esta ficha" /></label>
           </div>
         </section>
@@ -345,7 +408,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
             {WEEK_DAYS.map((slot) => {
               const day = editor.days.find((item) => item.dayOfWeek === slot.key);
               const exerciseQuery = (exerciseSearch[slot.key] || '').toLowerCase().trim();
-              const availableExercises = catalog.filter((exercise) => `${exercise.name} ${exercise.muscleGroup} ${exercise.equipment}`.toLowerCase().includes(exerciseQuery));
+              const availableExercises = catalog.filter((exercise) => exercise.active !== false && `${exercise.name} ${exercise.muscleGroup} ${exercise.equipment}`.toLowerCase().includes(exerciseQuery));
               return <article key={slot.key} className={`plans-day ${day?.isRestDay ? 'is-rest' : ''}`}>
                 <header className="plans-day-header"><span className="plans-day-label">{slot.label}</span>{day ? <span className={`plans-day-badge ${day.isRestDay ? 'rest' : ''}`}>{day.isRestDay ? 'Descanso' : `${day.exercises.length} exercícios`}</span> : <span className="plans-day-badge rest">Sem treino</span>}</header>
                 {!day ? <div className="plans-day-empty"><button type="button" className="outline-button" onClick={() => addDay(slot.key)}>+ Adicionar treino</button><button type="button" className="plans-text-button" onClick={() => addDay(slot.key, true)}>Marcar descanso</button></div> : <>
@@ -391,13 +454,15 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
           </div>
         </section>
         {editorError && <p className="plans-error" role="alert">{editorError}</p>}
-        <footer className="plans-editor-footer"><button type="button" className="outline-button" onClick={() => setEditor(null)}>Cancelar</button><button type="submit" form="workout-plan-form" className="primary-button" disabled={saving || students.length === 0}>{saving ? 'Salvando...' : 'Salvar ficha'}</button></footer>
+        <footer className="plans-editor-footer"><button type="button" className="outline-button" onClick={() => setEditor(null)}>Cancelar</button><button type="submit" form="workout-plan-form" className="primary-button" disabled={saving || (!editor.templateMode && students.length === 0)}>{saving ? 'Salvando...' : editor.templateMode ? 'Salvar modelo' : 'Salvar ficha'}</button></footer>
       </form>
     </div>;
   }
 
   return <div className="page-content plans-page">
-    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE FICHAS</p><h1>Fichas de treino</h1><p className="heading-copy">Monte a semana, ajuste cada exercício e acompanhe as atualizações.</p></div>{canEdit && <button className="primary-button" disabled={!students.length || studentsLoading} onClick={() => openEditor()}>+ Nova ficha</button>}</div>
+    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE TREINOS</p><h1>{section === 'library' ? 'Biblioteca de exercícios' : section === 'templates' ? 'Modelos de treino' : 'Fichas de treino'}</h1><p className="heading-copy">Fichas, modelos reutilizáveis e exercícios organizados em um só lugar.</p></div>{canEdit && <button className="primary-button" disabled={section === 'plans' && (!students.length || studentsLoading)} onClick={() => section === 'library' ? setExerciseEditor({}) : section === 'plans' ? openEditor() : openTemplateEditor()}>{section === 'library' ? '+ Novo exercício' : section === 'plans' ? '+ Nova ficha' : '+ Criar modelo'}</button>}</div>
+    <div className="plans-section-tabs" role="tablist" aria-label="Gestão de treinos">{[['plans','Fichas'],['templates','Modelos reutilizáveis'],['library','Biblioteca de exercícios']].map(([key,label]) => <button key={key} role="tab" aria-selected={section === key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}>{label}</button>)}</div>
+    {section === 'library' ? <section className="plans-list-panel"><div className="plans-toolbar"><label className="plans-search"><span aria-hidden="true">⌕</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="Buscar nome, grupo muscular ou aparelho" /></label><select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value)} aria-label="Status dos exercícios"><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="all">Todos</option></select></div><div className="exercise-admin-grid">{catalog.filter((item) => (libraryStatus === 'all' || (libraryStatus === 'active' ? item.active !== false : item.active === false)) && `${item.name} ${item.muscleGroup} ${item.equipment}`.toLowerCase().includes(libraryQuery.toLowerCase())).map((exercise) => <article className="exercise-admin-card" key={exercise.id}><div><strong>{exercise.name}</strong><span>{exercise.muscleGroup} · {exercise.equipment || 'Peso corporal / livre'}</span>{exercise.description && <small>{exercise.description}</small>}</div><span className={`plans-status ${exercise.active === false ? 'inactive' : ''}`}>{exercise.active === false ? 'Inativo' : 'Ativo'}</span><footer><button className="plans-text-button" onClick={() => setExerciseEditor(exercise)}>Editar</button><button className="plans-text-button" onClick={() => changeExerciseStatus(exercise)}>{exercise.active === false ? 'Ativar' : 'Inativar'}</button><button className="plans-text-button danger" onClick={() => deleteExercise(exercise)}>Excluir</button></footer></article>)}</div>{catalog.length === 0 && <div className="plans-state">Nenhum exercício no catálogo ainda.</div>}</section> : section === 'templates' ? <section className="plans-list-panel"><p className="heading-copy">Crie fichas padrão com vários exercícios e aplique-as aos alunos quando montar seus treinos.</p>{templates.length === 0 ? <div className="plans-state"><strong>Nenhum modelo reutilizável</strong><span>Monte um modelo do zero com exercícios da biblioteca e reutilize-o em qualquer aluno.</span><button className="primary-button" onClick={() => openTemplateEditor()}>+ Criar modelo</button></div> : <div className="plans-grid">{templates.map((template) => <article className="plans-card" key={template.id}><header className="plans-card-header"><div><p className="eyebrow">{template.objective}</p><h2>{template.name}</h2></div><span className={`plans-status ${template.active === false ? 'inactive' : ''}`}>{template.active === false ? 'Inativo' : 'Ativo'}</span></header><div className="plans-card-meta"><span><small>Treinos</small><strong>{template.days.filter((day) => !day.isRestDay).length} dias · {template.days.reduce((sum,day) => sum + day.exercises.length,0)} exercícios</strong></span><span><small>Nível</small><strong>{template.level}</strong></span></div><footer className="plans-card-footer"><div className="plans-card-actions"><button className="plans-text-button" disabled={template.active === false} onClick={() => applyTemplate(template)}>Aplicar a aluno</button><button className="plans-text-button" onClick={() => changeTemplateStatus(template)}>{template.active === false ? 'Ativar' : 'Inativar'}</button><button className="plans-text-button danger" onClick={() => changeTemplateStatus(template, true)}>Excluir</button></div></footer></article>)}</div>}</section> : <>
     <div className="plans-stats">
       <article><span>Total de fichas</span><strong>{totalCount}</strong></article>
       <article><span>Ativas</span><strong>{activeCount}</strong></article>
@@ -418,7 +483,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
           <header className="plans-card-header"><div><p className="eyebrow">{plan.objective}</p><h2>{plan.name}</h2></div><span className={`plans-status ${plan.active === false ? 'inactive' : ''}`}>{plan.active === false ? 'Inativa' : 'Ativa'}</span></header>
           <div className="plans-card-student"><span className="plans-avatar">{(plan.studentName || 'A').split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{plan.studentName}</strong><small>Professor: {plan.trainerName || 'Equipe'}</small></span></div>
           <div className="plans-card-meta"><span><small>Treinos</small><strong>{plan.dayCount || 0} dias · {plan.exerciseCount || 0} exercícios</strong></span><span><small>Nível</small><strong>{plan.level || 'Não definido'}</strong></span><span><small>Período</small><strong>{dateLabel(plan.startDate)} · {dateLabel(plan.endDate)}</strong></span></div>
-          <footer className="plans-card-footer"><small>Atualizada {dateLabel(plan.updatedAt)}</small><div className="plans-card-actions"><button className="plans-text-button" onClick={() => openDetails(plan)}>Visualizar</button>{canEdit && <><button className="plans-text-button" onClick={() => openEditor(plan)}>Editar</button><button className="plans-icon-button" title="Duplicar ficha" aria-label="Duplicar ficha" onClick={() => duplicatePlan(plan)}>⧉</button><button className="plans-icon-button" title={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} aria-label={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} onClick={() => togglePlan(plan)}>{plan.active === false ? '▶' : 'Ⅱ'}</button><button className="plans-icon-button danger" title="Excluir ficha" aria-label="Excluir ficha" onClick={() => deletePlan(plan)}>×</button></>}</div></footer>
+          <footer className="plans-card-footer"><small>Atualizada {dateLabel(plan.updatedAt)}</small><div className="plans-card-actions"><button className="plans-text-button" onClick={() => openDetails(plan)}>Visualizar</button>{canEdit && <><button className="plans-text-button" onClick={() => openEditor(plan)}>Editar</button><button className="plans-text-button" onClick={() => saveAsTemplate(plan)}>Salvar como modelo</button><button className="plans-icon-button" title="Duplicar ficha" aria-label="Duplicar ficha" onClick={() => duplicatePlan(plan)}>⧉</button><button className="plans-icon-button" title={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} aria-label={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} onClick={() => togglePlan(plan)}>{plan.active === false ? '▶' : 'Ⅱ'}</button><button className="plans-icon-button danger" title="Excluir ficha" aria-label="Excluir ficha" onClick={() => deletePlan(plan)}>×</button></>}</div></footer>
         </article>)}
       </div>}
     </section>
@@ -434,6 +499,8 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
         <footer className="plans-detail-footer"><small>Criada em {dateLabel(details.plan.createdAt)} · Atualizada em {dateLabel(details.plan.updatedAt)}</small>{canEdit && <button className="primary-button" onClick={() => { const plan = details.plan; setDetails(null); openEditor(plan); }}>Editar ficha</button>}</footer>
       </article>
     </div>}
+    </>}
+    {exerciseEditor && <div className="plans-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="exercise-editor-title" onMouseDown={(event) => event.target === event.currentTarget && setExerciseEditor(null)}><form className="plans-detail-panel exercise-editor" onSubmit={saveExercise}><header><div><p className="eyebrow">BIBLIOTECA</p><h2 id="exercise-editor-title">{exerciseEditor.id ? 'Editar exercício' : 'Novo exercício'}</h2></div><button type="button" className="plans-icon-button" onClick={() => setExerciseEditor(null)} aria-label="Fechar">×</button></header><label className="plans-field">Nome<input name="name" required minLength="2" maxLength="120" defaultValue={exerciseEditor.name || ''} /></label><label className="plans-field">Grupo muscular<input name="muscleGroup" required maxLength="100" defaultValue={exerciseEditor.muscleGroup || ''} /></label><label className="plans-field">Aparelho / equipamento (opcional)<input name="equipment" maxLength="100" defaultValue={exerciseEditor.equipment || ''} placeholder="Livre, halteres, máquina..." /></label><label className="plans-field">Descrição<input name="description" maxLength="1000" defaultValue={exerciseEditor.description || ''} /></label><label className="plans-field">Instruções<textarea name="instructions" rows="4" maxLength="3000" defaultValue={exerciseEditor.instructions || ''} /></label><footer><button type="button" className="outline-button" onClick={() => setExerciseEditor(null)}>Cancelar</button><button className="primary-button">Salvar exercício</button></footer></form></div>}
     {toast && <div className="plans-toast" role="status">{toast}</div>}
   </div>;
 }
