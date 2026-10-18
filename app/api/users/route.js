@@ -70,12 +70,43 @@ export async function GET() {
     const roleFilter = isSuperAdmin(access.user) ? {} : { role: { $ne: 'SUPER_ADMIN' } };
     const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
     const userIds = users.map((user) => user.id);
-    const [students, trainers] = await Promise.all([
+    const [students, trainers, allStudents, allTrainers] = await Promise.all([
       database.collection('students').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, phone: 1, dateOfBirth: 1, goal: 1, trainerId: 1 } }).toArray(),
       database.collection('trainers').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, cref: 1 } }).toArray(),
+      database.collection('students').find({}, { projection: { _id: 0, userId: 1, name: 1, phone: 1, dateOfBirth: 1, goal: 1, trainerId: 1, ownerAdminId: 1, active: 1, deletedAt: 1 } }).limit(2000).toArray(),
+      database.collection('trainers').find({}, { projection: { _id: 0, userId: 1, name: 1, cref: 1, ownerAdminId: 1, active: 1, deletedAt: 1 } }).limit(1000).toArray(),
     ]);
     const profiles = new Map([...students, ...trainers].map((profile) => [profile.userId, profile]));
-    return NextResponse.json({ users: users.map((user) => ({ ...publicUser(user), ...(profiles.has(user.id) ? profiles.get(user.id) : {}) })) });
+    const studentProfiles = new Map(allStudents.map((profile) => [profile.userId, profile]));
+    const trainerProfiles = new Map(allTrainers.map((profile) => [profile.userId, profile]));
+    const visibleUsers = users.map((user) => {
+      const studentProfile = studentProfiles.get(user.id);
+      const trainerProfile = trainerProfiles.get(user.id);
+      const profile = profiles.get(user.id) || {};
+      return {
+        ...publicUser({ ...user, role: studentProfile ? 'student' : trainerProfile ? 'trainer' : user.role }),
+        ...(studentProfile || trainerProfile || profile),
+      };
+    });
+    const knownIds = new Set(userIds);
+    for (const [role, directory] of [['student', allStudents], ['trainer', allTrainers]]) {
+      for (const profile of directory) {
+        if (!profile.userId || knownIds.has(profile.userId)) continue;
+        visibleUsers.push({
+          id: profile.userId,
+          username: '',
+          name: profile.name || (role === 'student' ? 'Aluno sem conta de acesso' : 'Professor sem conta de acesso'),
+          role,
+          active: profile.active !== false,
+          deletedAt: profile.deletedAt || null,
+          needsAccount: true,
+          ...profile,
+        });
+        knownIds.add(profile.userId);
+      }
+    }
+    visibleUsers.sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+    return NextResponse.json({ users: visibleUsers });
   } catch {
     return NextResponse.json({ error: 'Não foi possível carregar os usuários.' }, { status: 500 });
   }
@@ -153,7 +184,22 @@ export async function PATCH(request) {
     const users = database.collection('users');
     if (await users.findOne({ username: normalizedUsername, id: { $ne: id } })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
     const existing = await users.findOne({ id });
-    if (!existing) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+    if (!existing) {
+      const students = database.collection('students');
+      const profile = await students.findOne({ userId: id });
+      if (!profile || role !== 'student') return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+      if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'Defina uma senha com pelo menos 8 caracteres e no máximo 72 bytes para ativar o acesso.' }, { status: 400 });
+      if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
+      if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
+      const now = new Date();
+      const user = { id, name, username: normalizedUsername, ownerAdminId: profile.ownerAdminId || access.user.id, passwordHash: await bcrypt.hash(password, 12), role: 'student', active: payload.active !== false, sessionVersion: 0, createdAt: profile.createdAt || now, updatedAt: now };
+      const requestedTrainerId = text(payload.trainerId, 64);
+      if (requestedTrainerId && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
+      await users.insertOne(user);
+      await students.updateOne({ userId: id }, { $set: profileDocument(user, payload, profile) });
+      await writeAuditLog(database, { userId: access.user.id, action: 'create', resource: 'user', resourceId: id, metadata: { role: 'student', username: normalizedUsername, restoredProfile: true } });
+      return NextResponse.json({ user: publicUser(user) }, { status: 201 });
+    }
     if (existing.deletedAt) return NextResponse.json({ error: 'Este cadastro foi excluído e não pode mais ser alterado.' }, { status: 410 });
     if (existing.role === 'SUPER_ADMIN' || role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A role SUPER_ADMIN é protegida e não pode ser alterada por esta API.' }, { status: 403 });
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
