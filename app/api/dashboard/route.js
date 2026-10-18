@@ -28,6 +28,7 @@ export async function GET() {
       return {
         id: profile.userId,
         name: profile.name,
+        trainerId: profile.trainerId || null,
         initials: profile.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase(),
         goal: profile.goal || latestPlan?.objective || 'Não definido',
         status: 'Em dia', color: 'coral',

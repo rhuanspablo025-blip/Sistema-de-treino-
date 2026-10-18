@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { requireStaff, requireUser } from '../../../lib/api-auth';
+import { requireUser } from '../../../lib/api-auth';
+import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
 import validation from '../../../lib/workout-plan-validation.cjs';
@@ -14,7 +15,7 @@ async function ownedPlanFilter(database, user, planId) {
   const plan = await database.collection('workout_plans').findOne({ id: planId });
   if (!plan) return null;
   if (user.role === 'student' && (plan.studentId !== user.id || plan.active === false || plan.deletedAt)) return null;
-  if (user.role === 'trainer' && plan.trainerId !== user.id) return null;
+  if (user.role === 'trainer' && !await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true })) return null;
   return plan;
 }
 
@@ -35,7 +36,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const payload = await request.json();
@@ -47,9 +48,9 @@ export async function POST(request) {
     if (payload.isRestDay !== undefined && typeof payload.isRestDay !== 'boolean') return NextResponse.json({ error: 'Tipo de dia inválido.' }, { status: 400 });
     const database = await getDatabase();
     const planFilter = { id: workoutPlanId, deletedAt: { $exists: false } };
-    if (access.user.role === 'trainer') planFilter.trainerId = access.user.id;
     const plan = await database.collection('workout_plans').findOne(planFilter);
     if (!plan) return NextResponse.json({ error: 'Ficha não encontrada.' }, { status: 404 });
+    await assertWorkoutPlanEditor(access.user, workoutPlanId, payload.confirmPassword);
     if (dayOfWeek && await database.collection('workouts').findOne({ workoutPlanId, dayOfWeek, archived: { $ne: true } })) return NextResponse.json({ error: 'Já existe um treino configurado para esse dia.' }, { status: 409 });
     const order = await database.collection('workouts').countDocuments({ workoutPlanId, archived: { $ne: true } });
     if (order >= 7) return NextResponse.json({ error: 'Uma ficha pode ter até sete dias configurados.' }, { status: 400 });
@@ -64,13 +65,13 @@ export async function POST(request) {
     await database.collection('workouts').insertOne(workout);
     await writeAuditLog(database, { userId: access.user.id, action: 'create', resource: 'workout', resourceId: workout.id, metadata: { workoutPlanId } });
     return NextResponse.json({ workout }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível criar o treino.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível criar o treino.' }, { status: error?.status || 500 });
   }
 }
 
 export async function PATCH(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const payload = await request.json();
@@ -81,8 +82,8 @@ export async function PATCH(request) {
     if (!existingWorkout) return NextResponse.json({ error: 'Treino não encontrado.' }, { status: 404 });
     const filter = { id, workoutPlanId: existingWorkout.workoutPlanId };
     const planFilter = { id: existingWorkout.workoutPlanId };
-    if (access.user.role === 'trainer') planFilter.trainerId = access.user.id;
     if (!await database.collection('workout_plans').findOne(planFilter)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    await assertWorkoutPlanEditor(access.user, existingWorkout.workoutPlanId, payload.confirmPassword);
     const fields = { updatedAt: new Date() };
     if (payload.name !== undefined) {
       fields.name = text(payload.name, 120);
@@ -108,13 +109,13 @@ export async function PATCH(request) {
     if (!workout) return NextResponse.json({ error: 'Treino não encontrado.' }, { status: 404 });
     await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'workout', resourceId: id });
     return NextResponse.json({ workout });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível atualizar o treino.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível atualizar o treino.' }, { status: error?.status || 500 });
   }
 }
 
 export async function DELETE(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const id = new URL(request.url).searchParams.get('id');
@@ -122,12 +123,13 @@ export async function DELETE(request) {
     const database = await getDatabase();
     const workout = await database.collection('workouts').findOne({ id });
     if (!workout) return NextResponse.json({ error: 'Treino não encontrado.' }, { status: 404 });
-    if (access.user.role === 'trainer' && !await database.collection('workout_plans').findOne({ id: workout.workoutPlanId, trainerId: access.user.id })) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    const payload = await request.json();
+    await assertWorkoutPlanEditor(access.user, workout.workoutPlanId, payload.confirmPassword);
     await database.collection('workouts').deleteOne({ id });
     await database.collection('workout_history').updateMany({ workoutId: id }, { $set: { workoutName: workout.name } });
     await writeAuditLog(database, { userId: access.user.id, action: 'delete', resource: 'workout', resourceId: id });
     return NextResponse.json({ message: 'Treino excluído.' });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível excluir o treino.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível excluir o treino.' }, { status: error?.status || 500 });
   }
 }

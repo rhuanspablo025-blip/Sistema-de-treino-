@@ -35,7 +35,7 @@ function profileDocument(user, payload = {}, existing = {}) {
     phone: text(payload.phone ?? existing.phone, 40),
     dateOfBirth: text(payload.dateOfBirth ?? existing.dateOfBirth, 20) || null,
     goal: text(payload.goal ?? existing.goal, 240),
-    trainerId: text(payload.trainerId ?? existing.trainerId, 64) || null,
+    trainerId: text(payload.trainerId ?? existing.trainerId, 64) === 'avulso' ? null : text(payload.trainerId ?? existing.trainerId, 64) || null,
     measurements: existing.measurements || [],
     ownerAdminId: text(payload.ownerAdminId ?? existing.ownerAdminId, 64) || null,
     active: user.active,
@@ -133,8 +133,9 @@ export async function POST(request) {
 
     const database = await getDatabase();
     if (await database.collection('users').findOne({ username: normalizedUsername })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
-    const requestedTrainerId = text(payload.trainerId, 64);
-    if (role === 'student' && requestedTrainerId && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
+    const requestedTrainerId = role === 'student' && creator.role === 'trainer' ? creator.id : text(payload.trainerId, 64);
+    if (role === 'student' && creator.role !== 'trainer' && (!Object.prototype.hasOwnProperty.call(payload, 'trainerId') || !requestedTrainerId)) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
+    if (role === 'student' && requestedTrainerId && requestedTrainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
     if (creator.role === 'trainer' && !await database.collection('trainers').findOne({ userId: creator.id, active: true })) return NextResponse.json({ error: 'Perfil de professor não encontrado.' }, { status: 403 });
     const now = new Date();
     const userId = randomUUID();
@@ -148,7 +149,7 @@ export async function POST(request) {
     const ownerPayload = { ...payload, ownerAdminId };
     await database.collection('users').insertOne(user);
     try {
-      if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...ownerPayload, trainerId: payload.trainerId || (creator.role === 'trainer' ? creator.id : '') }));
+      if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...ownerPayload, trainerId: requestedTrainerId === 'avulso' ? null : requestedTrainerId || null }));
       if (role === 'trainer') await database.collection('trainers').insertOne(profileDocument(user, ownerPayload));
       await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, username: normalizedUsername } });
     } catch (error) {
@@ -193,10 +194,11 @@ export async function PATCH(request) {
       if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
       const now = new Date();
       const user = { id, name, username: normalizedUsername, ownerAdminId: profile.ownerAdminId || access.user.id, passwordHash: await bcrypt.hash(password, 12), role: 'student', active: payload.active !== false, sessionVersion: 0, createdAt: profile.createdAt || now, updatedAt: now };
+      if (!Object.prototype.hasOwnProperty.call(payload, 'trainerId') || !text(payload.trainerId, 64)) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
       const requestedTrainerId = text(payload.trainerId, 64);
-      if (requestedTrainerId && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
+      if (requestedTrainerId && requestedTrainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
       await users.insertOne(user);
-      await students.updateOne({ userId: id }, { $set: profileDocument(user, payload, profile) });
+      await students.updateOne({ userId: id }, { $set: profileDocument(user, { ...payload, trainerId: requestedTrainerId === 'avulso' ? null : requestedTrainerId || null }, profile) });
       await writeAuditLog(database, { userId: access.user.id, action: 'create', resource: 'user', resourceId: id, metadata: { role: 'student', username: normalizedUsername, restoredProfile: true } });
       return NextResponse.json({ user: publicUser(user) }, { status: 201 });
     }
@@ -215,14 +217,17 @@ export async function PATCH(request) {
     const trainers = database.collection('trainers');
     const priorStudent = await students.findOne({ userId: id });
     const priorTrainer = await trainers.findOne({ userId: id });
-    if (role === 'student' && payload.trainerId) {
-      const trainer = await trainers.findOne({ userId: text(payload.trainerId, 64), active: true });
-      if (!trainer) return NextResponse.json({ error: 'Professor não encontrado.' }, { status: 400 });
+    let trainerId = payload.trainerId;
+    if (role === 'student') {
+      if (!Object.prototype.hasOwnProperty.call(payload, 'trainerId')) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
+      trainerId = text(payload.trainerId, 64);
+      if (trainerId && trainerId !== 'avulso' && !await trainers.findOne({ userId: trainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
+      if (trainerId === 'avulso') trainerId = null;
     }
     await users.replaceOne({ id }, updated);
     await students.deleteOne({ userId: id });
     await trainers.deleteOne({ userId: id });
-    if (role === 'student') await students.insertOne(profileDocument(updated, payload, priorStudent || {}));
+    if (role === 'student') await students.insertOne(profileDocument(updated, { ...payload, trainerId }, priorStudent || {}));
     if (role === 'trainer') await trainers.insertOne(profileDocument(updated, payload, priorTrainer || {}));
     await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'user', resourceId: id, metadata: { role, active: updated.active } });
     if (existing.role !== role) await writeAuditLog(database, { userId: access.user.id, action: 'permission_change', resource: 'user', resourceId: id, metadata: { previousRole: existing.role, role } });

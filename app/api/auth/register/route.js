@@ -7,6 +7,15 @@ import { normalizeUsername } from '../../../../lib/usernames';
 
 export const runtime = 'nodejs';
 
+export async function GET() {
+  try {
+    const trainers = await (await getDatabase()).collection('trainers').find({ active: true }, { projection: { userId: 1, name: 1 } }).sort({ name: 1 }).toArray();
+    return NextResponse.json({ trainers: trainers.map(({ userId, name }) => ({ id: userId, name })) });
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível carregar os personais.' }, { status: 500 });
+  }
+}
+
 const text = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 export async function POST(request) {
   try {
@@ -24,12 +33,15 @@ export async function POST(request) {
     const confirmPassword = typeof payload.confirmPassword === 'string' ? payload.confirmPassword : '';
     const goal = text(payload.goal, 240);
     const phone = text(payload.phone, 40);
+    const trainerId = text(payload.trainerId, 64);
     if (name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome, usuário válido (3 a 30 caracteres: letras, números, hífen ou sublinhado) e senha.' }, { status: 400 });
     if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
+    if (!trainerId) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
 
     const database = await getDatabase();
     if (await database.collection('users').findOne({ username: normalizedUsername })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
+    if (trainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: trainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
     const userId = randomUUID();
     const now = new Date();
     const user = {
@@ -53,7 +65,7 @@ export async function POST(request) {
         phone,
         dateOfBirth: null,
         goal,
-        trainerId: null,
+        trainerId: trainerId === 'avulso' ? null : trainerId,
         measurements: [],
         active: true,
         createdAt: now,

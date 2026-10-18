@@ -1,11 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function RegisterPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trainers, setTrainers] = useState([]);
+  const [trainersError, setTrainersError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/auth/register').then(async (response) => {
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Não foi possível carregar os personais.');
+      setTrainers(body.trainers || []);
+    }).catch((loadError) => setTrainersError(loadError.message));
+  }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -41,6 +51,8 @@ export default function RegisterPage() {
         <label>Nome completo<input name="name" required minLength="2" maxLength="120" autoComplete="name" /></label>
         <label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" title="Use de 3 a 30 letras, números, hífens ou sublinhados, sem espaços." autoComplete="username" /></label>
         <label>Tipo de usuário<select name="role" defaultValue="student"><option value="student">Aluno</option></select></label>
+        <label>Personal responsável<select name="trainerId" required defaultValue=""><option value="" disabled>Selecione um personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{trainers.map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}</option>)}</select></label>
+        {trainersError && <p className="login-error" role="alert">{trainersError}</p>}
         <label>Telefone (opcional)<input name="phone" type="tel" maxLength="40" autoComplete="tel" /></label>
         <label>Objetivo (opcional)<input name="goal" maxLength="240" /></label>
         <label>Senha<input name="password" type="password" required minLength="8" maxLength="72" autoComplete="new-password" /></label>

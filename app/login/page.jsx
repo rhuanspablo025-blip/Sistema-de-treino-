@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const Icon = ({ children }) => <span className="simple-icon">{children}</span>;
 const Activity = () => <Icon>⌁</Icon>;
@@ -12,6 +12,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    fetch('/api/dashboard').then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (active) window.location.replace(data.currentUser?.financialAccess?.blocked || data.currentUser?.financialAccess?.restricted ? '/billing' : '/');
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setLoading(true);
@@ -22,7 +32,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password: form.get('password') }),
+        body: JSON.stringify({ username, password: form.get('password'), rememberMe: form.get('rememberMe') === 'on' }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível entrar.');
@@ -39,9 +49,10 @@ export default function LoginPage() {
       <p className="eyebrow">ÁREA RESTRITA</p>
       <h1>Bem-vindo de volta</h1>
       <p className="login-copy">Entre para acessar as fichas de treino da sua academia.</p>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} autoComplete="on">
         <label><span>Usuário</span><div className="login-input"><UserIcon /><input name="username" type="text" required minLength="3" maxLength="30" autoComplete="username" placeholder="seu_usuario" /></div></label>
         <label><span>Senha</span><div className="login-input"><LockKeyhole /><input name="password" type="password" required autoComplete="current-password" placeholder="Sua senha" /></div></label>
+        <label className="remember-login"><input name="rememberMe" type="checkbox" defaultChecked /> <span>Manter conectado por 30 dias</span></label>
         {error && <p className="login-error" role="alert">{error}</p>}
         <button className="primary-button" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}<ArrowRight /></button>
       </form>

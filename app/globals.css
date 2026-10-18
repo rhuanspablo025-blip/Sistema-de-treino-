@@ -126,3 +126,6 @@ button { cursor: pointer; }
   .stat-card em { font-size: 9px; }
   .students-panel, .workout-panel { padding-right: 11px; padding-left: 11px; }
 }
+
+.login-card label.remember-login { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 500; cursor: pointer; }
+.login-card .remember-login input { width: 16px; height: 16px; margin: 0; accent-color: var(--teal); }

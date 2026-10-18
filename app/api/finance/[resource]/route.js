@@ -12,16 +12,15 @@ import {
   getLedger,
   getPayments,
   getPayouts,
-  getProviderStatus,
   getSubscriptions,
   listBlocks,
   listPlans,
   parseFinanceRequest,
+  recordManualPayment,
   savePlan,
   updateBillingRules,
   updateInvoice,
   updateManualBlock,
-  updateProviderConfig,
   updateSubscription,
 } from '../../../../lib/finance-service';
 import { enforceSameOrigin } from '../../../../lib/csrf';
@@ -50,7 +49,6 @@ export async function GET(request, { params }) {
       case 'payouts': return NextResponse.json(await getPayouts());
       case 'blocks': return NextResponse.json(await listBlocks());
       case 'rules': return NextResponse.json(await getBillingRules());
-      case 'provider': return NextResponse.json(await getProviderStatus());
       case 'ledger': return NextResponse.json(await getLedger());
       default: return NextResponse.json({ error: 'Recurso financeiro não encontrado.' }, { status: 404 });
     }
@@ -67,6 +65,7 @@ export async function POST(request, { params }) {
       case 'plans': return NextResponse.json(await savePlan(access.user, payload, true), { status: 201 });
       case 'subscriptions': return NextResponse.json(await createSubscription(access.user, payload), { status: 201 });
       case 'invoices': return NextResponse.json(await createInvoice(access.user, payload), { status: 201 });
+      case 'payments': return NextResponse.json(await recordManualPayment(access.user, payload), { status: 201 });
       case 'blocks': return NextResponse.json(await createManualBlock(access.user, payload, request), { status: 201 });
       default: return NextResponse.json({ error: 'Operação não permitida.' }, { status: 404 });
     }
@@ -80,7 +79,6 @@ export async function PUT(request, { params }) {
     const { resource } = await params;
     const payload = await parseFinanceRequest(request);
     if (resource === 'rules') return NextResponse.json(await updateBillingRules(access.user, payload));
-    if (resource === 'provider') return NextResponse.json(await updateProviderConfig(access.user, payload));
     return NextResponse.json({ error: 'Operação não permitida.' }, { status: 404 });
   } catch (error) { return financeErrorResponse(error); }
 }

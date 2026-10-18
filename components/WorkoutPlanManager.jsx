@@ -44,7 +44,7 @@ function plainExercise(item) {
   return { ...fields };
 }
 
-export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises }) {
+export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved }) {
   const [plans, setPlans] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +82,11 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   }
 
   useEffect(() => { loadData(true); }, []);
+
+  function requestPassword() {
+    const password = window.prompt('Confirme sua senha para salvar esta alteração:');
+    return password || null;
+  }
 
   function showToast(message) {
     setToast(message);
@@ -252,10 +257,12 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
 
   async function saveEditor(event) {
     event.preventDefault();
+    const confirmPassword = requestPassword();
+    if (!confirmPassword) return;
     setSaving(true);
     setEditorError('');
     try {
-      const payload = { ...editor.plan, id: editor.id || undefined, days: editor.days };
+      const payload = { ...editor.plan, id: editor.id || undefined, days: editor.days, confirmPassword };
       const result = await requestJson('/api/workout-plans', {
         method: editor.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -263,6 +270,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
       });
       setEditor(null);
       await loadData();
+      onSaved?.(result);
       showToast(editor.id ? 'Ficha atualizada com sucesso.' : 'Ficha criada com sucesso.');
       if (result.plan?.id) setDetails(null);
     } catch (error) {
@@ -273,19 +281,23 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   }
 
   async function duplicatePlan(plan) {
+    const confirmPassword = requestPassword();
+    if (!confirmPassword) return;
     try {
-      await requestJson(`/api/workout-plans/${encodeURIComponent(plan.id)}/duplicate`, { method: 'POST' });
+      await requestJson(`/api/workout-plans/${encodeURIComponent(plan.id)}/duplicate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmPassword }) });
       await loadData();
       showToast('Ficha duplicada com sucesso.');
     } catch (error) { showToast(error.message || 'Não foi possível duplicar a ficha.'); }
   }
 
   async function togglePlan(plan) {
+    const confirmPassword = requestPassword();
+    if (!confirmPassword) return;
     try {
       await requestJson('/api/workout-plans', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: plan.id, status: plan.active === false ? 'ativa' : 'inativa' }),
+        body: JSON.stringify({ id: plan.id, status: plan.active === false ? 'ativa' : 'inativa', confirmPassword }),
       });
       await loadData();
       showToast(plan.active === false ? 'Ficha ativada.' : 'Ficha desativada.');
@@ -294,8 +306,10 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
 
   async function deletePlan(plan) {
     if (!window.confirm(`Excluir a ficha “${plan.name}” de ${plan.studentName}? O histórico será preservado.`)) return;
+    const confirmPassword = requestPassword();
+    if (!confirmPassword) return;
     try {
-      await requestJson(`/api/workout-plans?id=${encodeURIComponent(plan.id)}`, { method: 'DELETE' });
+      await requestJson(`/api/workout-plans?id=${encodeURIComponent(plan.id)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmPassword }) });
       await loadData();
       showToast('Ficha excluída; histórico preservado.');
     } catch (error) { showToast(error.message || 'Não foi possível excluir a ficha.'); }
@@ -383,7 +397,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   }
 
   return <div className="page-content plans-page">
-    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE FICHAS</p><h1>Fichas de treino</h1><p className="heading-copy">Monte a semana, ajuste cada exercício e acompanhe as atualizações.</p></div><button className="primary-button" disabled={!students.length || studentsLoading} onClick={() => openEditor()}>+ Nova ficha</button></div>
+    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE FICHAS</p><h1>Fichas de treino</h1><p className="heading-copy">Monte a semana, ajuste cada exercício e acompanhe as atualizações.</p></div>{canEdit && <button className="primary-button" disabled={!students.length || studentsLoading} onClick={() => openEditor()}>+ Nova ficha</button>}</div>
     <div className="plans-stats">
       <article><span>Total de fichas</span><strong>{totalCount}</strong></article>
       <article><span>Ativas</span><strong>{activeCount}</strong></article>
@@ -399,12 +413,12 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
         <select value={objectiveFilter} onChange={(event) => setObjectiveFilter(event.target.value)} aria-label="Filtrar por objetivo"><option value="all">Todos os objetivos</option>{OBJECTIVES.map((objective) => <option key={objective}>{objective}</option>)}</select>
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Ordenar fichas"><option value="updated">Atualizadas recentemente</option><option value="created">Mais recentes</option><option value="name">Nome</option></select>
       </div>
-      {loading || studentsLoading ? <div className="plans-state" role="status">Carregando fichas...</div> : loadError ? <div className="plans-state" role="alert"><strong>Não foi possível carregar as fichas.</strong><span>{loadError}</span><button className="outline-button" onClick={() => loadData(true)}>Tentar novamente</button></div> : filteredPlans.length === 0 ? <div className="plans-state"><strong>{plans.length ? 'Nenhuma ficha encontrada' : 'Nenhuma ficha cadastrada'}</strong><span>{plans.length ? 'Altere a pesquisa ou os filtros.' : 'Crie a primeira ficha de treino para começar.'}</span>{!plans.length && students.length > 0 && <button className="primary-button" onClick={() => openEditor()}>+ Nova ficha</button>}</div> : <div className="plans-grid">
+      {loading || studentsLoading ? <div className="plans-state" role="status">Carregando fichas...</div> : loadError ? <div className="plans-state" role="alert"><strong>Não foi possível carregar as fichas.</strong><span>{loadError}</span><button className="outline-button" onClick={() => loadData(true)}>Tentar novamente</button></div> : filteredPlans.length === 0 ? <div className="plans-state"><strong>{plans.length ? 'Nenhuma ficha encontrada' : 'Nenhuma ficha cadastrada'}</strong><span>{plans.length ? 'Altere a pesquisa ou os filtros.' : 'Crie a primeira ficha de treino para começar.'}</span>{canEdit && !plans.length && students.length > 0 && <button className="primary-button" onClick={() => openEditor()}>+ Nova ficha</button>}</div> : <div className="plans-grid">
         {filteredPlans.map((plan) => <article className="plans-card" key={plan.id}>
           <header className="plans-card-header"><div><p className="eyebrow">{plan.objective}</p><h2>{plan.name}</h2></div><span className={`plans-status ${plan.active === false ? 'inactive' : ''}`}>{plan.active === false ? 'Inativa' : 'Ativa'}</span></header>
           <div className="plans-card-student"><span className="plans-avatar">{(plan.studentName || 'A').split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{plan.studentName}</strong><small>Professor: {plan.trainerName || 'Equipe'}</small></span></div>
           <div className="plans-card-meta"><span><small>Treinos</small><strong>{plan.dayCount || 0} dias · {plan.exerciseCount || 0} exercícios</strong></span><span><small>Nível</small><strong>{plan.level || 'Não definido'}</strong></span><span><small>Período</small><strong>{dateLabel(plan.startDate)} · {dateLabel(plan.endDate)}</strong></span></div>
-          <footer className="plans-card-footer"><small>Atualizada {dateLabel(plan.updatedAt)}</small><div className="plans-card-actions"><button className="plans-text-button" onClick={() => openDetails(plan)}>Visualizar</button><button className="plans-text-button" onClick={() => openEditor(plan)}>Editar</button><button className="plans-icon-button" title="Duplicar ficha" aria-label="Duplicar ficha" onClick={() => duplicatePlan(plan)}>⧉</button><button className="plans-icon-button" title={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} aria-label={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} onClick={() => togglePlan(plan)}>{plan.active === false ? '▶' : 'Ⅱ'}</button><button className="plans-icon-button danger" title="Excluir ficha" aria-label="Excluir ficha" onClick={() => deletePlan(plan)}>×</button></div></footer>
+          <footer className="plans-card-footer"><small>Atualizada {dateLabel(plan.updatedAt)}</small><div className="plans-card-actions"><button className="plans-text-button" onClick={() => openDetails(plan)}>Visualizar</button>{canEdit && <><button className="plans-text-button" onClick={() => openEditor(plan)}>Editar</button><button className="plans-icon-button" title="Duplicar ficha" aria-label="Duplicar ficha" onClick={() => duplicatePlan(plan)}>⧉</button><button className="plans-icon-button" title={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} aria-label={plan.active === false ? 'Ativar ficha' : 'Desativar ficha'} onClick={() => togglePlan(plan)}>{plan.active === false ? '▶' : 'Ⅱ'}</button><button className="plans-icon-button danger" title="Excluir ficha" aria-label="Excluir ficha" onClick={() => deletePlan(plan)}>×</button></>}</div></footer>
         </article>)}
       </div>}
     </section>
@@ -417,7 +431,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
         <div className="plans-detail-meta"><span><small>Nível</small><strong>{details.plan.level || 'Não definido'}</strong></span><span><small>Status</small><strong>{details.plan.active === false ? 'Inativa' : 'Ativa'}</strong></span><span><small>Período</small><strong>{dateLabel(details.plan.startDate)} – {dateLabel(details.plan.endDate)}</strong></span><span><small>Professor</small><strong>{details.plan.trainerName}</strong></span></div>
         {details.plan.observations && <p className="plans-detail-observations">{details.plan.observations}</p>}
         {details.days.length === 0 ? <div className="plans-state">Nenhum dia configurado nesta ficha.</div> : details.days.map((day) => <section className="plans-detail-day" key={day.id}><header><span>{WEEK_DAYS.find((slot) => slot.key === day.dayOfWeek)?.label || 'Treino'}</span><h2>{day.name}</h2></header>{day.isRestDay ? <p>Descanso</p> : day.exercises.length === 0 ? <p>Sem exercícios neste treino.</p> : <div className="plans-detail-table"><div className="plans-detail-row plans-detail-head"><span>Exercício</span><span>Séries</span><span>Repetições</span><span>Carga</span><span>Intervalo</span><span>Tempo</span></div>{day.exercises.map((exercise) => <div className="plans-detail-row" key={exercise.id}><span><strong>{exercise.exercise?.name || 'Exercício'}</strong><small>{exercise.method || exercise.observations || ''}</small></span><span>{exercise.sets}</span><span>{exercise.repetitions}</span><span>{exercise.load === null ? '—' : `${exercise.load} kg`}</span><span>{exercise.rest}s</span><span>{exercise.timeSeconds ? `${exercise.timeSeconds}s` : '—'}</span></div>)}</div>}</section>)}
-        <footer className="plans-detail-footer"><small>Criada em {dateLabel(details.plan.createdAt)} · Atualizada em {dateLabel(details.plan.updatedAt)}</small><button className="primary-button" onClick={() => { const plan = details.plan; setDetails(null); openEditor(plan); }}>Editar ficha</button></footer>
+        <footer className="plans-detail-footer"><small>Criada em {dateLabel(details.plan.createdAt)} · Atualizada em {dateLabel(details.plan.updatedAt)}</small>{canEdit && <button className="primary-button" onClick={() => { const plan = details.plan; setDetails(null); openEditor(plan); }}>Editar ficha</button>}</footer>
       </article>
     </div>}
     {toast && <div className="plans-toast" role="status">{toast}</div>}

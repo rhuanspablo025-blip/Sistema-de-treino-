@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { requireStaff, requireUser } from '../../../lib/api-auth';
+import { requireUser } from '../../../lib/api-auth';
+import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
 
@@ -13,7 +14,7 @@ async function canAccessWorkout(database, user, workout) {
   const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId });
   if (!plan) return false;
   if (user.role === 'student') return plan.studentId === user.id && plan.active !== false && !plan.deletedAt;
-  if (user.role === 'trainer') return plan.trainerId === user.id;
+  if (user.role === 'trainer') return Boolean(await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true }));
   return ['admin', 'dev', 'SUPER_ADMIN'].includes(user.role);
 }
 
@@ -40,7 +41,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const payload = await request.json();
@@ -50,6 +51,7 @@ export async function POST(request) {
     const database = await getDatabase();
     const workout = await database.collection('workouts').findOne({ id: workoutId });
     if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Treino não encontrado ou sem permissão.' }, { status: 404 });
+    await assertWorkoutPlanEditor(access.user, workout.workoutPlanId, payload.confirmPassword);
     if (workout.isRestDay) return NextResponse.json({ error: 'Não é possível adicionar exercícios em um dia de descanso.' }, { status: 400 });
     const exercise = await database.collection('exercises').findOne({ id: exerciseId, active: true });
     if (!exercise) return NextResponse.json({ error: 'Exercício não encontrado.' }, { status: 404 });
@@ -71,13 +73,13 @@ export async function POST(request) {
     await database.collection('workouts').updateOne({ id: workoutId }, { $push: { exercises: item }, $set: { updatedAt: now } });
     await writeAuditLog(database, { userId: access.user.id, action: 'add_exercise', resource: 'workout', resourceId: workoutId, metadata: { exerciseId } });
     return NextResponse.json({ exercise: { ...item, exercise } }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível adicionar o exercício.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível adicionar o exercício.' }, { status: error?.status || 500 });
   }
 }
 
 export async function PATCH(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const payload = await request.json();
@@ -86,6 +88,7 @@ export async function PATCH(request) {
     const database = await getDatabase();
     const workout = await database.collection('workouts').findOne({ 'exercises.id': id });
     if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    await assertWorkoutPlanEditor(access.user, workout.workoutPlanId, payload.confirmPassword);
     const fields = { 'exercises.$[item].updatedAt': new Date(), updatedAt: new Date() };
     const sets = payload.sets ?? payload.series;
     const rest = payload.rest ?? payload.restSeconds ?? payload.rest_seconds;
@@ -123,24 +126,26 @@ export async function PATCH(request) {
     const item = (await withExerciseNames(database, updatedWorkout)).find((entry) => entry.id === id);
     await writeAuditLog(database, { userId: access.user.id, action: 'update_exercise', resource: 'workout', resourceId: workout.id, metadata: { exerciseId: item.exerciseId } });
     return NextResponse.json({ exercise: item });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível atualizar o exercício.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível atualizar o exercício.' }, { status: error?.status || 500 });
   }
 }
 
 export async function DELETE(request) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
+    const { confirmPassword } = await request.json();
     const id = new URL(request.url).searchParams.get('id');
     if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID do exercício na ficha inválido.' }, { status: 400 });
     const database = await getDatabase();
     const workout = await database.collection('workouts').findOne({ 'exercises.id': id });
     if (!await canAccessWorkout(database, access.user, workout)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    await assertWorkoutPlanEditor(access.user, workout.workoutPlanId, confirmPassword);
     await database.collection('workouts').updateOne({ id: workout.id }, { $pull: { exercises: { id } }, $set: { updatedAt: new Date() } });
     await writeAuditLog(database, { userId: access.user.id, action: 'remove_exercise', resource: 'workout', resourceId: workout.id });
     return NextResponse.json({ message: 'Exercício removido do treino.' });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível remover o exercício.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error?.status ? error.message : 'Não foi possível remover o exercício.' }, { status: error?.status || 500 });
   }
 }

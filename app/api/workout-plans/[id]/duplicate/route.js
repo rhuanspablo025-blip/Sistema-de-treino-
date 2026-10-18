@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { requireStaff } from '../../../../../lib/api-auth';
+import { requireUser } from '../../../../../lib/api-auth';
+import { assertWorkoutPlanEditor } from '../../../../../lib/workout-permissions';
 import { getDatabase, getMongoClient } from '../../../../../lib/mongodb';
 import { writeAuditLog } from '../../../../../lib/audit';
 
@@ -8,16 +9,16 @@ export const runtime = 'nodejs';
 const idPattern = /^[0-9a-f-]{36}$/i;
 
 export async function POST(request, { params }) {
-  const access = await requireStaff();
+  const access = await requireUser();
   if (access.response) return access.response;
   try {
     const { id } = await params;
     if (!idPattern.test(id || '')) return NextResponse.json({ error: 'ID da ficha inválido.' }, { status: 400 });
     const database = await getDatabase();
     const filter = { id, deletedAt: { $exists: false } };
-    if (access.user.role === 'trainer') filter.trainerId = access.user.id;
     const originalPlan = await database.collection('workout_plans').findOne(filter);
     if (!originalPlan) return NextResponse.json({ error: 'Ficha não encontrada.' }, { status: 404 });
+    await assertWorkoutPlanEditor(access.user, id, payload.confirmPassword);
 
     const now = new Date();
     const newPlanId = randomUUID();

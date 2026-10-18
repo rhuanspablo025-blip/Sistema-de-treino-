@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createSession, SESSION_COOKIE } from '../../../../lib/session';
+import { createSession, SESSION_COOKIE, SESSION_DURATION, TEMP_SESSION_DURATION } from '../../../../lib/session';
+import { getFinancialAccess } from '../../../../lib/finance-access';
 import { getDatabase } from '../../../../lib/mongodb';
 import { normalizeUsername } from '../../../../lib/usernames';
 import { clearLoginFailures, checkLoginRateLimit, recordLoginFailure } from '../../../../lib/login-rate-limit';
@@ -34,14 +35,18 @@ export async function POST(request) {
 
     await clearLoginFailures(rate.key);
     if (user.role === 'SUPER_ADMIN') await writeAuditLog(database, { userId: user.id, action: 'super_admin_login', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
-    const token = await createSession(user);
+    const financialAccess = await getFinancialAccess(user);
+    if (financialAccess.blocked || financialAccess.restricted) return NextResponse.json({ error: 'Acesso suspenso por inadimplência. Entre em contato com o responsável financeiro.' }, { status: 423 });
+    const rememberMe = payload.rememberMe !== false;
+    const maxAge = rememberMe ? SESSION_DURATION : TEMP_SESSION_DURATION;
+    const token = await createSession(user, maxAge);
     const response = NextResponse.json({ user: { id: user.id, name: user.name, username: user.username, role: user.role } });
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      ...(rememberMe ? { maxAge } : {}),
     });
     return response;
   } catch (error) {
