@@ -18,11 +18,12 @@ button { cursor: pointer; }
 .main-nav { display: grid; gap: 5px; }.nav-item { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 13px; color: #687770; border: 0; border-radius: 8px; background: transparent; text-align: left; font-size: 13px; }.nav-item.active { color: var(--teal); background: #dcece1; font-weight: 700; }.nav-indicator { position: absolute; right: 0; width: 3px; height: 21px; border-radius: 3px 0 0 3px; background: var(--coral); }.sidebar-bottom { margin-top: auto; }.user-card { margin: 22px 4px 16px; padding: 13px 8px; border-top: 1px solid #dce7de; }.user-avatar { border-radius: 50%; background: #f3b58b; color: #754a36; }.logout { display: flex; gap: 9px; align-items: center; padding: 0 13px; border: 0; background: transparent; color: #89948f; font-size: 12px; }
 .content-area { min-width: 0; flex: 1; }.topbar { min-width: 0; height: 78px; padding: 0 42px; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #fff; border-bottom: 1px solid var(--line); }.breadcrumbs, .topbar-actions, .topbar-date { display: flex; align-items: center; gap: 10px; }.breadcrumbs { min-width: 0; color: #9aa39f; font-size: 13px; }.breadcrumbs strong { overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }.topbar-actions { flex-shrink: 0; color: #7a8580; font-size: 12px; }.topbar-divider { height: 24px; width: 1px; background: var(--line); }.icon-button { position: relative; display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 8px; color: #75817c; background: #fff; }.notification { border: 0; }.notification i { position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--coral); }.mobile-menu { display: none; border: 0; background: transparent; color: var(--ink); }
 .main-nav { min-width: 0; }
+.view-mode-nav { margin-top: 14px; padding-top: 14px; border-top: 1px solid #dce7de; }
 .user-management-page { max-width: 1320px; }
 .user-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .user-directory { padding: 22px; }
 .user-directory-heading { align-items: center; margin-bottom: 20px; }
-.user-active-count, .user-role-badge { display: inline-flex; align-items: center; width: fit-content; padding: 6px 9px; border: 1px solid #dce8dd; border-radius: 999px; color: var(--teal); background: #f4faf5; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.user-active-count, .user-role-badge { display: inline-flex; align-items: center; width: fit-content; max-width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid #dce8dd; border-radius: 999px; color: var(--teal); background: #f4faf5; font-size: 10px; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
 .user-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 210px) auto; align-items: center; gap: 12px; margin-bottom: 12px; }
 .user-filter-select { display: grid; gap: 4px; color: var(--muted); font-size: 9px; }
 .user-filter-select select { width: 100%; height: 36px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: #fff; font-size: 11px; }
@@ -135,3 +136,10 @@ button { cursor: pointer; }
 
 .login-card label.remember-login { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 500; cursor: pointer; }
 .login-card .remember-login input { width: 16px; height: 16px; margin: 0; accent-color: var(--teal); }
+.settings-form { max-width: 880px; padding: 28px; }
+.settings-form h2 { margin: 0 0 8px; }
+.settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 24px 0; }
+.settings-fields label, .plans-student-selector { display: grid; gap: 8px; color: var(--muted, #8da0aa); font-size: 13px; }
+.settings-fields input, .settings-fields select, .plans-student-selector select { min-width: 0; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--border, #3a3d3b); border-radius: 8px; background: #111; color: #fff; }
+.plans-student-selector { max-width: 420px; margin: 0 0 18px; }
+@media (max-width: 640px) { .settings-form { padding: 18px; } .settings-fields { grid-template-columns: 1fr; } }

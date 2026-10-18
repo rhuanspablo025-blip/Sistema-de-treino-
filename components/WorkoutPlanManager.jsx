@@ -44,13 +44,13 @@ function plainExercise(item) {
   return { ...fields };
 }
 
-export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved, initialTab = 'plans' }) {
+export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved, initialTab = 'plans', requireStudentSelection = false, studentMode = false }) {
   const [plans, setPlans] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
-  const [studentFilter, setStudentFilter] = useState('all');
+  const [studentFilter, setStudentFilter] = useState(requireStudentSelection ? '' : 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [objectiveFilter, setObjectiveFilter] = useState('all');
   const [sortBy, setSortBy] = useState('updated');
@@ -78,7 +78,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
       const [planData, exerciseData, templateData] = await Promise.all([
         requestJson('/api/workout-plans?status=all'),
         requestJson('/api/exercises?status=all'),
-        requestJson('/api/workout-templates'),
+        studentMode ? Promise.resolve({ templates: [] }) : requestJson('/api/workout-templates'),
       ]);
       setPlans(planData.plans || []);
       setCatalog(exerciseData.exercises || []);
@@ -136,8 +136,8 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   }
 
   function applyTemplate(template) {
-    const student = students[0];
-    if (!student) { onNewStudent(); return; }
+    const student = students.find((item) => item.id === studentFilter) || (requireStudentSelection ? null : students[0]);
+    if (!student) { if (requireStudentSelection) { showToast('Localize um aluno antes de aplicar o modelo.'); return; } onNewStudent(); return; }
     setSection('plans');
     setEditor({ id: null, plan: { ...blankPlan(student.id), name: template.name, objective: template.objective, objectiveDetails: template.objectiveDetails, level: template.level, observations: template.observations }, days: template.days.map((day) => ({ ...day, id: undefined, exercises: day.exercises.map(({ id, ...item }) => ({ ...item })) })) });
   }
@@ -183,7 +183,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   async function openEditor(plan = null) {
     setEditorError('');
     if (!plan) {
-      setEditor({ plan: blankPlan(students[0]?.id || ''), days: [], id: null });
+      setEditor({ plan: blankPlan((students.find((item) => item.id === studentFilter) || (requireStudentSelection ? null : students[0]))?.id || ''), days: [], id: null });
       return;
     }
     try {
@@ -460,8 +460,8 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   }
 
   return <div className="page-content plans-page">
-    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE TREINOS</p><h1>{section === 'library' ? 'Biblioteca de exercícios' : section === 'templates' ? 'Modelos de treino' : 'Fichas de treino'}</h1><p className="heading-copy">Fichas, modelos reutilizáveis e exercícios organizados em um só lugar.</p></div>{canEdit && <button className="primary-button" disabled={section === 'plans' && (!students.length || studentsLoading)} onClick={() => section === 'library' ? setExerciseEditor({}) : section === 'plans' ? openEditor() : openTemplateEditor()}>{section === 'library' ? '+ Novo exercício' : section === 'plans' ? '+ Nova ficha' : '+ Criar modelo'}</button>}</div>
-    <div className="plans-section-tabs" role="tablist" aria-label="Gestão de treinos">{[['plans','Fichas'],['templates','Modelos reutilizáveis'],['library','Biblioteca de exercícios']].map(([key,label]) => <button key={key} role="tab" aria-selected={section === key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}>{label}</button>)}</div>
+    <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE TREINOS</p><h1>{section === 'library' ? 'Biblioteca de exercícios' : section === 'templates' ? 'Modelos de treino' : 'Fichas de treino'}</h1><p className="heading-copy">Fichas, modelos reutilizáveis e exercícios organizados em um só lugar.</p></div>{canEdit && <button className="primary-button" disabled={section === 'plans' && (!students.length || studentsLoading || (requireStudentSelection && !studentFilter))} onClick={() => section === 'library' ? setExerciseEditor({}) : section === 'plans' ? openEditor() : openTemplateEditor()}>{section === 'library' ? '+ Novo exercício' : section === 'plans' ? '+ Nova ficha' : '+ Criar modelo'}</button>}</div>
+    {!studentMode && <div className="plans-section-tabs" role="tablist" aria-label="Gestão de treinos">{[['plans','Fichas'],['templates','Modelos reutilizáveis'],['library','Biblioteca de exercícios']].map(([key,label]) => <button key={key} role="tab" aria-selected={section === key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}>{label}</button>)}</div>}
     {section === 'library' ? <section className="plans-list-panel"><div className="plans-toolbar"><label className="plans-search"><span aria-hidden="true">⌕</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="Buscar nome, grupo muscular ou aparelho" /></label><select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value)} aria-label="Status dos exercícios"><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="all">Todos</option></select></div><div className="exercise-admin-grid">{catalog.filter((item) => (libraryStatus === 'all' || (libraryStatus === 'active' ? item.active !== false : item.active === false)) && `${item.name} ${item.muscleGroup} ${item.equipment}`.toLowerCase().includes(libraryQuery.toLowerCase())).map((exercise) => <article className="exercise-admin-card" key={exercise.id}><div><strong>{exercise.name}</strong><span>{exercise.muscleGroup} · {exercise.equipment || 'Peso corporal / livre'}</span>{exercise.description && <small>{exercise.description}</small>}</div><span className={`plans-status ${exercise.active === false ? 'inactive' : ''}`}>{exercise.active === false ? 'Inativo' : 'Ativo'}</span><footer><button className="plans-text-button" onClick={() => setExerciseEditor(exercise)}>Editar</button><button className="plans-text-button" onClick={() => changeExerciseStatus(exercise)}>{exercise.active === false ? 'Ativar' : 'Inativar'}</button><button className="plans-text-button danger" onClick={() => deleteExercise(exercise)}>Excluir</button></footer></article>)}</div>{catalog.length === 0 && <div className="plans-state">Nenhum exercício no catálogo ainda.</div>}</section> : section === 'templates' ? <section className="plans-list-panel"><p className="heading-copy">Crie fichas padrão com vários exercícios e aplique-as aos alunos quando montar seus treinos.</p>{templates.length === 0 ? <div className="plans-state"><strong>Nenhum modelo reutilizável</strong><span>Monte um modelo do zero com exercícios da biblioteca e reutilize-o em qualquer aluno.</span><button className="primary-button" onClick={() => openTemplateEditor()}>+ Criar modelo</button></div> : <div className="plans-grid">{templates.map((template) => <article className="plans-card" key={template.id}><header className="plans-card-header"><div><p className="eyebrow">{template.objective}</p><h2>{template.name}</h2></div><span className={`plans-status ${template.active === false ? 'inactive' : ''}`}>{template.active === false ? 'Inativo' : 'Ativo'}</span></header><div className="plans-card-meta"><span><small>Treinos</small><strong>{template.days.filter((day) => !day.isRestDay).length} dias · {template.days.reduce((sum,day) => sum + day.exercises.length,0)} exercícios</strong></span><span><small>Nível</small><strong>{template.level}</strong></span></div><footer className="plans-card-footer"><div className="plans-card-actions"><button className="plans-text-button" disabled={template.active === false} onClick={() => applyTemplate(template)}>Aplicar a aluno</button><button className="plans-text-button" onClick={() => changeTemplateStatus(template)}>{template.active === false ? 'Ativar' : 'Inativar'}</button><button className="plans-text-button danger" onClick={() => changeTemplateStatus(template, true)}>Excluir</button></div></footer></article>)}</div>}</section> : <>
     <div className="plans-stats">
       <article><span>Total de fichas</span><strong>{totalCount}</strong></article>
@@ -471,14 +471,15 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
     </div>
     {!studentsLoading && students.length === 0 && <div className="plans-notice"><div><strong>Nenhum aluno cadastrado</strong><span>Cadastre um aluno antes de criar uma ficha.</span></div><button className="outline-button" onClick={onNewStudent}>Cadastrar aluno</button></div>}
     <section className="plans-list-panel">
+      {requireStudentSelection && <label className="plans-field plans-student-selector">Localizar aluno<select value={studentFilter} onChange={(event) => setStudentFilter(event.target.value)}><option value="">Selecione o aluno para abrir a ficha</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>}
       <div className="plans-toolbar">
         <label className="plans-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar ficha, aluno ou professor" aria-label="Buscar fichas" /></label>
-        <select value={studentFilter} onChange={(event) => setStudentFilter(event.target.value)} aria-label="Filtrar por aluno"><option value="all">Todos os alunos</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select>
+        {!requireStudentSelection && <select value={studentFilter} onChange={(event) => setStudentFilter(event.target.value)} aria-label="Filtrar por aluno"><option value="all">Todos os alunos</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select>}
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por status"><option value="all">Todos os status</option><option value="active">Ativas</option><option value="inactive">Inativas</option></select>
         <select value={objectiveFilter} onChange={(event) => setObjectiveFilter(event.target.value)} aria-label="Filtrar por objetivo"><option value="all">Todos os objetivos</option>{OBJECTIVES.map((objective) => <option key={objective}>{objective}</option>)}</select>
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Ordenar fichas"><option value="updated">Atualizadas recentemente</option><option value="created">Mais recentes</option><option value="name">Nome</option></select>
       </div>
-      {loading || studentsLoading ? <div className="plans-state" role="status">Carregando fichas...</div> : loadError ? <div className="plans-state" role="alert"><strong>Não foi possível carregar as fichas.</strong><span>{loadError}</span><button className="outline-button" onClick={() => loadData(true)}>Tentar novamente</button></div> : filteredPlans.length === 0 ? <div className="plans-state"><strong>{plans.length ? 'Nenhuma ficha encontrada' : 'Nenhuma ficha cadastrada'}</strong><span>{plans.length ? 'Altere a pesquisa ou os filtros.' : 'Crie a primeira ficha de treino para começar.'}</span>{canEdit && !plans.length && students.length > 0 && <button className="primary-button" onClick={() => openEditor()}>+ Nova ficha</button>}</div> : <div className="plans-grid">
+      {loading || studentsLoading ? <div className="plans-state" role="status">Carregando fichas...</div> : requireStudentSelection && !studentFilter ? <div className="plans-state"><strong>Escolha um aluno para começar</strong><span>As fichas e ações ficarão disponíveis depois de localizar o aluno.</span></div> : loadError ? <div className="plans-state" role="alert"><strong>Não foi possível carregar as fichas.</strong><span>{loadError}</span><button className="outline-button" onClick={() => loadData(true)}>Tentar novamente</button></div> : filteredPlans.length === 0 ? <div className="plans-state"><strong>{plans.length ? 'Nenhuma ficha encontrada para este aluno' : 'Nenhuma ficha cadastrada'}</strong><span>{plans.length ? 'Altere a pesquisa ou os filtros.' : 'Crie a primeira ficha de treino para começar.'}</span>{canEdit && (!requireStudentSelection || studentFilter) && students.length > 0 && <button className="primary-button" onClick={() => openEditor()}>+ Nova ficha</button>}</div> : <div className="plans-grid">
         {filteredPlans.map((plan) => <article className="plans-card" key={plan.id}>
           <header className="plans-card-header"><div><p className="eyebrow">{plan.objective}</p><h2>{plan.name}</h2></div><span className={`plans-status ${plan.active === false ? 'inactive' : ''}`}>{plan.active === false ? 'Inativa' : 'Ativa'}</span></header>
           <div className="plans-card-student"><span className="plans-avatar">{(plan.studentName || 'A').split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{plan.studentName}</strong><small>Professor: {plan.trainerName || 'Equipe'}</small></span></div>

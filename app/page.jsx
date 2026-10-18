@@ -77,6 +77,7 @@ function UserManagement({ trainers = [] }) {
     const form = new FormData(event.currentTarget);
     const payload = Object.fromEntries(form.entries());
     payload.active = form.get('active') === 'on';
+    payload.financialAccessExempt = form.get('financialAccessExempt') === 'on';
     payload.role = editingRole;
     payload.roles = editingRoles;
     try {
@@ -129,6 +130,7 @@ function UserManagement({ trainers = [] }) {
   const pageCount = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const visibleUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
   const roleLabels = { student: 'Aluno', trainer: 'Professor', admin: 'Administrador', dev: 'Desenvolvedor', SUPER_ADMIN: 'Proprietário' };
+  const trainerOptions = (users.length ? users : trainers).filter((user) => user.active !== false && !user.deletedAt && (user.role === 'trainer' || (user.roles || []).includes('trainer')));
   const counts = {
     total: users.filter((user) => !user.deletedAt).length,
     active: users.filter((user) => !user.deletedAt && user.active !== false).length,
@@ -144,8 +146,22 @@ function UserManagement({ trainers = [] }) {
     {error && <p className="login-error" role="alert">{error}</p>}{feedback && <p className="profile-status" role="status">{feedback}</p>}
     {loading ? <p className="empty-state">Carregando cadastros...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum cadastro encontrado com esses filtros.</p> : <div className="user-directory-list">{visibleUsers.map((user) => { const protectedAccount = user.role === 'SUPER_ADMIN'; const lockedAccount = protectedAccount || Boolean(user.deletedAt); const roles = user.roles || [user.role]; return <article className={`user-directory-row ${user.deletedAt ? 'is-deleted' : user.active === false ? 'is-inactive' : ''}`} key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span className="user-directory-name"><strong>{user.name}</strong><small>@{user.username}</small></span><span className="user-role-badge">{roles.map((role) => roleLabels[role]).filter(Boolean).join(' · ') || 'Usuário'}</span><span className={`status ${user.deletedAt ? 'deleted' : user.active === false ? 'inativo' : ''}`}><i />{user.deletedAt ? 'Excluído' : user.active === false ? 'Inativo' : 'Ativo'}</span><div className="user-row-actions"><button className="outline-button small-button" onClick={() => { setEditingUser(user); setEditingRoles(roles.filter((role) => ['student','trainer','admin','dev'].includes(role))); }} disabled={lockedAccount}>Editar</button><button className="user-action-button" onClick={() => toggleUser(user)} disabled={lockedAccount} aria-label={user.active === false ? `Ativar ${user.name}` : `Inativar ${user.name}`}>{user.active === false ? 'Ativar' : 'Inativar'}</button><button className="user-action-button danger" onClick={() => deleteUser(user)} disabled={lockedAccount} aria-label={`Excluir ${user.name}`}>Excluir</button></div></article>; })}</div>}
     <div className="user-directory-footer"><small>{filteredUsers.length} cadastro(s)</small><div><button className="filter" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Anterior</button><span> Página {page} de {pageCount} </span><button className="filter" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Próxima</button></div></div></section>
-    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal user-editor-modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.needsAccount ? 'Criar acesso do aluno' : editingUser.id ? 'Editar cadastro' : 'Novo cadastro'}</h2><p>{editingUser.needsAccount ? 'O perfil já existe. Defina usuário e senha para liberar o acesso.' : 'Use um único login e marque todos os perfis dessa pessoa.'}</p><form onSubmit={saveUser}><fieldset className="user-role-picker" disabled={editingUser.role === 'SUPER_ADMIN' || editingUser.needsAccount}><legend>Perfis e acessos</legend>{[['student','Aluno'],['trainer','Professor'],['admin','Administrador'],['dev','Desenvolvedor']].map(([role,label]) => <label key={role}><input type="checkbox" checked={editingRoles.includes(role)} onChange={(event) => setEditingRoles((current) => event.target.checked ? [...current, role] : current.filter((item) => item !== role))} />{label}</label>)}</fieldset><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" defaultValue={editingUser.username || ''} autoComplete="username" /></label><div className="user-editor-profile-fields" data-roles={editingRoles.join(' ')}><label data-profile="student">Objetivo<input name="goal" defaultValue={editingUser.goal || ''} placeholder="Ex.: hipertrofia" /></label><label data-profile="student">Telefone<input name="phone" type="tel" defaultValue={editingUser.phone || ''} autoComplete="tel" /></label><label data-profile="student">Data de nascimento<input name="dateOfBirth" type="date" defaultValue={editingUser.dateOfBirth || ''} /></label><label data-profile="student">Personal responsável<select name="trainerId" required={editingRoles.includes('student')} defaultValue={editingUser.trainerId || ''}><option value="" disabled>Selecione um personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{trainers.filter((trainer) => trainer.active !== false).map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}</option>)}</select></label><label data-profile="trainer">CREF<input name="cref" defaultValue={editingUser.cref || ''} /></label></div><label>Senha {editingUser.needsAccount ? '(obrigatória para criar acesso)' : editingUser.id ? '(deixe em branco para manter)' : ''}<input name="password" type="password" minLength="8" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label className="user-active-toggle"><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Cadastro ativo</label><button className="primary-button" disabled={saving || editingRoles.length === 0}>{saving ? 'Salvando...' : editingUser.needsAccount ? 'Criar acesso' : 'Salvar cadastro'}</button></form></div></div>}
+    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal user-editor-modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.needsAccount ? 'Criar acesso do aluno' : editingUser.id ? 'Editar cadastro' : 'Novo cadastro'}</h2><p>{editingUser.needsAccount ? 'O perfil já existe. Defina usuário e senha para liberar o acesso.' : 'Use um único login e marque todos os perfis dessa pessoa.'}</p><form onSubmit={saveUser}><fieldset className="user-role-picker" disabled={editingUser.role === 'SUPER_ADMIN' || editingUser.needsAccount}><legend>Perfis e acessos</legend>{[['student','Aluno'],['trainer','Professor'],['admin','Administrador'],['dev','Desenvolvedor']].map(([role,label]) => <label key={role}><input type="checkbox" checked={editingRoles.includes(role)} onChange={(event) => setEditingRoles((current) => event.target.checked ? [...current, role] : current.filter((item) => item !== role))} />{label}</label>)}</fieldset><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" defaultValue={editingUser.username || ''} autoComplete="username" /></label><div className="user-editor-profile-fields" data-roles={editingRoles.join(' ')}><label data-profile="student">Objetivo<input name="goal" defaultValue={editingUser.goal || ''} placeholder="Ex.: hipertrofia" /></label><label data-profile="student">Telefone<input name="phone" type="tel" defaultValue={editingUser.phone || ''} autoComplete="tel" /></label><label data-profile="student">Data de nascimento<input name="dateOfBirth" type="date" defaultValue={editingUser.dateOfBirth || ''} /></label><label data-profile="student">Professor/personal responsável<select name="trainerId" required={editingRoles.includes('student')} defaultValue={editingUser.trainerId || ''}><option value="" disabled>Selecione um professor/personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{trainerOptions.map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}{trainer.id === editingUser.id ? ' (eu mesmo)' : ''}</option>)}</select></label><label data-profile="trainer">CREF<input name="cref" defaultValue={editingUser.cref || ''} /></label></div>{editingRoles.some((role) => ['admin','dev'].includes(role)) && <label className="user-active-toggle"><input name="financialAccessExempt" type="checkbox" defaultChecked={editingUser.financialAccessExempt === true} /> Acesso permanente ao financeiro, sem bloqueio por vencimento</label>}<label>Senha {editingUser.needsAccount ? '(obrigatória para criar acesso)' : editingUser.id ? '(deixe em branco para manter)' : ''}<input name="password" type="password" minLength="8" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label className="user-active-toggle"><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Cadastro ativo</label><button className="primary-button" disabled={saving || editingRoles.length === 0}>{saving ? 'Salvando...' : editingUser.needsAccount ? 'Criar acesso' : 'Salvar cadastro'}</button></form></div></div>}
   </div>;
+}
+
+function SettingsModule() {
+  const [settings, setSettings] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { fetch('/api/settings').then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Falha ao carregar.'); setSettings(body.settings); }).catch((reason) => setError(reason.message)); }, []);
+  async function save(event) {
+    event.preventDefault(); setBusy(true); setError(''); setMessage('');
+    try { const payload = Object.fromEntries(new FormData(event.currentTarget).entries()); const response = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Falha ao salvar.'); setSettings(body.settings); setMessage('Configurações salvas.'); }
+    catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  return <div className="page-content settings-page"><div className="page-heading"><div><p className="eyebrow">ADMINISTRAÇÃO</p><h1>Configurações</h1><p className="heading-copy">Dados da academia que aparecem no sistema.</p></div></div>{error && <p className="login-error" role="alert">{error}</p>}{message && <p className="profile-status" role="status">{message}</p>}{!settings ? <p className="heading-copy">Carregando configurações...</p> : <form className="panel settings-form" onSubmit={save}><h2>Identificação da academia</h2><p className="heading-copy">Edite o nome e os dados de contato usados pela equipe.</p><div className="settings-fields"><label>Nome da academia<input name="academyName" required maxLength="100" defaultValue={settings.academyName} /></label><label>Unidade<input name="unitName" required maxLength="100" defaultValue={settings.unitName} /></label><label>Telefone<input name="phone" type="tel" maxLength="40" defaultValue={settings.phone} /></label><label>E-mail<input name="email" type="email" maxLength="160" defaultValue={settings.email} /></label><label>Fuso horário<select name="timezone" defaultValue={settings.timezone}><option value="America/Sao_Paulo">Brasília</option><option value="America/Manaus">Manaus</option><option value="America/Belem">Belém</option><option value="America/Fortaleza">Fortaleza</option><option value="America/Cuiaba">Cuiabá</option><option value="America/Recife">Recife</option></select></label></div><button className="primary-button" disabled={busy}>{busy ? 'Salvando...' : 'Salvar configurações'}</button></form>}</div>;
 }
 
 function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
@@ -171,8 +187,9 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
       copy: "Mantenha sua biblioteca organizada para montar treinos mais rápido.",
     },
   }[view];
-  if (view === 'finance') return isSuperAdminAccount(currentUser) ? <FinancialManager /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
-  if (view === "workouts" || view === "exercises") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("workouts")} canEdit={['admin','dev','trainer','SUPER_ADMIN'].includes(currentUser?.role) || (currentUser?.roles || []).includes('trainer')} initialTab={view === 'exercises' ? 'library' : 'plans'} />;
+  if (view === 'finance') return (isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true) ? <FinancialManager /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
+  if (view === 'settings') return <SettingsModule />;
+  if (view === "workouts" || view === "exercises") { const roles = currentUser?.roles || [currentUser?.role]; const isTrainerOnly = roles.includes('trainer') && !roles.some((role) => ['admin','dev','SUPER_ADMIN'].includes(role)); return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("workouts")} canEdit={['admin','dev','trainer','SUPER_ADMIN'].includes(currentUser?.role) || roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role))} requireStudentSelection={isTrainerOnly} initialTab={view === 'exercises' ? 'library' : 'plans'} />; }
   if (view === "admins") return <UserManagement trainers={adminList.filter((user) => user.role === 'trainer' || (user.roles || []).includes('trainer'))} />;
   if (view === "overview")
     return (
@@ -417,7 +434,7 @@ function StudentView({ student, onBack }) {
   const profileDevEnabled = true;
   if (loading) return <div className="page-content"><p className="heading-copy">Carregando sua ficha...</p></div>;
   if (error) return <div className="page-content"><p className="login-error">{error}</p></div>;
-  if (editingOwnPlan) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Minha ficha de treino</h1><p className="heading-copy">Monte e salve sua ficha com sua senha.</p></div><button className="outline-button" onClick={() => setEditingOwnPlan(false)}>← Voltar</button></div><WorkoutPlanManager students={[student]} canEdit onNewStudent={() => {}} onGoToExercises={() => {}} onSaved={({ plan, days }) => { setWorkoutPlan(plan); const firstDay = days?.[0] || null; setWorkout(firstDay); setWorkoutExercises(firstDay?.exercises || []); setEditingOwnPlan(false); }} /></div>;
+  if (editingOwnPlan) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Minha ficha de treino</h1><p className="heading-copy">Monte e salve sua ficha com sua senha.</p></div><button className="outline-button" onClick={() => setEditingOwnPlan(false)}>← Voltar</button></div><WorkoutPlanManager students={[student]} canEdit onNewStudent={() => {}} onGoToExercises={() => {}} studentMode /></div>;
   if (!workoutPlan || !workout || exercises.length === 0) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">{student.trainerId ? 'Seu personal responsável gerencia sua ficha.' : 'Sua ficha ainda não foi cadastrada.'}</p></div>{!student.trainerId && <button className="primary-button" onClick={() => setEditingOwnPlan(true)}>Montar minha ficha</button>}{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div></div>;
   if (studentPanel === "profile") return <StudentProfile student={student} measurements={safeMeasurements} setMeasurements={setMeasurements} history={measurementHistory} onSaved={(record) => { setMeasurementHistory((current) => [record, ...current]); setMeasurements(record); }} onBack={() => setStudentPanel("workout")} />;
 
@@ -657,6 +674,7 @@ export default function Home() {
   const [adminList, setAdminList] = useState([]);
   const [exerciseList, setExerciseList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   useEffect(() => {
     if (students.some((student) => student.id === selectedStudent?.id)) return;
     setSelectedStudent(students[0] || emptyStudent);
@@ -679,7 +697,7 @@ export default function Home() {
     };
   }, [mobileNav]);
   const [mode, setMode] = useState("admin");
-  const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role);
+  const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role) || (currentUser?.roles || []).some((role) => ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(role));
   const [toast, setToast] = useState("");
   const [adminView, setAdminView] = useState("admins");
   const [createType, setCreateType] = useState(null);
@@ -694,6 +712,7 @@ export default function Home() {
         const data = await loadAtlasData();
         if (!active) return;
         setCurrentUser(data.currentUser);
+        setNotifications(data.notifications || []);
         setMode(data.currentUser.role === 'student' ? 'student' : 'admin');
         setStudents(data.students);
         setWorkoutPlans(data.workouts);
@@ -777,7 +796,7 @@ export default function Home() {
           <ChevronDown size={15} />
         </div>
         {isStaff && <nav className="main-nav" id="main-navigation">
-          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'finance' || isSuperAdminAccount(currentUser))).map(({ label, icon: Icon, key }) => (
+          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true)).map(({ label, icon: Icon, key }) => (
             <button
               className={
                 adminView === key && mode === "admin"
@@ -799,29 +818,25 @@ export default function Home() {
             </button>
           ))}
         </nav>}
+        {isStaff && <nav className="main-nav view-mode-nav" aria-label="Alternar visão do sistema">
+          <button className={mode === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('admin'); setMobileNav(false); }}><LayoutDashboard size={18} /><span>Visão prof/adm</span>{mode === 'admin' && <span className="nav-indicator" />}</button>
+          <button className={mode === 'student' ? 'nav-item active' : 'nav-item'} onClick={() => { const ownStudent = students.find((student) => student.id === currentUser?.id); setSelectedStudent(ownStudent || students[0] || emptyStudent); setMode('student'); setMobileNav(false); }}><UserRound size={18} /><span>Visão do aluno</span>{mode === 'student' && <span className="nav-indicator" />}</button>
+        </nav>}
         <div className="sidebar-bottom">
-          <button
+          {['admin','dev','SUPER_ADMIN'].includes(currentUser?.role) && <button
             className="nav-item"
-            onClick={() => showAction("Configurações ainda não estão disponíveis")}
+            onClick={() => { setAdminView('settings'); setMode('admin'); setMobileNav(false); }}
           >
             <Settings size={18} />
             <span>Configurações</span>
-          </button>
-          {isStaff && <button
-            className="user-card role-switcher"
-            onClick={() => setMode(mode === "admin" ? "student" : "admin")}
-          >
+          </button>}
+          {isStaff && <div className="user-card role-switcher">
             <span className="user-avatar">{currentUser?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>
             <span>
                 <strong>{currentUser?.name}</strong>
-              <small>
-                {mode === "admin"
-                  ? "Ver visão do aluno"
-                  : "Voltar ao administrador"}
-              </small>
+              <small>{mode === 'admin' ? 'Visão prof/adm' : 'Visão do aluno'}</small>
             </span>
-            <ChevronDown size={15} />
-          </button>}
+          </div>}
           <button
             className="logout"
             onClick={async () => {
@@ -854,11 +869,11 @@ export default function Home() {
           <div className="topbar-actions">
             <button
               className="icon-button notification"
-              onClick={() => showAction("Você não tem novas notificações")}
+              onClick={() => showAction(notifications.length ? notifications.slice(0, 3).map((item) => `${item.title}: ${item.message}`).join(' | ') : 'Você não tem novas notificações')}
               aria-label="Notificações"
             >
               <Bell size={19} />
-              <i />
+              {notifications.some((item) => !item.readAt) && <i />}
             </button>
             <span className="topbar-divider" />
             <span className="topbar-date">
@@ -1132,7 +1147,7 @@ export default function Home() {
               </label>
               <label>Telefone<input name="phone" type="tel" autoComplete="tel" /></label>
               <label>Data de nascimento<input name="dateOfBirth" type="date" /></label>
-              {['admin', 'dev'].includes(currentUser?.role) && <label>Personal responsável<select name="trainerId" required defaultValue=""><option value="" disabled>Selecione um personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{adminList.filter((item) => item.role === 'trainer').map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}</option>)}</select></label>}
+              {['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role) && <label>Personal responsável<select name="trainerId" required defaultValue=""><option value="" disabled>Selecione um personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{adminList.filter((item) => item.active !== false && (item.role === 'trainer' || (item.roles || []).includes('trainer'))).map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}{trainer.id === currentUser?.id ? ' (eu mesmo)' : ''}</option>)}</select></label>}
               <label>
                 Senha inicial
                 <input name="password" type="password" required minLength="8" autoComplete="new-password" />

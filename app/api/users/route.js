@@ -23,7 +23,7 @@ function validDate(value) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, name: user.name, role: user.role, roles: Array.isArray(user.roles) ? user.roles : [user.role], active: user.active, deletedAt: user.deletedAt || null, createdAt: user.createdAt, updatedAt: user.updatedAt };
+  return { id: user.id, username: user.username, name: user.name, role: user.role, roles: Array.isArray(user.roles) ? user.roles : [user.role], active: user.active, financialAccessExempt: user.financialAccessExempt === true, deletedAt: user.deletedAt || null, createdAt: user.createdAt, updatedAt: user.updatedAt };
 }
 
 function requestedRoles(payload, fallback = 'student') {
@@ -74,7 +74,7 @@ export async function GET() {
   try {
     const database = await getDatabase();
     const roleFilter = isSuperAdmin(access.user) ? {} : { role: { $ne: 'SUPER_ADMIN' } };
-    const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, roles: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
+    const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, roles: 1, active: 1, financialAccessExempt: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
     const userIds = users.map((user) => user.id);
     const [students, trainers, allStudents, allTrainers] = await Promise.all([
       database.collection('students').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, phone: 1, dateOfBirth: 1, goal: 1, trainerId: 1 } }).toArray(),
@@ -153,7 +153,7 @@ export async function POST(request) {
         ? (creator.ownerAdminId || creator.id)
         : creator.role === 'admin' ? creator.id : null;
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
-    const user = { id: userId, name, username: normalizedUsername, ownerAdminId, passwordHash: await bcrypt.hash(password, 12), role, roles, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
+    const user = { id: userId, name, username: normalizedUsername, ownerAdminId, passwordHash: await bcrypt.hash(password, 12), role, roles, financialAccessExempt: roles.some((item) => ['admin','dev'].includes(item)) && payload.financialAccessExempt === true, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
     const ownerPayload = { ...payload, ownerAdminId };
     await database.collection('users').insertOne(user);
     try {
@@ -217,7 +217,7 @@ export async function PATCH(request) {
     if (existing.deletedAt) return NextResponse.json({ error: 'Este cadastro foi excluído e não pode mais ser alterado.' }, { status: 410 });
     if (existing.role === 'SUPER_ADMIN' || role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A role SUPER_ADMIN é protegida e não pode ser alterada por esta API.' }, { status: 403 });
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
-    const updated = { ...existing, name, username: normalizedUsername, role, roles, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
+    const updated = { ...existing, name, username: normalizedUsername, role, roles, financialAccessExempt: roles.some((item) => ['admin','dev'].includes(item)) && payload.financialAccessExempt === true, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
     if (existing.role !== role || (existing.active !== false) !== updated.active) updated.sessionVersion = (existing.sessionVersion || 0) + 1;
     if (password) {
       updated.passwordHash = await bcrypt.hash(password, 12);

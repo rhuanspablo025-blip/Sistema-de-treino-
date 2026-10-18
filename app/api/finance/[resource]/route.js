@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireSuperAdmin } from '../../../../lib/api-auth';
+import { requireFinanceAdmin } from '../../../../lib/api-auth';
 import {
   createInvoice,
   createManualBlock,
@@ -28,7 +28,7 @@ import { enforceSameOrigin } from '../../../../lib/csrf';
 export const runtime = 'nodejs';
 
 async function authorize(request) {
-  const access = await requireSuperAdmin();
+  const access = await requireFinanceAdmin();
   if (access.response) return access;
   const csrf = enforceSameOrigin(request);
   if (csrf) return { response: csrf };
@@ -36,7 +36,7 @@ async function authorize(request) {
 }
 
 export async function GET(request, { params }) {
-  const access = await requireSuperAdmin();
+  const access = await requireFinanceAdmin();
   if (access.response) return access.response;
   try {
     const { resource } = await params;

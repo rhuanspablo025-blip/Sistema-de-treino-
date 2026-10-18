@@ -55,8 +55,10 @@ export async function GET() {
       database.collection('exercises').find({ active: true }).sort({ name: 1 }).toArray(),
       staff ? database.collection('users').find({ $or: [{ role: { $in: ['admin', 'trainer', 'dev'] } }, { roles: { $in: ['admin', 'trainer', 'dev'] } }], active: true }, { projection: { id: 1, username: 1, name: 1, role: 1, roles: 1 } }).toArray() : [],
     ]);
+    const notifications = await database.collection('notifications').find({ userId: access.user.id }).sort({ createdAt: -1 }).limit(10).toArray();
     return NextResponse.json({
-      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, roles: access.user.roles || [access.user.role], financialAccess: access.financialAccess },
+      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, roles: access.user.roles || [access.user.role], financialAccessExempt: access.user.financialAccessExempt === true, financialAccess: access.financialAccess },
+      notifications: notifications.map(({ _id, id, title, message, readAt, createdAt }) => ({ id, title, message, readAt, createdAt })),
       students, workouts: workoutViews,
       admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, roles: user.roles || [user.role], initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
       exercises: exerciseCatalog.map((exercise) => exercise.name),

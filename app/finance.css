@@ -9,6 +9,9 @@
 .finance-error { border-color: #f0c9c1; color: #a53d2d; background: #fff4f1; }
 .finance-notice { border-color: #cce5d7; color: #26714d; background: #f2faf5; }
 .finance-loading { color: var(--muted); }
+.finance-pending-accounts { display: grid; gap: 5px; margin: 0 0 16px; padding: 13px 15px; border: 1px solid #efc9bf; border-radius: 9px; color: #8b4235; background: #fff5f1; font-size: 12px; line-height: 1.5; }
+.finance-pending-accounts strong { font-size: 13px; }
+.finance-pending-accounts span { overflow-wrap: anywhere; color: var(--muted); }
 .finance-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .finance-metric { display: grid; gap: 10px; min-width: 0; padding: 19px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .finance-metric > span { color: var(--muted); font-size: 12px; }
