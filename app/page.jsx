@@ -674,6 +674,7 @@ export default function Home() {
   const [adminList, setAdminList] = useState([]);
   const [exerciseList, setExerciseList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [academySettings, setAcademySettings] = useState({ academyName: 'Atlas Training', unitName: 'Unidade Centro' });
   const [notifications, setNotifications] = useState([]);
   useEffect(() => {
     if (students.some((student) => student.id === selectedStudent?.id)) return;
@@ -712,6 +713,7 @@ export default function Home() {
         const data = await loadAtlasData();
         if (!active) return;
         setCurrentUser(data.currentUser);
+        setAcademySettings(data.settings || { academyName: 'Atlas Training', unitName: 'Unidade Centro' });
         setNotifications(data.notifications || []);
         setMode(data.currentUser.role === 'student' ? 'student' : 'admin');
         setStudents(data.students);
@@ -790,8 +792,8 @@ export default function Home() {
         <div className="workspace-switcher">
           <span className="workspace-avatar">AT</span>
           <span>
-            <strong>Atlas Training</strong>
-            <small>Unidade Centro</small>
+            <strong>{academySettings.academyName}</strong>
+            <small>{academySettings.unitName}</small>
           </span>
           <ChevronDown size={15} />
         </div>
