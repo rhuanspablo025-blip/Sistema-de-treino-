@@ -11,7 +11,11 @@ export async function GET() {
     const database = await getDatabase();
     const staff = ['admin', 'dev', 'trainer', 'SUPER_ADMIN'].includes(access.user.role);
     const studentFilter = staff ? { active: true } : { userId: access.user.id, active: true };
-    if (access.user.role === 'trainer') studentFilter.trainerId = access.user.id;
+    if (access.user.role === 'trainer') {
+      studentFilter.$or = (access.user.roles || []).includes('student')
+        ? [{ trainerId: access.user.id }, { userId: access.user.id, trainerId: { $in: [null, ''] } }]
+        : [{ trainerId: access.user.id }];
+    }
     const profiles = await database.collection('students').find(studentFilter).sort({ name: 1 }).toArray();
     const studentIds = profiles.map((student) => student.userId);
     const planFilter = staff ? { studentId: { $in: studentIds }, active: true } : { studentId: access.user.id, active: true };
@@ -49,12 +53,12 @@ export async function GET() {
 
     const [exerciseCatalog, adminUsers] = await Promise.all([
       database.collection('exercises').find({ active: true }).sort({ name: 1 }).toArray(),
-      staff ? database.collection('users').find({ role: { $in: ['admin', 'trainer', 'dev'] }, active: true }, { projection: { id: 1, username: 1, name: 1, role: 1 } }).toArray() : [],
+      staff ? database.collection('users').find({ $or: [{ role: { $in: ['admin', 'trainer', 'dev'] } }, { roles: { $in: ['admin', 'trainer', 'dev'] } }], active: true }, { projection: { id: 1, username: 1, name: 1, role: 1, roles: 1 } }).toArray() : [],
     ]);
     return NextResponse.json({
-      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, financialAccess: access.financialAccess },
+      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, roles: access.user.roles || [access.user.role], financialAccess: access.financialAccess },
       students, workouts: workoutViews,
-      admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
+      admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, roles: user.roles || [user.role], initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),
       exercises: exerciseCatalog.map((exercise) => exercise.name),
     });
   } catch {

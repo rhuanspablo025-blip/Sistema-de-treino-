@@ -44,10 +44,14 @@ button { cursor: pointer; }
 .user-action-button:disabled, .user-row-actions .outline-button:disabled { cursor: not-allowed; opacity: .45; }
 .user-directory-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .user-directory-footer > div { display: flex; align-items: center; gap: 4px; }
-.user-editor-modal { max-height: min(90vh, 760px); overflow-y: auto; }
+.user-editor-modal { width:min(100%, 680px); max-height:min(92vh, 820px); overflow:auto; }
 .user-editor-profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .user-editor-profile-fields [data-profile="student"], .user-editor-profile-fields [data-profile="trainer"] { display: none; }
-.user-editor-profile-fields[data-role="student"] [data-profile="student"], .user-editor-profile-fields[data-role="trainer"] [data-profile="trainer"] { display: grid; }
+.user-editor-profile-fields[data-roles~="student"] [data-profile="student"], .user-editor-profile-fields[data-roles~="trainer"] [data-profile="trainer"] { display: grid; }
+.user-role-picker { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; margin:0; padding:12px; border:1px solid var(--line); border-radius:8px; }
+.user-role-picker legend { padding:0 5px; color:var(--ink); font-size:12px; font-weight:700; }
+.modal .user-role-picker label { display:flex; align-items:center; gap:8px; min-height:28px; }
+.modal .user-role-picker input { width:16px; height:16px; margin:0; accent-color:var(--coral); }
 .user-editor-modal .user-active-toggle { display: flex; align-items: center; gap: 9px; min-height: 40px; }
 .user-editor-modal .user-active-toggle input { width: 18px; height: 18px; accent-color: var(--teal); }
 .page-content { max-width: 1420px; padding: 42px 5vw 60px; margin: auto; }.page-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }.eyebrow { margin: 0 0 8px; color: var(--coral); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }.page-heading h1 { margin: 0; font: 700 37px 'Space Grotesk', sans-serif; letter-spacing: -1.5px; }.heading-copy { margin: 9px 0 0; color: var(--muted); font-size: 14px; }.primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 17px; border: 0; border-radius: 7px; color: #fff; background: var(--coral); font-size: 12px; font-weight: 700; box-shadow: 0 5px 12px #e9664e20; }.primary-button:hover { background: #d95540; }.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 25px; }.stat-card { min-height: 102px; display: flex; align-items: center; gap: 13px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }.stat-icon { display: grid; place-items: center; width: 39px; height: 39px; border-radius: 10px; }.coral-bg { color: var(--coral); background: var(--coral-soft); }.green-bg { color: #3a8e70; background: #e6f4e9; }.yellow-bg { color: #bc861e; background: #fff6d9; }.stat-card > span:nth-child(2) { display: grid; gap: 4px; flex: 1; }.stat-card small { color: var(--muted); font-size: 11px; }.stat-card strong { font: 700 24px 'Space Grotesk', sans-serif; }.stat-card em { color: #3a9a72; font-size: 11px; font-style: normal; font-weight: 700; }.stat-card em small { color: var(--muted); font-weight: 400; }.stat-card em.neutral { color: #bc861e; font-weight: 500; }
@@ -117,6 +121,8 @@ button { cursor: pointer; }
   .user-directory-footer { align-items: flex-start; flex-direction: column; }
   .user-directory-footer > div { width: 100%; justify-content: space-between; }
   .user-editor-profile-fields { grid-template-columns: minmax(0, 1fr); }
+  .user-editor-modal { width:100%; max-height:calc(100dvh - 24px); padding:22px 18px; }
+  .user-role-picker { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 380px) {
   .page-content { padding-right: 12px; padding-left: 12px; }

@@ -23,8 +23,14 @@ function validDate(value) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, name: user.name, role: user.role, active: user.active, deletedAt: user.deletedAt || null, createdAt: user.createdAt, updatedAt: user.updatedAt };
+  return { id: user.id, username: user.username, name: user.name, role: user.role, roles: Array.isArray(user.roles) ? user.roles : [user.role], active: user.active, deletedAt: user.deletedAt || null, createdAt: user.createdAt, updatedAt: user.updatedAt };
 }
+
+function requestedRoles(payload, fallback = 'student') {
+  const roles = Array.isArray(payload.roles) ? [...new Set(payload.roles.filter((role) => validRoles.has(role)))] : [text(payload.role, 20) || fallback];
+  return roles.length && roles.every((role) => validRoles.has(role)) ? roles : [];
+}
+function primaryRole(roles) { return ['admin', 'dev', 'trainer', 'student'].find((role) => roles.includes(role)); }
 
 function profileDocument(user, payload = {}, existing = {}) {
   const now = new Date();
@@ -68,7 +74,7 @@ export async function GET() {
   try {
     const database = await getDatabase();
     const roleFilter = isSuperAdmin(access.user) ? {} : { role: { $ne: 'SUPER_ADMIN' } };
-    const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
+    const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, roles: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
     const userIds = users.map((user) => user.id);
     const [students, trainers, allStudents, allTrainers] = await Promise.all([
       database.collection('students').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, phone: 1, dateOfBirth: 1, goal: 1, trainerId: 1 } }).toArray(),
@@ -84,8 +90,8 @@ export async function GET() {
       const trainerProfile = trainerProfiles.get(user.id);
       const profile = profiles.get(user.id) || {};
       return {
-        ...publicUser({ ...user, role: studentProfile ? 'student' : trainerProfile ? 'trainer' : user.role }),
         ...(studentProfile || trainerProfile || profile),
+        ...publicUser({ ...user, roles: user.roles || [...new Set([...(studentProfile ? ['student'] : []), ...(trainerProfile ? ['trainer'] : []), user.role].filter(Boolean))] }),
       };
     });
     const knownIds = new Set(userIds);
@@ -123,35 +129,37 @@ export async function POST(request) {
     const username = text(payload.username, 32);
     const normalizedUsername = normalizeUsername(username);
     const password = typeof payload.password === 'string' ? payload.password : '';
-    const role = text(payload.role, 20) || 'student';
+    const roles = requestedRoles(payload);
+    const role = primaryRole(roles);
     if (name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome e usuário válidos (3 a 30 caracteres).'}, { status: 400 });
-    if (!validRoles.has(role)) return NextResponse.json({ error: 'Perfil inválido.' }, { status: 400 });
+    if (!role) return NextResponse.json({ error: 'Selecione pelo menos um perfil válido.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
-    if (!isAdminRole(creator.role) && !(creator.role === 'trainer' && role === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    if (!isAdminRole(creator.role) && !(creator.role === 'trainer' && roles.length === 1 && roles[0] === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
     const database = await getDatabase();
     if (await database.collection('users').findOne({ username: normalizedUsername })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
-    const requestedTrainerId = role === 'student' && creator.role === 'trainer' ? creator.id : text(payload.trainerId, 64);
-    if (role === 'student' && creator.role !== 'trainer' && (!Object.prototype.hasOwnProperty.call(payload, 'trainerId') || !requestedTrainerId)) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
-    if (role === 'student' && requestedTrainerId && requestedTrainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
+    const requestedTrainerId = roles.includes('student') && creator.role === 'trainer' ? creator.id : text(payload.trainerId, 64);
+    if (roles.includes('student') && roles.includes('trainer') && !requestedTrainerId) { /* self-training profile remains avulso */ }
+    else if (roles.includes('student') && creator.role !== 'trainer' && (!Object.prototype.hasOwnProperty.call(payload, 'trainerId') || !requestedTrainerId)) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
+    if (roles.includes('student') && requestedTrainerId && requestedTrainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
     if (creator.role === 'trainer' && !await database.collection('trainers').findOne({ userId: creator.id, active: true })) return NextResponse.json({ error: 'Perfil de professor não encontrado.' }, { status: 403 });
     const now = new Date();
     const userId = randomUUID();
-    const ownerAdminId = role === 'admin'
+    const ownerAdminId = roles.includes('admin')
       ? (creator.role === 'SUPER_ADMIN' ? userId : creator.role === 'admin' ? creator.id : null)
       : creator.role === 'trainer'
         ? (creator.ownerAdminId || creator.id)
         : creator.role === 'admin' ? creator.id : null;
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
-    const user = { id: userId, name, username: normalizedUsername, ownerAdminId, passwordHash: await bcrypt.hash(password, 12), role, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
+    const user = { id: userId, name, username: normalizedUsername, ownerAdminId, passwordHash: await bcrypt.hash(password, 12), role, roles, active: payload.active !== false, sessionVersion: 0, createdAt: now, updatedAt: now };
     const ownerPayload = { ...payload, ownerAdminId };
     await database.collection('users').insertOne(user);
     try {
-      if (role === 'student') await database.collection('students').insertOne(profileDocument(user, { ...ownerPayload, trainerId: requestedTrainerId === 'avulso' ? null : requestedTrainerId || null }));
-      if (role === 'trainer') await database.collection('trainers').insertOne(profileDocument(user, ownerPayload));
-      await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, username: normalizedUsername } });
+      if (roles.includes('student')) await database.collection('students').insertOne(profileDocument({ ...user, role: 'student' }, { ...ownerPayload, trainerId: requestedTrainerId === 'avulso' ? null : requestedTrainerId || null }));
+      if (roles.includes('trainer')) await database.collection('trainers').insertOne(profileDocument({ ...user, role: 'trainer' }, ownerPayload));
+      await writeAuditLog(database, { userId: creator.id, action: 'create', resource: 'user', resourceId: user.id, metadata: { role, roles, username: normalizedUsername } });
     } catch (error) {
       await database.collection('users').deleteOne({ id: user.id });
       await database.collection('students').deleteOne({ userId: user.id });
@@ -174,9 +182,10 @@ export async function PATCH(request) {
     const name = text(payload.name, 120);
     const username = text(payload.username, 32);
     const normalizedUsername = normalizeUsername(username);
-    const role = text(payload.role, 20);
+    const roles = requestedRoles(payload, 'student');
+    const role = primaryRole(roles);
     const password = typeof payload.password === 'string' ? payload.password : '';
-    if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !normalizedUsername || !validRoles.has(role)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
+    if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !normalizedUsername || !role) return NextResponse.json({ error: 'Dados do usuário inválidos. Selecione ao menos um perfil.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
     if (password && (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72)) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password && password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
@@ -188,24 +197,27 @@ export async function PATCH(request) {
     if (!existing) {
       const students = database.collection('students');
       const profile = await students.findOne({ userId: id });
-      if (!profile || role !== 'student') return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+      if (!profile || !roles.includes('student')) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
       if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'Defina uma senha com pelo menos 8 caracteres e no máximo 72 bytes para ativar o acesso.' }, { status: 400 });
       if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
       if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
       const now = new Date();
-      const user = { id, name, username: normalizedUsername, ownerAdminId: profile.ownerAdminId || access.user.id, passwordHash: await bcrypt.hash(password, 12), role: 'student', active: payload.active !== false, sessionVersion: 0, createdAt: profile.createdAt || now, updatedAt: now };
+      const user = { id, name, username: normalizedUsername, ownerAdminId: profile.ownerAdminId || access.user.id, passwordHash: await bcrypt.hash(password, 12), role, roles, active: payload.active !== false, sessionVersion: 0, createdAt: profile.createdAt || now, updatedAt: now };
       if (!Object.prototype.hasOwnProperty.call(payload, 'trainerId') || !text(payload.trainerId, 64)) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
       const requestedTrainerId = text(payload.trainerId, 64);
       if (requestedTrainerId && requestedTrainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: requestedTrainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
+      const trainerId = requestedTrainerId === 'avulso' ? null : requestedTrainerId || null;
+      if (trainerId && !await database.collection('trainers').findOne({ userId: trainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
       await users.insertOne(user);
-      await students.updateOne({ userId: id }, { $set: profileDocument(user, { ...payload, trainerId: requestedTrainerId === 'avulso' ? null : requestedTrainerId || null }, profile) });
+      await students.updateOne({ userId: id }, { $set: profileDocument({ ...user, role: 'student' }, { ...payload, trainerId }, profile) });
+      if (roles.includes('trainer')) await database.collection('trainers').updateOne({ userId: id }, { $set: profileDocument({ ...user, role: 'trainer' }, payload, {}) }, { upsert: true });
       await writeAuditLog(database, { userId: access.user.id, action: 'create', resource: 'user', resourceId: id, metadata: { role: 'student', username: normalizedUsername, restoredProfile: true } });
       return NextResponse.json({ user: publicUser(user) }, { status: 201 });
     }
     if (existing.deletedAt) return NextResponse.json({ error: 'Este cadastro foi excluído e não pode mais ser alterado.' }, { status: 410 });
     if (existing.role === 'SUPER_ADMIN' || role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A role SUPER_ADMIN é protegida e não pode ser alterada por esta API.' }, { status: 403 });
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
-    const updated = { ...existing, name, username: normalizedUsername, role, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
+    const updated = { ...existing, name, username: normalizedUsername, role, roles, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
     if (existing.role !== role || (existing.active !== false) !== updated.active) updated.sessionVersion = (existing.sessionVersion || 0) + 1;
     if (password) {
       updated.passwordHash = await bcrypt.hash(password, 12);
@@ -218,19 +230,19 @@ export async function PATCH(request) {
     const priorStudent = await students.findOne({ userId: id });
     const priorTrainer = await trainers.findOne({ userId: id });
     let trainerId = payload.trainerId;
-    if (role === 'student') {
+    if (roles.includes('student')) {
       if (!Object.prototype.hasOwnProperty.call(payload, 'trainerId')) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
       trainerId = text(payload.trainerId, 64);
       if (trainerId && trainerId !== 'avulso' && !await trainers.findOne({ userId: trainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
       if (trainerId === 'avulso') trainerId = null;
     }
     await users.replaceOne({ id }, updated);
-    await students.deleteOne({ userId: id });
-    await trainers.deleteOne({ userId: id });
-    if (role === 'student') await students.insertOne(profileDocument(updated, { ...payload, trainerId }, priorStudent || {}));
-    if (role === 'trainer') await trainers.insertOne(profileDocument(updated, payload, priorTrainer || {}));
-    await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'user', resourceId: id, metadata: { role, active: updated.active } });
-    if (existing.role !== role) await writeAuditLog(database, { userId: access.user.id, action: 'permission_change', resource: 'user', resourceId: id, metadata: { previousRole: existing.role, role } });
+    if (roles.includes('student')) await students.updateOne({ userId: id }, { $set: profileDocument({ ...updated, role: 'student' }, { ...payload, trainerId }, priorStudent || {}) }, { upsert: true });
+    else if (priorStudent) await students.updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
+    if (roles.includes('trainer')) await trainers.updateOne({ userId: id }, { $set: profileDocument({ ...updated, role: 'trainer' }, payload, priorTrainer || {}) }, { upsert: true });
+    else if (priorTrainer) await trainers.updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
+    await writeAuditLog(database, { userId: access.user.id, action: 'update', resource: 'user', resourceId: id, metadata: { role, roles, active: updated.active } });
+    if (JSON.stringify(existing.roles || [existing.role]) !== JSON.stringify(roles)) await writeAuditLog(database, { userId: access.user.id, action: 'permission_change', resource: 'user', resourceId: id, metadata: { previousRoles: existing.roles || [existing.role], roles } });
     if (password) await writeAuditLog(database, { userId: access.user.id, action: 'password_change', resource: 'user', resourceId: id, metadata: { accountUsername: normalizedUsername } });
     return NextResponse.json({ user: publicUser(updated) });
   } catch (error) {
