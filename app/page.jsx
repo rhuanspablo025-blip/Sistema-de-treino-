@@ -34,18 +34,20 @@ const emptyStudent = { name: 'Nenhum aluno cadastrado', initials: '--', goal: 'N
 const navItems = [
   { label: "Visão geral", icon: LayoutDashboard, key: "overview" },
   { label: "Cadastro de alunos", icon: UsersRound, key: "students" },
-  { label: "Administradores", icon: UserRound, key: "admins" },
+  { label: "Cadastros", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
   { label: "Exercícios", icon: Dumbbell, key: "exercises" },
   { label: "Financeiro", icon: BarChart3, key: "finance" },
 ];
 
-function UserManagement() {
+function UserManagement({ trainers = [] }) {
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [roleFilter, setRoleFilter] = useState('Todos');
   const [page, setPage] = useState(1);
   const [editingUser, setEditingUser] = useState(null);
+  const [editingRole, setEditingRole] = useState('student');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -95,38 +97,54 @@ function UserManagement() {
       const response = await fetch('/api/users', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...user, active: !user.active }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível alterar o status.');
-      setUsers((current) => current.map((item) => item.id === user.id ? body.user : item));
+      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, ...body.user } : item));
       setFeedback(user.active ? 'Usuário desativado.' : 'Usuário ativado.');
     } catch (toggleError) { setError(toggleError.message); }
   }
 
   async function deleteUser(user) {
-    if (!window.confirm(`Excluir o usuário ${user.name}? Esta ação não pode ser desfeita.`)) return;
+    if (!window.confirm(`Excluir ${user.name}? A conta será removida dos cadastros e não poderá ser reativada. O histórico será preservado.`)) return;
     try {
       const response = await fetch(`/api/users?id=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível excluir o usuário.');
-      setUsers((current) => current.filter((item) => item.id !== user.id));
-      setFeedback('Usuário excluído.');
+      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, active: false, deletedAt: new Date().toISOString() } : item));
+      setFeedback('Cadastro excluído. O histórico foi preservado.');
     } catch (deleteError) { setError(deleteError.message); }
   }
 
   const filteredUsers = users.filter((user) => {
     const matchesQuery = `${user.name} ${user.username}`.toLowerCase().includes(query.toLowerCase());
-    const matchesStatus = statusFilter === 'Todos' || (statusFilter === 'Ativos' ? user.active : !user.active);
-    return matchesQuery && matchesStatus;
+    const matchesStatus = statusFilter === 'Todos'
+      ? !user.deletedAt
+      : statusFilter === 'Excluídos'
+        ? Boolean(user.deletedAt)
+        : statusFilter === 'Ativos'
+          ? !user.deletedAt && user.active !== false
+          : !user.deletedAt && user.active === false;
+    const matchesRole = roleFilter === 'Todos' || user.role === roleFilter;
+    return matchesQuery && matchesStatus && matchesRole;
   });
   const pageCount = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const visibleUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
+  const roleLabels = { student: 'Aluno', trainer: 'Professor', admin: 'Administrador', dev: 'Desenvolvedor', SUPER_ADMIN: 'Proprietário' };
+  const counts = {
+    total: users.filter((user) => !user.deletedAt).length,
+    active: users.filter((user) => !user.deletedAt && user.active !== false).length,
+    students: users.filter((user) => !user.deletedAt && user.role === 'student').length,
+    team: users.filter((user) => !user.deletedAt && ['admin', 'dev', 'trainer'].includes(user.role)).length,
+  };
 
-  return <section className="panel module-panel">
-    <div className="panel-header"><div><h2>Usuários do sistema</h2><p>Controle acessos, perfis e status diretamente no banco.</p></div><button className="primary-button" onClick={() => setEditingUser({})}><Plus size={17} /> Novo usuário</button></div>
-    <div className="toolbar"><div className="search-box"><Search size={17} /><input placeholder="Buscar por nome ou username..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></div><div className="filter-tabs">{['Todos', 'Ativos', 'Inativos'].map((item) => <button className={statusFilter === item ? 'filter active' : 'filter'} key={item} onClick={() => { setStatusFilter(item); setPage(1); }}>{item}</button>)}</div></div>
-    {error && <p className="login-error">{error}</p>}{feedback && <p className="profile-status">{feedback}</p>}
-    {loading ? <p className="empty-state">Carregando usuários...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum usuário encontrado.</p> : <div className="table-list">{visibleUsers.map((user) => <div className="table-row" key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}</strong><small>@{user.username}</small></span><em>{user.role === 'student' ? 'Aluno' : user.role === 'trainer' ? 'Professor' : user.role === 'dev' ? 'Desenvolvedor' : 'Administrador'}</em><span className={`status ${user.active ? 'em-dia' : 'revisar'}`}><i />{user.active ? 'Ativo' : 'Inativo'}</span><button className="outline-button small-button" onClick={() => setEditingUser(user)}>Editar</button><button className="more-button" onClick={() => toggleUser(user)} aria-label={user.active ? 'Desativar usuário' : 'Ativar usuário'}>{user.active ? '⏸' : '▶'}</button><button className="more-button" onClick={() => deleteUser(user)} aria-label={`Excluir ${user.name}`}>×</button></div>)}</div>}
-    <div className="panel-header"><small>{filteredUsers.length} usuário(s)</small><div><button className="filter" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Anterior</button><span> Página {page} de {pageCount} </span><button className="filter" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Próxima</button></div></div>
-    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.id ? 'Editar usuário' : 'Novo usuário'}</h2><p>Os dados serão salvos no MongoDB.</p><form onSubmit={saveUser}><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" defaultValue={editingUser.username || ''} autoComplete="username" /></label><label>Perfil<select name="role" defaultValue={editingUser.role || 'student'}><option value="student">Aluno</option><option value="trainer">Professor</option><option value="admin">Administrador</option><option value="dev">Desenvolvedor</option></select></label><label>Senha {editingUser.id ? '(opcional)' : ''}<input name="password" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Usuário ativo</label><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar usuário'}</button></form></div></div>}
-  </section>;
+  return <div className="page-content user-management-page">
+    <div className="page-heading"><div><p className="eyebrow">GESTÃO DE ACESSOS</p><h1>Cadastros</h1><p className="heading-copy">Crie e organize alunos e equipe em um só lugar.</p></div><button className="primary-button" onClick={() => { setEditingRole('student'); setEditingUser({}); }}><Plus size={17} /> Novo cadastro</button></div>
+    <div className="stats-row user-stats"><div className="stat-card"><span className="stat-icon coral-bg"><UsersRound size={18} /></span><span><small>Total de cadastros</small><strong>{counts.total}</strong></span></div><div className="stat-card"><span className="stat-icon green-bg"><UserRound size={18} /></span><span><small>Alunos</small><strong>{counts.students}</strong></span></div><div className="stat-card"><span className="stat-icon yellow-bg"><Settings size={18} /></span><span><small>Equipe</small><strong>{counts.team}</strong></span></div></div>
+    <section className="panel module-panel user-directory"><div className="panel-header user-directory-heading"><div><h2>Pessoas e acessos</h2><p>Edite perfis, redefina senhas e altere o status de acesso.</p></div><span className="user-active-count">{counts.active} ativos</span></div>
+    <div className="user-filters"><div className="search-box"><Search size={17} /><input aria-label="Buscar cadastro" placeholder="Buscar por nome ou usuário..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></div><label className="user-filter-select"><span>Perfil</span><select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value); setPage(1); }}><option value="Todos">Todos os perfis</option><option value="student">Alunos</option><option value="trainer">Professores</option><option value="admin">Administradores</option><option value="dev">Desenvolvedores</option></select></label><div className="filter-tabs">{['Todos', 'Ativos', 'Inativos', 'Excluídos'].map((item) => <button className={statusFilter === item ? 'filter active' : 'filter'} key={item} onClick={() => { setStatusFilter(item); setPage(1); }}>{item}</button>)}</div></div>
+    {error && <p className="login-error" role="alert">{error}</p>}{feedback && <p className="profile-status" role="status">{feedback}</p>}
+    {loading ? <p className="empty-state">Carregando cadastros...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum cadastro encontrado com esses filtros.</p> : <div className="user-directory-list">{visibleUsers.map((user) => { const protectedAccount = user.role === 'SUPER_ADMIN'; const lockedAccount = protectedAccount || Boolean(user.deletedAt); return <article className={`user-directory-row ${user.deletedAt ? 'is-deleted' : user.active === false ? 'is-inactive' : ''}`} key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span className="user-directory-name"><strong>{user.name}</strong><small>@{user.username}</small></span><span className="user-role-badge">{roleLabels[user.role] || 'Usuário'}</span><span className={`status ${user.deletedAt ? 'deleted' : user.active === false ? 'inativo' : ''}`}><i />{user.deletedAt ? 'Excluído' : user.active === false ? 'Inativo' : 'Ativo'}</span><div className="user-row-actions"><button className="outline-button small-button" onClick={() => { setEditingUser(user); setEditingRole(user.role); }} disabled={lockedAccount}>Editar</button><button className="user-action-button" onClick={() => toggleUser(user)} disabled={lockedAccount} aria-label={user.active === false ? `Ativar ${user.name}` : `Inativar ${user.name}`}>{user.active === false ? 'Ativar' : 'Inativar'}</button><button className="user-action-button danger" onClick={() => deleteUser(user)} disabled={lockedAccount} aria-label={`Excluir ${user.name}`}>Excluir</button></div></article>; })}</div>}
+    <div className="user-directory-footer"><small>{filteredUsers.length} cadastro(s)</small><div><button className="filter" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Anterior</button><span> Página {page} de {pageCount} </span><button className="filter" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Próxima</button></div></div></section>
+    {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal user-editor-modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.id ? 'Editar cadastro' : 'Novo cadastro'}</h2><p>Informe o perfil e os dados de acesso.</p><form onSubmit={saveUser}><label>Nome completo<input name="name" required minLength="2" defaultValue={editingUser.name || ''} /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" defaultValue={editingUser.username || ''} autoComplete="username" /></label><label>Perfil<select name="role" value={editingRole} onChange={(event) => setEditingRole(event.target.value)} disabled={editingUser.role === 'SUPER_ADMIN'}><option value="student">Aluno</option><option value="trainer">Professor</option><option value="admin">Administrador</option><option value="dev">Desenvolvedor</option></select></label><div className="user-editor-profile-fields" data-role={editingRole}><label data-profile="student">Objetivo<input name="goal" defaultValue={editingUser.goal || ''} placeholder="Ex.: hipertrofia" /></label><label data-profile="student">Telefone<input name="phone" type="tel" defaultValue={editingUser.phone || ''} autoComplete="tel" /></label><label data-profile="student">Data de nascimento<input name="dateOfBirth" type="date" defaultValue={editingUser.dateOfBirth || ''} /></label><label data-profile="student">Professor responsável<select name="trainerId" defaultValue={editingUser.trainerId || ''}><option value="">Sem professor atribuído</option>{trainers.filter((trainer) => trainer.active !== false).map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}</option>)}</select></label><label data-profile="trainer">CREF<input name="cref" defaultValue={editingUser.cref || ''} /></label></div><label>Senha {editingUser.id ? '(deixe em branco para manter)' : ''}<input name="password" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" required={!editingUser.id} autoComplete="new-password" /></label><label className="user-active-toggle"><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Cadastro ativo</label><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar cadastro'}</button></form></div></div>}
+  </div>;
 }
 
 function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
@@ -137,9 +155,9 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
       copy: "Tenha uma visão rápida dos cadastros e das fichas em movimento.",
     },
     admins: {
-      kicker: "EQUIPE",
-      title: "Administradores",
-      copy: "Gerencie quem pode criar e acompanhar fichas.",
+      kicker: "GESTÃO DE ACESSOS",
+      title: "Cadastros",
+      copy: "Organize todos os perfis e acessos da sua academia.",
     },
     workouts: {
       kicker: "GESTÃO DE FICHAS",
@@ -154,6 +172,7 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
   }[view];
   if (view === 'finance') return isSuperAdminAccount(currentUser) ? <FinancialManager /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
   if (view === "workouts") return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("exercises")} />;
+  if (view === "admins") return <UserManagement trainers={adminList.filter((user) => user.role === 'trainer')} />;
   if (view === "overview")
     return (
       <div className="page-content">
@@ -227,21 +246,8 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
           <h1>{moduleData.title}</h1>
           <p className="heading-copy">{moduleData.copy}</p>
         </div>
-        <button
-          className="primary-button"
-          onClick={() => onCreate(view === "admins" ? "admin" : view === "workouts" ? "workout" : "exercise")}
-        >
-          <Plus size={18} />{" "}
-          {view === "admins"
-            ? "Novo administrador"
-            : view === "workouts"
-              ? "Nova ficha"
-              : "Novo exercício"}
-        </button>
+        {view !== 'admins' && <button className="primary-button" onClick={() => onCreate(view === "workouts" ? "workout" : "exercise")}><Plus size={18} /> {view === "workouts" ? "Nova ficha" : "Novo exercício"}</button>}
       </div>
-      {view === "admins" && (
-        <UserManagement />
-      )}
       {view === "exercises" && (
         <section className="panel module-panel">
           <div className="exercise-library">
@@ -655,6 +661,19 @@ export default function Home() {
   const [filter, setFilter] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  useEffect(() => {
+    if (!mobileNav) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMobileNav(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileNav]);
   const [mode, setMode] = useState("admin");
   const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role);
   const [toast, setToast] = useState("");
@@ -735,6 +754,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      {mobileNav && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileNav(false)} />}
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
         <div className="brand">
           <span className="brand-mark">
@@ -752,7 +772,7 @@ export default function Home() {
           </span>
           <ChevronDown size={15} />
         </div>
-        {isStaff && <nav className="main-nav">
+        {isStaff && <nav className="main-nav" id="main-navigation">
           {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'finance' || isSuperAdminAccount(currentUser))).map(({ label, icon: Icon, key }) => (
             <button
               className={
@@ -816,9 +836,11 @@ export default function Home() {
           <button
             className="mobile-menu"
             onClick={() => setMobileNav(!mobileNav)}
-            aria-label="Abrir menu"
+            aria-label={mobileNav ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileNav}
+            aria-controls="main-navigation"
           >
-            <Menu size={21} />
+            {mobileNav ? <X size={21} /> : <Menu size={21} />}
           </button>
           <div className="breadcrumbs">
             <span>{mode === "admin" ? "Alunos" : "Área do aluno"}</span>

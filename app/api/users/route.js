@@ -23,7 +23,7 @@ function validDate(value) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, name: user.name, role: user.role, active: user.active, createdAt: user.createdAt, updatedAt: user.updatedAt };
+  return { id: user.id, username: user.username, name: user.name, role: user.role, active: user.active, deletedAt: user.deletedAt || null, createdAt: user.createdAt, updatedAt: user.updatedAt };
 }
 
 function profileDocument(user, payload = {}, existing = {}) {
@@ -69,7 +69,13 @@ export async function GET() {
     const database = await getDatabase();
     const roleFilter = isSuperAdmin(access.user) ? {} : { role: { $ne: 'SUPER_ADMIN' } };
     const users = await database.collection('users').find(roleFilter, { projection: { id: 1, username: 1, name: 1, role: 1, active: 1, createdAt: 1, updatedAt: 1 } }).sort({ createdAt: -1 }).limit(1000).toArray();
-    return NextResponse.json({ users: users.map(publicUser) });
+    const userIds = users.map((user) => user.id);
+    const [students, trainers] = await Promise.all([
+      database.collection('students').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, phone: 1, dateOfBirth: 1, goal: 1, trainerId: 1 } }).toArray(),
+      database.collection('trainers').find({ userId: { $in: userIds } }, { projection: { _id: 0, userId: 1, cref: 1 } }).toArray(),
+    ]);
+    const profiles = new Map([...students, ...trainers].map((profile) => [profile.userId, profile]));
+    return NextResponse.json({ users: users.map((user) => ({ ...publicUser(user), ...(profiles.has(user.id) ? profiles.get(user.id) : {}) })) });
   } catch {
     return NextResponse.json({ error: 'Não foi possível carregar os usuários.' }, { status: 500 });
   }
@@ -148,6 +154,7 @@ export async function PATCH(request) {
     if (await users.findOne({ username: normalizedUsername, id: { $ne: id } })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
     const existing = await users.findOne({ id });
     if (!existing) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
+    if (existing.deletedAt) return NextResponse.json({ error: 'Este cadastro foi excluído e não pode mais ser alterado.' }, { status: 410 });
     if (existing.role === 'SUPER_ADMIN' || role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A role SUPER_ADMIN é protegida e não pode ser alterada por esta API.' }, { status: 403 });
     if (payload.active !== undefined && typeof payload.active !== 'boolean') return NextResponse.json({ error: 'Status de usuário inválido.' }, { status: 400 });
     const updated = { ...existing, name, username: normalizedUsername, role, active: payload.active === undefined ? existing.active !== false : payload.active, updatedAt: new Date() };
@@ -188,12 +195,15 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id');
     if (!id || id === access.user.id || !/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Não é possível excluir este usuário.' }, { status: 400 });
     const database = await getDatabase();
-    const target = await database.collection('users').findOne({ id }, { projection: { role: 1 } });
+    const target = await database.collection('users').findOne({ id }, { projection: { role: 1, active: 1, sessionVersion: 1 } });
     if (target?.role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A conta proprietária não pode ser desativada por esta API.' }, { status: 403 });
-    const result = await database.collection('users').updateOne({ id }, { $set: { active: false, updatedAt: new Date() } });
+    const now = new Date();
+    const result = await database.collection('users').updateOne({ id, deletedAt: { $exists: false } }, { $set: { active: false, deletedAt: now, updatedAt: now, sessionVersion: (target?.sessionVersion || 0) + (target?.active === false ? 0 : 1) } });
     if (!result.matchedCount) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
     await database.collection('students').updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
     await database.collection('trainers').updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
+    await database.collection('students').updateOne({ userId: id }, { $set: { deletedAt: now } });
+    await database.collection('trainers').updateOne({ userId: id }, { $set: { deletedAt: now } });
     await writeAuditLog(database, { userId: access.user.id, action: 'deactivate', resource: 'user', resourceId: id });
     return NextResponse.json({ ok: true });
   } catch {
