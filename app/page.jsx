@@ -415,6 +415,14 @@ function StudentView({ student, onBack }) {
     async function loadStudentData() {
       setLoading(true);
       setError('');
+      if (student.profileMissing) {
+        setWorkoutPlan(null);
+        setWorkout(null);
+        setWorkoutExercises([]);
+        setHistory([]);
+        setLoading(false);
+        return;
+      }
       try {
         const getJson = async (url) => {
           const response = await fetch(url);
@@ -460,10 +468,11 @@ function StudentView({ student, onBack }) {
     }
     loadStudentData();
     return () => { active = false; };
-  }, [student.id]);
+  }, [student.id, student.profileMissing]);
   const profileDevEnabled = true;
   if (loading) return <div className="page-content"><p className="heading-copy">Carregando sua ficha...</p></div>;
   if (error) return <div className="page-content"><p className="login-error">{error}</p></div>;
+  if (student.profileMissing) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">Esta conta não tem um perfil de aluno cadastrado. Nenhuma ficha de outra pessoa será exibida aqui.</p></div>{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div></div>;
   if (editingOwnPlan) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Minha ficha de treino</h1><p className="heading-copy">Monte e salve sua ficha com sua senha.</p></div><button className="outline-button" onClick={() => setEditingOwnPlan(false)}>← Voltar</button></div><WorkoutPlanManager students={[student]} canEdit onNewStudent={() => {}} onGoToExercises={() => {}} studentMode /></div>;
   if (!workoutPlan || !workout || exercises.length === 0) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">{student.trainerId ? 'Seu personal responsável gerencia sua ficha.' : 'Sua ficha ainda não foi cadastrada.'}</p></div>{!student.trainerId && <button className="primary-button" onClick={() => setEditingOwnPlan(true)}>Montar minha ficha</button>}{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div></div>;
   if (studentPanel === "profile") return <StudentProfile student={student} measurements={safeMeasurements} setMeasurements={setMeasurements} history={measurementHistory} onSaved={(record) => { setMeasurementHistory((current) => [record, ...current]); setMeasurements(record); }} onBack={() => setStudentPanel("workout")} />;
@@ -706,10 +715,6 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [academySettings, setAcademySettings] = useState({ academyName: 'Atlas Training', unitName: 'Unidade Centro' });
   const [notifications, setNotifications] = useState([]);
-  useEffect(() => {
-    if (students.some((student) => student.id === selectedStudent?.id)) return;
-    setSelectedStudent(students[0] || emptyStudent);
-  }, [students, selectedStudent]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
@@ -728,12 +733,18 @@ export default function Home() {
     };
   }, [mobileNav]);
   const [mode, setMode] = useState("admin");
+  useEffect(() => {
+    if (mode !== 'admin' || students.some((student) => student.id === selectedStudent?.id)) return;
+    setSelectedStudent(students[0] || emptyStudent);
+  }, [students, selectedStudent, mode]);
   const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role) || (currentUser?.roles || []).some((role) => ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(role));
   const [toast, setToast] = useState("");
   const [adminView, setAdminView] = useState("admins");
   const [createType, setCreateType] = useState(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const selectedWorkout = workoutPlans.find((plan) => plan.studentId === selectedStudent?.id);
+  const ownStudent = students.find((student) => student.id === currentUser?.id);
+  const ownStudentView = ownStudent || (currentUser ? { ...emptyStudent, id: currentUser.id, name: currentUser.name, profileMissing: true } : emptyStudent);
 
   useEffect(() => {
     let active = true;
@@ -852,7 +863,7 @@ export default function Home() {
         </nav>}
         {isStaff && <nav className="main-nav view-mode-nav" aria-label="Alternar visão do sistema">
           <button className={mode === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('admin'); setMobileNav(false); }}><LayoutDashboard size={18} /><span>Visão prof/adm</span>{mode === 'admin' && <span className="nav-indicator" />}</button>
-          <button className={mode === 'student' ? 'nav-item active' : 'nav-item'} onClick={() => { const ownStudent = students.find((student) => student.id === currentUser?.id); setSelectedStudent(ownStudent || students[0] || emptyStudent); setMode('student'); setMobileNav(false); }}><UserRound size={18} /><span>Visão do aluno</span>{mode === 'student' && <span className="nav-indicator" />}</button>
+          <button className={mode === 'student' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('student'); setMobileNav(false); }}><UserRound size={18} /><span>Visão do aluno</span>{mode === 'student' && <span className="nav-indicator" />}</button>
         </nav>}
         <div className="sidebar-bottom">
           {['admin','dev','SUPER_ADMIN'].includes(currentUser?.role) && <button
@@ -896,7 +907,7 @@ export default function Home() {
           <div className="breadcrumbs">
             <span>{mode === "admin" ? "Alunos" : "Área do aluno"}</span>
             <ChevronRight size={15} />
-            <strong>{selectedStudent.name}</strong>
+            <strong>{mode === 'student' ? ownStudentView.name : selectedStudent.name}</strong>
           </div>
           <div className="topbar-actions">
             <button
@@ -916,7 +927,7 @@ export default function Home() {
         {currentUser?.financialAccess?.level && currentUser.financialAccess.level !== 'ACTIVE' && <div className={`financial-access-banner ${currentUser.financialAccess.level === 'WARNING' ? 'is-warning' : ''}`} role="status"><span>{currentUser.financialAccess.restricted ? 'Seu acesso está restrito por pendência financeira.' : 'Há uma cobrança próxima do vencimento na sua conta.'}</span><a href="/billing">Ver cobrança</a></div>}
         {mode === "student" ? (
           <StudentView
-            student={selectedStudent}
+            student={ownStudentView}
             onBack={isStaff ? () => setMode("admin") : undefined}
           />
         ) : adminView !== "students" ? (
