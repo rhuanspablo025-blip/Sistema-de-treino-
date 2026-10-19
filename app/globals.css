@@ -137,6 +137,15 @@ button { cursor: pointer; }
 .login-card label.remember-login { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 500; cursor: pointer; }
 .login-card .remember-login input { width: 16px; height: 16px; margin: 0; accent-color: var(--teal); }
 .settings-form { max-width: 880px; padding: 28px; }
+.documentation-page { max-width: 1100px; }
+.documentation-content { display: grid; gap: 12px; padding: clamp(20px, 4vw, 38px); line-height: 1.7; }
+.documentation-content h1, .documentation-content h2, .documentation-content h3 { margin: 12px 0 0; color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+.documentation-content h1 { font-size: 27px; }
+.documentation-content h2 { padding-top: 18px; border-top: 1px solid var(--line); font-size: 20px; }
+.documentation-content h3 { font-size: 16px; }
+.documentation-content p, .documentation-content ul { margin: 0; color: var(--muted); font-size: 13px; }
+.documentation-content ul { display: grid; gap: 8px; padding-left: 22px; }
+.documentation-content li { padding-left: 3px; }
 .settings-form h2 { margin: 0 0 8px; }
 .settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 24px 0; }
 .settings-fields label, .plans-student-selector { display: grid; gap: 8px; color: var(--muted, #8da0aa); font-size: 13px; }

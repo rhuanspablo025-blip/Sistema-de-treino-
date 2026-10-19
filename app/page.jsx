@@ -36,7 +36,35 @@ const navItems = [
   { label: "Cadastros", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
   { label: "Financeiro", icon: BarChart3, key: "finance" },
+  { label: "Documentação", icon: ClipboardList, key: "documentation" },
 ];
+
+function DocumentationModule() {
+  const [markdown, setMarkdown] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    fetch('/api/documentation').then(async (response) => {
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Não foi possível carregar a documentação.');
+      if (active) setMarkdown(body.markdown);
+    }).catch((reason) => { if (active) setError(reason.message); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const blocks = markdown.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  function renderBlock(block, index) {
+    const lines = block.split('\n');
+    if (lines.every((line) => /^[-*] /.test(line))) return <ul key={index}>{lines.map((line) => <li key={line}>{line.replace(/^[-*] /, '')}</li>)}</ul>;
+    if (/^### /.test(block)) return <h3 key={index}>{block.slice(4)}</h3>;
+    if (/^## /.test(block)) return <h2 key={index}>{block.slice(3)}</h2>;
+    if (/^# /.test(block)) return <h1 key={index}>{block.slice(2)}</h1>;
+    return <p key={index}>{lines.map((line, lineIndex) => <span key={`${index}-${lineIndex}`}>{line}{lineIndex < lines.length - 1 && <br />}</span>)}</p>;
+  }
+
+  return <div className="page-content documentation-page"><div className="page-heading"><div><p className="eyebrow">REFERÊNCIA DO SISTEMA</p><h1>Documentação</h1><p className="heading-copy">Visão geral das áreas, dos dados e das regras implementadas.</p></div></div>{error && <p className="login-error" role="alert">{error}</p>}{loading ? <p className="heading-copy">Carregando documentação...</p> : !error && <article className="panel documentation-content">{blocks.map(renderBlock)}</article>}</div>;
+}
 
 function UserManagement({ trainers = [] }) {
   const [users, setUsers] = useState([]);
@@ -165,6 +193,8 @@ function SettingsModule() {
 }
 
 function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
+  const documentationRoles = currentUser?.roles || [currentUser?.role];
+  if (view === 'documentation') return documentationRoles.some((role) => ['admin', 'SUPER_ADMIN'].includes(role)) ? <DocumentationModule /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
   const moduleData = {
     overview: {
       kicker: "VISÃO GERAL",
@@ -798,7 +828,7 @@ export default function Home() {
           <ChevronDown size={15} />
         </div>
         {isStaff && <nav className="main-nav" id="main-navigation">
-          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true)).map(({ label, icon: Icon, key }) => (
+          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'documentation' || (currentUser?.roles || [currentUser?.role]).some((role) => ['admin', 'SUPER_ADMIN'].includes(role))) && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true)).map(({ label, icon: Icon, key }) => (
             <button
               className={
                 adminView === key && mode === "admin"
