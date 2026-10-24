@@ -3,15 +3,24 @@ import { randomUUID } from 'node:crypto';
 import { requireUser } from '../../../lib/api-auth';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
+import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
 
 export const runtime = 'nodejs';
 const idPattern = /^[0-9a-f-]{36}$/i;
 const fields = ['height', 'weight', 'shoulder', 'chest', 'waist', 'hip', 'armLeft', 'armRight', 'thighLeft', 'thighRight', 'legLeft', 'legRight'];
 
 async function canAccess(database, user, studentId) {
-  if (user.role === 'student') return user.id === studentId;
-  if (user.role === 'admin' || user.role === 'dev' || user.role === 'SUPER_ADMIN') return true;
-  return Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));
+  if (hasAnyRole(user, ['student']) && user.id === studentId) return Boolean(await database.collection('students').findOne({ userId: studentId, active: true }));
+  if (isAdminUser(user)) return true;
+  return hasAnyRole(user, ['trainer']) && Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));
+}
+
+function normalizedMeasurement(field, value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const maximum = field === 'height' ? 250 : field === 'weight' ? 500 : 300;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 && number <= maximum ? number : null;
 }
 
 export async function GET(request) {
@@ -44,8 +53,8 @@ export async function POST(request) {
       const legacyField = field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
       const value = payload[field] ?? payload[legacyField];
       if (value === undefined || value === null || value === '') continue;
-      const number = Number(value);
-      if (!Number.isFinite(number) || number <= 0 || number > 300) return NextResponse.json({ error: `Medida inválida: ${field}.` }, { status: 400 });
+      const number = normalizedMeasurement(field, value);
+      if (number === null) return NextResponse.json({ error: `Medida inválida: ${field}.` }, { status: 400 });
       measurement[field] = number;
     }
     if (!Object.keys(measurement).some((key) => fields.includes(key))) return NextResponse.json({ error: 'Informe ao menos uma medida.' }, { status: 400 });
@@ -70,13 +79,15 @@ export async function PATCH(request) {
     if (!await canAccess(database, access.user, studentId)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     const update = {};
     for (const field of fields) if (payload[field] !== undefined) {
-      const value = Number(payload[field]);
-      if (!Number.isFinite(value) || value <= 0 || value > 300) return NextResponse.json({ error: `Medida inválida: ${field}.` }, { status: 400 });
+      const value = normalizedMeasurement(field, payload[field]);
+      if (value === null) return NextResponse.json({ error: `Medida inválida: ${field}.` }, { status: 400 });
       update[`measurements.$[item].${field}`] = value;
     }
     if (!Object.keys(update).length) return NextResponse.json({ error: 'Nenhuma medida informada.' }, { status: 400 });
+    const profile = await database.collection('students').findOne({ userId: studentId, active: true, 'measurements.id': id }, { projection: { userId: 1 } });
+    if (!profile) return NextResponse.json({ error: 'Registro de medidas não encontrado.' }, { status: 404 });
     const result = await database.collection('students').updateOne({ userId: studentId }, { $set: update }, { arrayFilters: [{ 'item.id': id }] });
-    if (!result.modifiedCount) return NextResponse.json({ error: 'Registro de medidas não encontrado.' }, { status: 404 });
+    if (!result.matchedCount) return NextResponse.json({ error: 'Perfil do aluno não encontrado.' }, { status: 404 });
     await writeAuditLog(database, { userId: access.user.id, action: 'update_measurements', resource: 'student', resourceId: studentId });
     return NextResponse.json({ ok: true });
   } catch {

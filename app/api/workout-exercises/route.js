@@ -4,6 +4,7 @@ import { requireUser } from '../../../lib/api-auth';
 import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
+import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
 
 export const runtime = 'nodejs';
 const idPattern = /^[0-9a-f-]{36}$/i;
@@ -13,9 +14,10 @@ async function canAccessWorkout(database, user, workout) {
   if (!workout || workout.archived === true) return false;
   const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId });
   if (!plan) return false;
-  if (user.role === 'student') return plan.studentId === user.id && plan.active !== false && !plan.deletedAt;
-  if (user.role === 'trainer') return Boolean(await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true }));
-  return ['admin', 'dev', 'SUPER_ADMIN'].includes(user.role);
+  if (isAdminUser(user)) return true;
+  const ownStudentPlan = hasAnyRole(user, ['student']) && plan.studentId === user.id && plan.active !== false && !plan.deletedAt && await database.collection('students').findOne({ userId: user.id, active: true });
+  if (ownStudentPlan) return true;
+  return hasAnyRole(user, ['trainer']) && Boolean(await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true }));
 }
 
 async function withExerciseNames(database, workout) {
@@ -97,7 +99,11 @@ export async function PATCH(request) {
       if (!Number.isInteger(value) || value < 1 || value > 20) return NextResponse.json({ error: 'Número de séries inválido.' }, { status: 400 });
       fields['exercises.$[item].sets'] = value;
     }
-    if (payload.repetitions !== undefined || payload.repeticoes !== undefined) fields['exercises.$[item].repetitions'] = text(payload.repetitions ?? payload.repeticoes, 40);
+    if (payload.repetitions !== undefined || payload.repeticoes !== undefined) {
+      const repetitions = text(payload.repetitions ?? payload.repeticoes, 40);
+      if (!repetitions) return NextResponse.json({ error: 'Informe as repetições.' }, { status: 400 });
+      fields['exercises.$[item].repetitions'] = repetitions;
+    }
     if (payload.load !== undefined || payload.weight !== undefined || payload.carga !== undefined) {
       const load = payload.load ?? payload.weight ?? payload.carga;
       const value = load === null || load === '' ? null : Number(load);

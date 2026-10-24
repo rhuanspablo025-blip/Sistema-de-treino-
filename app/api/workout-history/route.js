@@ -3,15 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { requireUser } from '../../../lib/api-auth';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
+import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
 
 export const runtime = 'nodejs';
 const idPattern = /^[0-9a-f-]{36}$/i;
 const text = (value, limit = 1000) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 
 async function mayAccessStudent(database, user, studentId) {
-  if (user.role === 'student') return user.id === studentId;
-  if (user.role === 'admin' || user.role === 'dev' || user.role === 'SUPER_ADMIN') return true;
-  return Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));
+  if (hasAnyRole(user, ['student']) && user.id === studentId) return Boolean(await database.collection('students').findOne({ userId: studentId, active: true }));
+  if (isAdminUser(user)) return true;
+  return hasAnyRole(user, ['trainer']) && Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));
 }
 
 export async function GET(request) {
@@ -38,6 +39,7 @@ export async function POST(request) {
   if (access.response) return access.response;
   try {
     const payload = await request.json();
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return NextResponse.json({ error: 'Dados do treino inválidos.' }, { status: 400 });
     const studentId = text(payload.studentId, 64) || access.user.id;
     const workoutId = text(payload.workoutId, 64);
     const exerciseId = text(payload.exerciseId, 64);
@@ -46,15 +48,19 @@ export async function POST(request) {
     if (!sets.length || sets.length > 20) return NextResponse.json({ error: 'Informe de 1 a 20 séries realizadas.' }, { status: 400 });
     const normalizedSets = [];
     for (const [index, set] of sets.entries()) {
-      const repetitions = Number(set.repetitions ?? set.repeticoes);
-      const load = Number(set.load ?? set.carga ?? 0);
+      if (!set || typeof set !== 'object' || Array.isArray(set)) return NextResponse.json({ error: `Dados inválidos na série ${index + 1}.` }, { status: 400 });
+      const rawRepetitions = set.repetitions ?? set.repeticoes;
+      const rawLoad = set.load ?? set.carga ?? 0;
+      if ((typeof rawRepetitions !== 'number' && typeof rawRepetitions !== 'string') || rawRepetitions === '' || (typeof rawLoad !== 'number' && typeof rawLoad !== 'string') || rawLoad === '') return NextResponse.json({ error: `Dados inválidos na série ${index + 1}.` }, { status: 400 });
+      const repetitions = Number(rawRepetitions);
+      const load = Number(rawLoad);
       if (!Number.isInteger(repetitions) || repetitions < 0 || repetitions > 500 || !Number.isFinite(load) || load < 0 || load > 10000) return NextResponse.json({ error: `Dados inválidos na série ${index + 1}.` }, { status: 400 });
       normalizedSets.push({ series: index + 1, repetitions, load });
     }
 
     const database = await getDatabase();
     if (!await mayAccessStudent(database, access.user, studentId)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
-    const workout = await database.collection('workouts').findOne({ id: workoutId, 'exercises.exerciseId': exerciseId });
+    const workout = await database.collection('workouts').findOne({ id: workoutId, archived: { $ne: true }, 'exercises.exerciseId': exerciseId });
     if (!workout) return NextResponse.json({ error: 'O exercício não pertence ao treino informado.' }, { status: 400 });
     const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId, studentId, active: true, deletedAt: { $exists: false } });
     if (!plan) return NextResponse.json({ error: 'O treino não pertence a uma ficha ativa deste aluno.' }, { status: 400 });

@@ -5,6 +5,7 @@ import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
 import { getDatabase } from '../../../lib/mongodb';
 import { writeAuditLog } from '../../../lib/audit';
 import validation from '../../../lib/workout-plan-validation.cjs';
+import { isAdminUser, rolesFor } from '../../../lib/user-roles';
 
 export const runtime = 'nodejs';
 const idPattern = /^[0-9a-f-]{36}$/i;
@@ -14,8 +15,12 @@ const { DAY_KEYS } = validation;
 async function ownedPlanFilter(database, user, planId) {
   const plan = await database.collection('workout_plans').findOne({ id: planId });
   if (!plan) return null;
-  if (user.role === 'student' && (plan.studentId !== user.id || plan.active === false || plan.deletedAt)) return null;
-  if (user.role === 'trainer' && !await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true })) return null;
+  if (plan.deletedAt) return null;
+  if (isAdminUser(user)) return plan;
+  const roles = rolesFor(user);
+  const ownStudentPlan = roles.has('student') && plan.studentId === user.id && plan.active !== false && await database.collection('students').findOne({ userId: user.id, active: true });
+  const assignedStudent = roles.has('trainer') && await database.collection('students').findOne({ userId: plan.studentId, trainerId: user.id, active: true });
+  if (!ownStudentPlan && !assignedStudent) return null;
   return plan;
 }
 

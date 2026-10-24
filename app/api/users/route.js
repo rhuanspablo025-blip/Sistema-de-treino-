@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { getCurrentUser } from '../../../lib/auth';
 import { writeAuditLog } from '../../../lib/audit';
-import { getDatabase } from '../../../lib/mongodb';
+import { getDatabase, getMongoClient } from '../../../lib/mongodb';
 import { normalizeUsername } from '../../../lib/usernames';
 import { isAdminRole, isSuperAdmin } from '../../../lib/roles';
 import { getFinancialAccess } from '../../../lib/finance-access';
@@ -27,8 +27,9 @@ function publicUser(user) {
 }
 
 function requestedRoles(payload, fallback = 'student') {
-  const roles = Array.isArray(payload.roles) ? [...new Set(payload.roles.filter((role) => validRoles.has(role)))] : [text(payload.role, 20) || fallback];
-  return roles.length && roles.every((role) => validRoles.has(role)) ? roles : [];
+  if (Array.isArray(payload.roles)) return payload.roles.length && payload.roles.every((role) => typeof role === 'string' && validRoles.has(role)) ? [...new Set(payload.roles)] : [];
+  const role = text(payload.role, 20) || fallback;
+  return validRoles.has(role) ? [role] : [];
 }
 function primaryRole(roles) { return ['admin', 'dev', 'trainer', 'student'].find((role) => roles.includes(role)); }
 
@@ -125,15 +126,17 @@ export async function POST(request) {
   if (financialAccess.blocked || financialAccess.restricted) return NextResponse.json({ error: 'Conta restrita por pendência financeira.' }, { status: 423 });
   try {
     const payload = await request.json();
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
     const name = text(payload.name, 120);
     const username = text(payload.username, 32);
     const normalizedUsername = normalizeUsername(username);
     const password = typeof payload.password === 'string' ? payload.password : '';
     const roles = requestedRoles(payload);
     const role = primaryRole(roles);
-    if (name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome e usuário válidos (3 a 30 caracteres).'}, { status: 400 });
+    if (typeof payload.name !== 'string' || payload.name.trim().length < 2 || payload.name.trim().length > 120 || typeof payload.username !== 'string' || payload.username.trim().length > 30 || name.length < 2 || !normalizedUsername) return NextResponse.json({ error: 'Informe nome com até 120 caracteres e usuário válido (3 a 30 caracteres).'}, { status: 400 });
     if (!role) return NextResponse.json({ error: 'Selecione pelo menos um perfil válido.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
+    if (['phone', 'goal', 'cref', 'trainerId'].some((key) => payload[key] !== undefined && (typeof payload[key] !== 'string' || payload[key].length > ({ phone: 40, goal: 240, cref: 40, trainerId: 64 }[key])))) return NextResponse.json({ error: 'Telefone, objetivo, CREF ou personal excede o limite permitido.' }, { status: 400 });
     if (!isAdminRole(creator.role) && !(creator.role === 'trainer' && roles.length === 1 && roles[0] === 'student')) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
     if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
@@ -178,6 +181,7 @@ export async function PATCH(request) {
   if (access.response) return access.response;
   try {
     const payload = await request.json();
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return NextResponse.json({ error: 'Dados do usuário inválidos.' }, { status: 400 });
     const id = text(payload.id, 64);
     const name = text(payload.name, 120);
     const username = text(payload.username, 32);
@@ -185,8 +189,9 @@ export async function PATCH(request) {
     const roles = requestedRoles(payload, 'student');
     const role = primaryRole(roles);
     const password = typeof payload.password === 'string' ? payload.password : '';
-    if (!/^[0-9a-f-]{36}$/i.test(id) || name.length < 2 || !normalizedUsername || !role) return NextResponse.json({ error: 'Dados do usuário inválidos. Selecione ao menos um perfil.' }, { status: 400 });
+    if (!/^[0-9a-f-]{36}$/i.test(id) || typeof payload.name !== 'string' || payload.name.trim().length < 2 || payload.name.trim().length > 120 || typeof payload.username !== 'string' || payload.username.trim().length > 30 || name.length < 2 || !normalizedUsername || !role) return NextResponse.json({ error: 'Dados do usuário inválidos. Verifique o nome, usuário e perfis.' }, { status: 400 });
     if (!validDate(text(payload.dateOfBirth, 20))) return NextResponse.json({ error: 'Data de nascimento inválida.' }, { status: 400 });
+    if (['phone', 'goal', 'cref', 'trainerId'].some((key) => payload[key] !== undefined && (typeof payload[key] !== 'string' || payload[key].length > ({ phone: 40, goal: 240, cref: 40, trainerId: 64 }[key])))) return NextResponse.json({ error: 'Telefone, objetivo, CREF ou personal excede o limite permitido.' }, { status: 400 });
     if (password && (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72)) return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.' }, { status: 400 });
     if (password && password !== payload.confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
 
@@ -258,16 +263,23 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id');
     if (!id || id === access.user.id || !/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Não é possível excluir este usuário.' }, { status: 400 });
     const database = await getDatabase();
-    const target = await database.collection('users').findOne({ id }, { projection: { role: 1, active: 1, sessionVersion: 1 } });
+    const target = await database.collection('users').findOne({ id }, { projection: { role: 1, roles: 1 } });
+    if (!target) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
     if (target?.role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A conta proprietária não pode ser desativada por esta API.' }, { status: 403 });
     const now = new Date();
-    const result = await database.collection('users').updateOne({ id, deletedAt: { $exists: false } }, { $set: { active: false, deletedAt: now, updatedAt: now, sessionVersion: (target?.sessionVersion || 0) + (target?.active === false ? 0 : 1) } });
-    if (!result.matchedCount) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
-    await database.collection('students').updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
-    await database.collection('trainers').updateOne({ userId: id }, { $set: { active: false, updatedAt: new Date() } });
-    await database.collection('students').updateOne({ userId: id }, { $set: { deletedAt: now } });
-    await database.collection('trainers').updateOne({ userId: id }, { $set: { deletedAt: now } });
-    await writeAuditLog(database, { userId: access.user.id, action: 'deactivate', resource: 'user', resourceId: id });
+    const client = await getMongoClient();
+    const session = client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const studentProfile = await database.collection('students').findOne({ userId: id }, { session, projection: { name: 1 } });
+        if (studentProfile) await database.collection('workout_plans').updateMany({ studentId: id }, { $set: { studentNameSnapshot: studentProfile.name || '' } }, { session });
+        await database.collection('students').updateMany({ trainerId: id }, { $set: { trainerId: null, updatedAt: now } }, { session });
+        await database.collection('users').deleteOne({ id }, { session });
+        await database.collection('students').deleteOne({ userId: id }, { session });
+        await database.collection('trainers').deleteOne({ userId: id }, { session });
+        await writeAuditLog(database, { userId: access.user.id, action: 'delete', resource: 'user', resourceId: id, metadata: { removedRoles: target.roles || [target.role], relatedWorkoutAndFinancialHistoryPreserved: true }, session });
+      });
+    } finally { await session.endSession(); }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Não foi possível desativar o usuário.' }, { status: 500 });
