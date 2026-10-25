@@ -7,12 +7,14 @@ const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
 const { migrateLegacyUsernames, ensureUniqueUserIndexes } = require('../lib/username-utils.cjs');
 
-const { MONGODB_URI, ADMIN_PASSWORD } = process.env;
+const { MONGODB_URI, MONGODB_URI_ACCOUNTS, ADMIN_PASSWORD } = process.env;
+// Usuários e logs de auditoria ficam no cluster de cadastros.
+const ACCOUNTS_URI = MONGODB_URI_ACCOUNTS || MONGODB_URI;
 const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador';
 
-if (!MONGODB_URI || !ADMIN_USERNAME || !ADMIN_PASSWORD) {
-  console.error('Configure MONGODB_URI, ADMIN_USERNAME e ADMIN_PASSWORD em .env.local.');
+if (!ACCOUNTS_URI || !ADMIN_USERNAME || !ADMIN_PASSWORD) {
+  console.error('Configure MONGODB_URI_ACCOUNTS (ou MONGODB_URI), ADMIN_USERNAME e ADMIN_PASSWORD em .env.local.');
   process.exit(1);
 }
 if (ADMIN_PASSWORD.length < 8) {
@@ -29,7 +31,7 @@ if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(ADMIN_USERNAME) || !ADMIN_NAME.tr
 }
 
 async function createAdmin() {
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(ACCOUNTS_URI);
   try {
     await client.connect();
     const database = client.db('sistema_treino');

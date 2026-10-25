@@ -6,12 +6,14 @@ const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
 
-const { MONGODB_URI, SUPER_ADMIN_PASSWORD } = process.env;
+const { MONGODB_URI, MONGODB_URI_ACCOUNTS, SUPER_ADMIN_PASSWORD } = process.env;
+// Usuários e logs de auditoria ficam no cluster de cadastros.
+const ACCOUNTS_URI = MONGODB_URI_ACCOUNTS || MONGODB_URI;
 const SUPER_ADMIN_USERNAME = (process.env.SUPER_ADMIN_USERNAME || 'rhuanspablo025').trim().toLowerCase();
 const SUPER_ADMIN_NAME = (process.env.SUPER_ADMIN_NAME || 'Proprietário').trim();
 
-if (!MONGODB_URI || SUPER_ADMIN_USERNAME !== 'rhuanspablo025') {
-  console.error('Configure MONGODB_URI e SUPER_ADMIN_USERNAME=rhuanspablo025.');
+if (!ACCOUNTS_URI || SUPER_ADMIN_USERNAME !== 'rhuanspablo025') {
+  console.error('Configure MONGODB_URI_ACCOUNTS (ou MONGODB_URI) e SUPER_ADMIN_USERNAME=rhuanspablo025.');
   process.exit(1);
 }
 if (SUPER_ADMIN_PASSWORD && (SUPER_ADMIN_PASSWORD.length < 8 || Buffer.byteLength(SUPER_ADMIN_PASSWORD, 'utf8') > 72)) {
@@ -20,7 +22,7 @@ if (SUPER_ADMIN_PASSWORD && (SUPER_ADMIN_PASSWORD.length < 8 || Buffer.byteLengt
 }
 
 async function setupSuperAdmin() {
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(ACCOUNTS_URI);
   try {
     await client.connect();
     const database = client.db('sistema_treino');

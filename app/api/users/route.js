@@ -267,19 +267,24 @@ export async function DELETE(request) {
     if (!target) return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
     if (target?.role === 'SUPER_ADMIN') return NextResponse.json({ error: 'A conta proprietária não pode ser desativada por esta API.' }, { status: 403 });
     const now = new Date();
-    const client = await getMongoClient();
+    const client = await getMongoClient('accounts');
     const session = client.startSession();
+    let studentProfile = null;
     try {
       await session.withTransaction(async () => {
-        const studentProfile = await database.collection('students').findOne({ userId: id }, { session, projection: { name: 1 } });
-        if (studentProfile) await database.collection('workout_plans').updateMany({ studentId: id }, { $set: { studentNameSnapshot: studentProfile.name || '' } }, { session });
+        studentProfile = await database.collection('students').findOne({ userId: id }, { session, projection: { name: 1 } });
         await database.collection('students').updateMany({ trainerId: id }, { $set: { trainerId: null, updatedAt: now } }, { session });
         await database.collection('users').deleteOne({ id }, { session });
         await database.collection('students').deleteOne({ userId: id }, { session });
         await database.collection('trainers').deleteOne({ userId: id }, { session });
-        await writeAuditLog(database, { userId: access.user.id, action: 'delete', resource: 'user', resourceId: id, metadata: { removedRoles: target.roles || [target.role], relatedWorkoutAndFinancialHistoryPreserved: true }, session });
       });
     } finally { await session.endSession(); }
+    // As fichas ficam em outro cluster (training), então o ajuste do nome do aluno
+    // é feito fora da transação: o MongoDB não suporta transações entre clusters.
+    if (studentProfile) {
+      await database.collection('workout_plans').updateMany({ studentId: id }, { $set: { studentNameSnapshot: studentProfile.name || '' } });
+    }
+    await writeAuditLog(database, { userId: access.user.id, action: 'delete', resource: 'user', resourceId: id, metadata: { removedRoles: target.roles || [target.role], relatedWorkoutAndFinancialHistoryPreserved: true } });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Não foi possível desativar o usuário.' }, { status: 500 });

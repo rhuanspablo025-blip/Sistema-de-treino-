@@ -7,12 +7,14 @@ const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
 const { migrateLegacyUsernames, ensureUniqueUserIndexes } = require('../lib/username-utils.cjs');
 
-const { MONGODB_URI, DEV_PASSWORD } = process.env;
+const { MONGODB_URI, MONGODB_URI_ACCOUNTS, DEV_PASSWORD } = process.env;
+// Usuários e logs de auditoria ficam no cluster de cadastros.
+const ACCOUNTS_URI = MONGODB_URI_ACCOUNTS || MONGODB_URI;
 const DEV_USERNAME = (process.env.DEV_USERNAME || 'dev').trim().toLowerCase();
 const DEV_NAME = (process.env.DEV_NAME || 'DEV').trim();
 
-if (!MONGODB_URI || !DEV_PASSWORD) {
-  console.error('Configure MONGODB_URI e DEV_PASSWORD em .env.local.');
+if (!ACCOUNTS_URI || !DEV_PASSWORD) {
+  console.error('Configure MONGODB_URI_ACCOUNTS (ou MONGODB_URI) e DEV_PASSWORD em .env.local.');
   process.exit(1);
 }
 if (DEV_PASSWORD.length < 8 || Buffer.byteLength(DEV_PASSWORD, 'utf8') > 72) {
@@ -25,7 +27,7 @@ if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(DEV_USERNAME) || !DEV_NAME) {
 }
 
 async function createDevUser() {
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(ACCOUNTS_URI);
   try {
     await client.connect();
     const database = client.db('sistema_treino');

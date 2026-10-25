@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
       delete copy._id;
       return copy;
     });
-    const session = (await getMongoClient()).startSession();
+    const session = (await getMongoClient('training')).startSession();
     try {
       await session.withTransaction(async () => {
         await database.collection('workout_plans').insertOne(newPlan, { session });
