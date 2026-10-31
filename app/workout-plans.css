@@ -194,3 +194,6 @@
   .exercise-library-pagination > div { width:100%; }
   .exercise-library-pagination .outline-button { flex:1; }
 }
+
+.plans-detail-row > span:first-child small { line-height:1.5; overflow-wrap:anywhere; }
+.plans-detail-row > span:first-child img { max-width:100%; }
