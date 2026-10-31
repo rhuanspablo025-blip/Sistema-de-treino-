@@ -63,6 +63,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   const [toast, setToast] = useState('');
   const [exerciseSearch, setExerciseSearch] = useState({});
   const [pendingExercise, setPendingExercise] = useState({});
+  const [draggedExercise, setDraggedExercise] = useState(null);
   const [section, setSection] = useState(initialTab);
   const [libraryQuery, setLibraryQuery] = useState('');
   const [libraryStatus, setLibraryStatus] = useState('active');
@@ -319,6 +320,32 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
     updateDay(dayKey, { exercises });
   }
 
+  function reorderExercise(sourceDayKey, sourceIndex, targetDayKey, targetIndex) {
+    const sourceDay = editor.days.find((day) => day.dayOfWeek === sourceDayKey);
+    const targetDay = editor.days.find((day) => day.dayOfWeek === targetDayKey);
+    if (!sourceDay || !targetDay || targetDay.isRestDay || !sourceDay.exercises[sourceIndex]) return;
+    if (sourceDayKey !== targetDayKey && targetDay.exercises.length >= 50) return;
+    setEditor((current) => ({
+      ...current,
+      days: current.days.map((day) => {
+        if (day.dayOfWeek === sourceDayKey && sourceDayKey === targetDayKey) {
+          const exercises = [...day.exercises];
+          const [moved] = exercises.splice(sourceIndex, 1);
+          exercises.splice(Math.max(0, Math.min(targetIndex, exercises.length)), 0, moved);
+          return { ...day, exercises };
+        }
+        if (day.dayOfWeek === sourceDayKey) return { ...day, exercises: day.exercises.filter((_, index) => index !== sourceIndex) };
+        if (day.dayOfWeek === targetDayKey) {
+          const exercises = [...day.exercises];
+          const [moved] = sourceDay.exercises.slice(sourceIndex, sourceIndex + 1);
+          exercises.splice(Math.max(0, Math.min(targetIndex, exercises.length)), 0, moved);
+          return { ...day, exercises };
+        }
+        return day;
+      }),
+    }));
+  }
+
   function duplicateExercise(dayKey, index) {
     const day = editor.days.find((item) => item.dayOfWeek === dayKey);
     if (day.exercises.length >= 50) return;
@@ -444,7 +471,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
                     {day.exercises.length === 0 ? <p className="plans-empty-exercises">Adicione exercícios da biblioteca existente.</p> : <div className="plans-exercises">
                       {day.exercises.map((exercise, index) => {
                         const catalogExercise = catalog.find((item) => item.id === exercise.exerciseId);
-                        return <div className="plans-exercise" key={exercise.id || `${exercise.exerciseId}-${index}`}>
+                        return <div className={`plans-exercise ${draggedExercise?.dayKey === slot.key && draggedExercise.index === index ? 'is-dragging' : ''}`} key={exercise.id || `${exercise.exerciseId}-${index}`} draggable onDragStart={(event) => { setDraggedExercise({ dayKey: slot.key, index }); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(index)); }} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }} onDrop={(event) => { event.preventDefault(); if (draggedExercise) reorderExercise(draggedExercise.dayKey, draggedExercise.index, slot.key, index); setDraggedExercise(null); }} onDragEnd={() => setDraggedExercise(null)}>
                           <header className="plans-exercise-header"><div><strong>{catalogExercise?.name || exercise.exercise?.name || 'Exercício'}</strong><small>{catalogExercise?.muscleGroup || exercise.exercise?.muscleGroup || 'Grupo não classificado'} · {catalogExercise?.equipment || exercise.exercise?.equipment || 'Sem equipamento'}</small></div><div className="plans-row-actions"><button type="button" className="plans-icon-button" aria-label="Mover exercício para cima" title="Mover para cima" disabled={index === 0} onClick={() => moveExercise(slot.key, index, -1)}>↑</button><button type="button" className="plans-icon-button" aria-label="Mover exercício para baixo" title="Mover para baixo" disabled={index === day.exercises.length - 1} onClick={() => moveExercise(slot.key, index, 1)}>↓</button><button type="button" className="plans-icon-button" aria-label="Duplicar exercício" title="Duplicar exercício" onClick={() => duplicateExercise(slot.key, index)}>⧉</button><button type="button" className="plans-icon-button danger" aria-label="Remover exercício" title="Remover exercício" onClick={() => removeExercise(slot.key, index)}>×</button></div></header>
                           <div className="plans-exercise-grid">
                             <label className="plans-field">Séries<input type="number" min="1" max="20" required value={exercise.sets} onChange={(event) => updateExercise(slot.key, index, { sets: event.target.value === '' ? '' : Number(event.target.value) })} /></label>
