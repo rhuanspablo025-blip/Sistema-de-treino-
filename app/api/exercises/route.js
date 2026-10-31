@@ -15,16 +15,18 @@ const mediaUrl = (value) => {
   if (!candidate) return '';
   try { const url = new URL(candidate); return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''; } catch { return ''; }
 };
-const mediaFields = (payload) => ({
-  primaryMuscles: list(payload.primaryMuscles ?? payload.primary_muscles),
-  secondaryMuscles: list(payload.secondaryMuscles ?? payload.secondary_muscles),
-  difficulty: ['Iniciante', 'Intermediário', 'Avançado'].includes(payload.difficulty) ? payload.difficulty : 'Iniciante',
-  executionTips: text(payload.executionTips ?? payload.execution_tips, 2000),
-  contraindications: text(payload.contraindications, 2000),
-  gifUrl: mediaUrl(payload.gifUrl ?? payload.gif_url),
-  imageUrl: mediaUrl(payload.imageUrl ?? payload.image_url),
-  videoUrl: mediaUrl(payload.videoUrl ?? payload.video_url),
-});
+const mediaFields = (payload) => {
+  const fields = {};
+  if (payload.primaryMuscles !== undefined || payload.primary_muscles !== undefined) fields.primaryMuscles = list(payload.primaryMuscles ?? payload.primary_muscles);
+  if (payload.secondaryMuscles !== undefined || payload.secondary_muscles !== undefined) fields.secondaryMuscles = list(payload.secondaryMuscles ?? payload.secondary_muscles);
+  if (payload.difficulty !== undefined) fields.difficulty = ['Iniciante', 'Intermediário', 'Avançado'].includes(payload.difficulty) ? payload.difficulty : 'Iniciante';
+  if (payload.executionTips !== undefined || payload.execution_tips !== undefined) fields.executionTips = text(payload.executionTips ?? payload.execution_tips, 2000);
+  if (payload.contraindications !== undefined) fields.contraindications = text(payload.contraindications, 2000);
+  if (payload.gifUrl !== undefined || payload.gif_url !== undefined) fields.gifUrl = mediaUrl(payload.gifUrl ?? payload.gif_url);
+  if (payload.imageUrl !== undefined || payload.image_url !== undefined) fields.imageUrl = mediaUrl(payload.imageUrl ?? payload.image_url);
+  if (payload.videoUrl !== undefined || payload.video_url !== undefined) fields.videoUrl = mediaUrl(payload.videoUrl ?? payload.video_url);
+  return fields;
+};
 export async function GET(request) {
   const access = await requireUser();
   if (access.response) return access.response;
@@ -52,7 +54,7 @@ export async function POST(request) {
     const exercise = {
       id: randomUUID(), name, nameKey: keyFor(name), muscleGroup,
       equipment: text(payload.equipment, 100), description: text(payload.description, 1000),
-      instructions: text(payload.instructions, 3000), ...mediaFields(payload), active: true, createdAt: now, updatedAt: now,
+      instructions: text(payload.instructions, 3000), primaryMuscles: [], secondaryMuscles: [], difficulty: 'Iniciante', executionTips: '', contraindications: '', gifUrl: '', imageUrl: '', videoUrl: '', ...mediaFields(payload), active: true, createdAt: now, updatedAt: now,
       createdBy: access.user.id,
     };
     await database.collection('exercises').insertOne(exercise);
