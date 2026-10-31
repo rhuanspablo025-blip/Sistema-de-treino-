@@ -70,6 +70,10 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   const [libraryMuscle, setLibraryMuscle] = useState('all');
   const [libraryDifficulty, setLibraryDifficulty] = useState('all');
   const [libraryPage, setLibraryPage] = useState(1);
+  const [externalDemoQuery, setExternalDemoQuery] = useState('');
+  const [externalDemoResults, setExternalDemoResults] = useState([]);
+  const [externalDemoLoading, setExternalDemoLoading] = useState(false);
+  const [externalDemoError, setExternalDemoError] = useState('');
   const [exerciseEditor, setExerciseEditor] = useState(null);
   const [templates, setTemplates] = useState([]);
 
@@ -116,6 +120,47 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
       await loadData();
       showToast(exerciseEditor?.id ? 'Exercício atualizado.' : 'Exercício cadastrado.');
     } catch (error) { showToast(error.message); }
+  }
+
+  async function searchExternalDemos() {
+    if (externalDemoQuery.trim().length < 2) {
+      setExternalDemoError('Digite pelo menos 2 caracteres.');
+      return;
+    }
+    setExternalDemoLoading(true);
+    setExternalDemoError('');
+    try {
+      const data = await requestJson(`/api/exercises/demos?term=${encodeURIComponent(externalDemoQuery.trim())}`);
+      setExternalDemoResults(data.results || []);
+      if (!(data.results || []).length) setExternalDemoError('Nenhum exercício encontrado no catálogo externo.');
+    } catch (error) {
+      setExternalDemoError(error.message || 'Não foi possível pesquisar demonstrações.');
+      setExternalDemoResults([]);
+    } finally {
+      setExternalDemoLoading(false);
+    }
+  }
+
+  async function applyExternalDemo(externalId) {
+    try {
+      const data = await requestJson(`/api/exercises/demos?id=${encodeURIComponent(externalId)}`);
+      const demo = data.exercise;
+      setExerciseEditor((current) => ({
+        ...current,
+        imageUrl: demo.imageUrl || current.imageUrl || '',
+        videoUrl: demo.videoUrl || current.videoUrl || '',
+        instructions: demo.instructions || current.instructions || '',
+        primaryMuscles: demo.primaryMuscles?.length ? demo.primaryMuscles : current.primaryMuscles || [],
+        secondaryMuscles: demo.secondaryMuscles?.length ? demo.secondaryMuscles : current.secondaryMuscles || [],
+        mediaAttribution: demo.mediaAttribution || '',
+        mediaSourceUrl: demo.mediaSourceUrl || '',
+        externalSelectionId: String(externalId),
+      }));
+      setExternalDemoError('');
+      showToast('Demonstração e informações importadas. Revise antes de salvar.');
+    } catch (error) {
+      setExternalDemoError(error.message || 'Não foi possível importar esta demonstração.');
+    }
   }
 
   async function changeExerciseStatus(exercise) {
@@ -543,7 +588,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
       </article>
     </div>}
     </>}
-    {exerciseEditor && <div className="plans-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="exercise-editor-title" onMouseDown={(event) => event.target === event.currentTarget && setExerciseEditor(null)}><form className="plans-detail-panel exercise-editor" onSubmit={saveExercise}><header><div><p className="eyebrow">BIBLIOTECA</p><h2 id="exercise-editor-title">{exerciseEditor.id ? 'Editar exercício' : 'Novo exercício'}</h2></div><button type="button" className="plans-icon-button" onClick={() => setExerciseEditor(null)} aria-label="Fechar">×</button></header><label className="plans-field">Nome<input name="name" required minLength="2" maxLength="120" defaultValue={exerciseEditor.name || ''} /></label><label className="plans-field">Grupo muscular<input name="muscleGroup" required maxLength="100" defaultValue={exerciseEditor.muscleGroup || ''} /></label><label className="plans-field">Aparelho / equipamento (opcional)<input name="equipment" maxLength="100" defaultValue={exerciseEditor.equipment || ''} placeholder="Livre, halteres, máquina..." /></label><label className="plans-field">Descrição<input name="description" maxLength="1000" defaultValue={exerciseEditor.description || ''} /></label><label className="plans-field">Instruções<textarea name="instructions" rows="4" maxLength="3000" defaultValue={exerciseEditor.instructions || ''} /></label><label className="plans-field">Músculos principais (separados por vírgula)<input name="primaryMuscles" defaultValue={(exerciseEditor.primaryMuscles || []).join(', ')} placeholder="Peitoral, tríceps" /></label><label className="plans-field">Músculos secundários<input name="secondaryMuscles" defaultValue={(exerciseEditor.secondaryMuscles || []).join(', ')} placeholder="Ombros, core" /></label><label className="plans-field">Nível<select name="difficulty" defaultValue={exerciseEditor.difficulty || 'Iniciante'}><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select></label><label className="plans-field">URL do GIF demonstrativo<input type="url" name="gifUrl" defaultValue={exerciseEditor.gifUrl || ''} placeholder="https://..." /></label><label className="plans-field">URL de imagem<input type="url" name="imageUrl" defaultValue={exerciseEditor.imageUrl || ''} placeholder="https://..." /></label><label className="plans-field">URL de vídeo<input type="url" name="videoUrl" defaultValue={exerciseEditor.videoUrl || ''} placeholder="https://..." /></label><label className="plans-field">Dicas de execução<textarea name="executionTips" rows="3" maxLength="2000" defaultValue={exerciseEditor.executionTips || ''} /></label><label className="plans-field">Cuidados e contraindicações<textarea name="contraindications" rows="3" maxLength="2000" defaultValue={exerciseEditor.contraindications || ''} /></label><footer><button type="button" className="outline-button" onClick={() => setExerciseEditor(null)}>Cancelar</button><button className="primary-button">Salvar exercício</button></footer></form></div>}
+    {exerciseEditor && <div className="plans-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="exercise-editor-title" onMouseDown={(event) => event.target === event.currentTarget && setExerciseEditor(null)}><form key={`${exerciseEditor.id || 'new'}-${exerciseEditor.externalSelectionId || ''}`} className="plans-detail-panel exercise-editor" onSubmit={saveExercise}><header><div><p className="eyebrow">BIBLIOTECA</p><h2 id="exercise-editor-title">{exerciseEditor.id ? 'Editar exercício' : 'Novo exercício'}</h2></div><button type="button" className="plans-icon-button" onClick={() => setExerciseEditor(null)} aria-label="Fechar">×</button></header><section className="exercise-external-search"><div><strong>Buscar demonstração no catálogo público</strong><span>Pesquise em inglês para encontrar imagens e vídeos disponíveis.</span></div><div className="exercise-external-search-controls"><input value={externalDemoQuery} onChange={(event) => setExternalDemoQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), searchExternalDemos())} placeholder="Ex.: bench press, squat, lat pulldown" /><button type="button" className="outline-button" disabled={externalDemoLoading} onClick={searchExternalDemos}>{externalDemoLoading ? 'Buscando...' : 'Buscar'}</button></div>{externalDemoError && <small role="status">{externalDemoError}</small>}{externalDemoResults.length > 0 && <div className="exercise-external-results">{externalDemoResults.map((result) => <button type="button" key={result.id} onClick={() => applyExternalDemo(result.id)}><strong>{result.name}</strong><small>{result.category || 'Categoria não informada'} · Importar</small></button>)}</div>}</section><label className="plans-field">Nome<input name="name" required minLength="2" maxLength="120" defaultValue={exerciseEditor.name || ''} /></label><label className="plans-field">Grupo muscular<input name="muscleGroup" required maxLength="100" defaultValue={exerciseEditor.muscleGroup || ''} /></label><label className="plans-field">Aparelho / equipamento (opcional)<input name="equipment" maxLength="100" defaultValue={exerciseEditor.equipment || ''} placeholder="Livre, halteres, máquina..." /></label><label className="plans-field">Descrição<input name="description" maxLength="1000" defaultValue={exerciseEditor.description || ''} /></label><label className="plans-field">Instruções<textarea name="instructions" rows="4" maxLength="3000" defaultValue={exerciseEditor.instructions || ''} /></label><label className="plans-field">Músculos principais (separados por vírgula)<input name="primaryMuscles" defaultValue={(exerciseEditor.primaryMuscles || []).join(', ')} placeholder="Peitoral, tríceps" /></label><label className="plans-field">Músculos secundários<input name="secondaryMuscles" defaultValue={(exerciseEditor.secondaryMuscles || []).join(', ')} placeholder="Ombros, core" /></label><label className="plans-field">Nível<select name="difficulty" defaultValue={exerciseEditor.difficulty || 'Iniciante'}><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select></label><label className="plans-field">URL do GIF demonstrativo<input type="url" name="gifUrl" defaultValue={exerciseEditor.gifUrl || ''} placeholder="https://..." /></label><label className="plans-field">URL de imagem<input type="url" name="imageUrl" defaultValue={exerciseEditor.imageUrl || ''} placeholder="https://..." /></label><label className="plans-field">URL de vídeo<input type="url" name="videoUrl" defaultValue={exerciseEditor.videoUrl || ''} placeholder="https://..." /></label><label className="plans-field">Dicas de execução<textarea name="executionTips" rows="3" maxLength="2000" defaultValue={exerciseEditor.executionTips || ''} /></label><label className="plans-field">Cuidados e contraindicações<textarea name="contraindications" rows="3" maxLength="2000" defaultValue={exerciseEditor.contraindications || ''} /></label><label className="plans-field">Crédito / licença da mídia<input name="mediaAttribution" maxLength="500" defaultValue={exerciseEditor.mediaAttribution || ''} /></label><label className="plans-field">Fonte da mídia<input type="url" name="mediaSourceUrl" defaultValue={exerciseEditor.mediaSourceUrl || ''} placeholder="https://..." /></label><footer><button type="button" className="outline-button" onClick={() => setExerciseEditor(null)}>Cancelar</button><button className="primary-button">Salvar exercício</button></footer></form></div>}
     {toast && <div className="plans-toast" role="status">{toast}</div>}
   </div>;
 }
