@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ExerciseAnimation from './ExerciseAnimation';
 
 const WEEK_DAYS = [
   { key: 'monday', label: 'Segunda' },
@@ -45,41 +46,8 @@ function plainExercise(item) {
 }
 
 
-function getExerciseVideo(url) {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    if (!['https:', 'http:'].includes(parsed.protocol)) return null;
-
-    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-    const isYouTube = host === 'youtube.com' || host.endsWith('.youtube.com');
-    const isVimeo = host === 'vimeo.com' || host.endsWith('.vimeo.com');
-
-    if (host === 'youtu.be' || isYouTube) {
-      const id = host === 'youtu.be'
-        ? parsed.pathname.split('/').filter(Boolean)[0]
-        : parsed.searchParams.get('v') || parsed.pathname.match(/^\/(?:embed|shorts)\/([^/?]+)/)?.[1];
-      return id ? { kind: 'embed', src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` } : null;
-    }
-
-    if (isVimeo) {
-      const id = parsed.pathname.match(/^\/(\d+)(?:\/|$)/)?.[1];
-      return id ? { kind: 'embed', src: `https://player.vimeo.com/video/${id}` } : null;
-    }
-
-    if (/\.(mp4|webm|ogg)$/i.test(parsed.pathname)) return { kind: 'file', src: parsed.href };
-    return { kind: 'link', src: parsed.href };
-  } catch {
-    return null;
-  }
-}
 function ExerciseVideo({ exercise }) {
-  const media = getExerciseVideo(exercise?.videoUrl);
-  const search = `https://www.youtube.com/results?search_query=${encodeURIComponent((exercise?.name || 'exercício') + ' execução correta')}`;
-  if (!media) return <a className="plans-video-search" href={search} target="_blank" rel="noreferrer">▶ Buscar vídeo demonstrativo</a>;
-  if (media.kind === 'embed') return <div className="plans-video-frame"><iframe src={media.src} title={`Demonstração: ${exercise?.name || 'exercício'}`} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>;
-  if (media.kind === 'file') return <video className="plans-video-file" controls preload="metadata" playsInline src={media.src}>Vídeo não suportado pelo navegador.</video>;
-  return <a className="plans-video-search" href={media.src} target="_blank" rel="noreferrer">▶ Assistir demonstração</a>;
+  return <ExerciseAnimation exercise={exercise} />;
 }
 
 export default function WorkoutPlanManager({ students, studentsLoading = false, onNewStudent, onGoToExercises, canEdit = true, onSaved, initialTab = 'plans', requireStudentSelection = false, studentMode = false }) {

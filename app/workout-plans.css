@@ -228,3 +228,10 @@
 .plans-video-search{display:inline-flex;align-items:center;gap:7px;margin:10px 0;color:var(--accent,#f59e0b);font-weight:600;text-decoration:none}
 .plans-video-search:hover{text-decoration:underline}
 @media print{.plans-video-frame,.plans-video-file,.plans-video-search{display:none!important}}
+
+
+/* Demonstrações animadas nativas da biblioteca Flow Exercise */
+.exercise-animation{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:260px;padding:10px;margin:10px 0;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:#111}
+.exercise-animation img{display:block;width:100%;height:190px;object-fit:contain}
+.exercise-animation small{color:#a9a9a9;font-size:11px;text-align:center}
+.exercise-animation-placeholder{display:inline-flex;align-items:center;min-height:34px;margin:8px 0;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.045);color:#aaa;font-size:12px}
