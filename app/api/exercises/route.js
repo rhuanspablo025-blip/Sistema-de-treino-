@@ -25,6 +25,8 @@ const mediaFields = (payload) => {
   if (payload.gifUrl !== undefined || payload.gif_url !== undefined) fields.gifUrl = mediaUrl(payload.gifUrl ?? payload.gif_url);
   if (payload.imageUrl !== undefined || payload.image_url !== undefined) fields.imageUrl = mediaUrl(payload.imageUrl ?? payload.image_url);
   if (payload.videoUrl !== undefined || payload.video_url !== undefined) fields.videoUrl = mediaUrl(payload.videoUrl ?? payload.video_url);
+  if (payload.mediaAttribution !== undefined) fields.mediaAttribution = text(payload.mediaAttribution, 500);
+  if (payload.mediaSourceUrl !== undefined) fields.mediaSourceUrl = mediaUrl(payload.mediaSourceUrl);
   return fields;
 };
 export async function GET(request) {
@@ -54,7 +56,7 @@ export async function POST(request) {
     const exercise = {
       id: randomUUID(), name, nameKey: keyFor(name), muscleGroup,
       equipment: text(payload.equipment, 100), description: text(payload.description, 1000),
-      instructions: text(payload.instructions, 3000), primaryMuscles: [], secondaryMuscles: [], difficulty: 'Iniciante', executionTips: '', contraindications: '', gifUrl: '', imageUrl: '', videoUrl: '', ...mediaFields(payload), active: true, createdAt: now, updatedAt: now,
+      instructions: text(payload.instructions, 3000), primaryMuscles: [], secondaryMuscles: [], difficulty: 'Iniciante', executionTips: '', contraindications: '', gifUrl: '', imageUrl: '', videoUrl: '', mediaAttribution: '', mediaSourceUrl: '', ...mediaFields(payload), active: true, createdAt: now, updatedAt: now,
       createdBy: access.user.id,
     };
     await database.collection('exercises').insertOne(exercise);
@@ -81,7 +83,7 @@ export async function PATCH(request) {
     }
     if (payload.muscleGroup !== undefined || payload.muscle_group !== undefined) fields.muscleGroup = text(payload.muscleGroup ?? payload.muscle_group, 100);
     for (const key of ['equipment', 'description', 'instructions']) if (payload[key] !== undefined) fields[key] = text(payload[key], key === 'instructions' ? 3000 : 1000);
-    if (['primaryMuscles', 'primary_muscles', 'secondaryMuscles', 'secondary_muscles', 'difficulty', 'executionTips', 'execution_tips', 'contraindications', 'gifUrl', 'gif_url', 'imageUrl', 'image_url', 'videoUrl', 'video_url'].some((key) => payload[key] !== undefined)) Object.assign(fields, mediaFields(payload));
+    if (['primaryMuscles', 'primary_muscles', 'secondaryMuscles', 'secondary_muscles', 'difficulty', 'executionTips', 'execution_tips', 'contraindications', 'gifUrl', 'gif_url', 'imageUrl', 'image_url', 'videoUrl', 'video_url', 'mediaAttribution', 'mediaSourceUrl'].some((key) => payload[key] !== undefined)) Object.assign(fields, mediaFields(payload));
     if (payload.active !== undefined) fields.active = payload.active === true;
     fields.updatedAt = new Date();
 
