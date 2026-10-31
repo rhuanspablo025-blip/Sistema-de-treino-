@@ -219,3 +219,12 @@
 @media (max-width:720px) {
   .exercise-external-search-controls,.exercise-external-results { grid-template-columns:minmax(0,1fr); }
 }
+
+
+/* Players responsivos para demonstrações dos exercícios */
+.plans-video-frame{position:relative;width:min(100%,560px);aspect-ratio:16/9;margin:12px 0;overflow:hidden;border-radius:12px;background:#080808}
+.plans-video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.plans-video-file{display:block;width:min(100%,560px);max-height:360px;margin:12px 0;border-radius:12px;background:#080808}
+.plans-video-search{display:inline-flex;align-items:center;gap:7px;margin:10px 0;color:var(--accent,#f59e0b);font-weight:600;text-decoration:none}
+.plans-video-search:hover{text-decoration:underline}
+@media print{.plans-video-frame,.plans-video-file,.plans-video-search{display:none!important}}
