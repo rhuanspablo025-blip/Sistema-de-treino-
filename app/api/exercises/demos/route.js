@@ -65,13 +65,13 @@ export async function GET(request) {
           imageUrl: safeUrl(image.image),
           videoUrl: safeUrl(video.video),
           mediaAttribution: safeText(attribution, 500),
-          mediaSourceUrl: safeUrl(image.license_object_url) || `https://wger.de/en/exercise/${data.id}`,
+          mediaSourceUrl: safeUrl(image.license_object_url) || `https://wger.de/api/v2/exerciseinfo/${data.id}/`,
         },
       });
     }
 
     if (term.length < 2) return NextResponse.json({ error: 'Digite pelo menos 2 caracteres para pesquisar.' }, { status: 400 });
-    const data = await wgerRequest(`/exercise/search/?term=${encodeURIComponent(term)}&language=english`);
+    const data = await wgerRequest(`/exercise/search/?term=${encodeURIComponent(term)}&language=english&format=json`);
     const results = (Array.isArray(data.suggestions) ? data.suggestions : [])
       .map((suggestion) => suggestion.data || suggestion)
       .filter((item) => Number.isInteger(Number(item.id)) && safeText(item.name, 120))
