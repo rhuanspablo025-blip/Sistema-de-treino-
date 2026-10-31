@@ -9,6 +9,22 @@ const idPattern = /^[0-9a-f-]{36}$/i;
 const text = (value, limit = 160) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const keyFor = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
+const list = (value, limit = 12) => (Array.isArray(value) ? value : String(value || '').split(',')).map((item) => text(item, 60)).filter(Boolean).slice(0, limit);
+const mediaUrl = (value) => {
+  const candidate = text(value, 1000);
+  if (!candidate) return '';
+  try { const url = new URL(candidate); return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''; } catch { return ''; }
+};
+const mediaFields = (payload) => ({
+  primaryMuscles: list(payload.primaryMuscles ?? payload.primary_muscles),
+  secondaryMuscles: list(payload.secondaryMuscles ?? payload.secondary_muscles),
+  difficulty: ['Iniciante', 'Intermediário', 'Avançado'].includes(payload.difficulty) ? payload.difficulty : 'Iniciante',
+  executionTips: text(payload.executionTips ?? payload.execution_tips, 2000),
+  contraindications: text(payload.contraindications, 2000),
+  gifUrl: mediaUrl(payload.gifUrl ?? payload.gif_url),
+  imageUrl: mediaUrl(payload.imageUrl ?? payload.image_url),
+  videoUrl: mediaUrl(payload.videoUrl ?? payload.video_url),
+});
 export async function GET(request) {
   const access = await requireUser();
   if (access.response) return access.response;
@@ -36,7 +52,7 @@ export async function POST(request) {
     const exercise = {
       id: randomUUID(), name, nameKey: keyFor(name), muscleGroup,
       equipment: text(payload.equipment, 100), description: text(payload.description, 1000),
-      instructions: text(payload.instructions, 3000), active: true, createdAt: now, updatedAt: now,
+      instructions: text(payload.instructions, 3000), ...mediaFields(payload), active: true, createdAt: now, updatedAt: now,
       createdBy: access.user.id,
     };
     await database.collection('exercises').insertOne(exercise);
@@ -63,6 +79,7 @@ export async function PATCH(request) {
     }
     if (payload.muscleGroup !== undefined || payload.muscle_group !== undefined) fields.muscleGroup = text(payload.muscleGroup ?? payload.muscle_group, 100);
     for (const key of ['equipment', 'description', 'instructions']) if (payload[key] !== undefined) fields[key] = text(payload[key], key === 'instructions' ? 3000 : 1000);
+    if (['primaryMuscles', 'primary_muscles', 'secondaryMuscles', 'secondary_muscles', 'difficulty', 'executionTips', 'execution_tips', 'contraindications', 'gifUrl', 'gif_url', 'imageUrl', 'image_url', 'videoUrl', 'video_url'].some((key) => payload[key] !== undefined)) Object.assign(fields, mediaFields(payload));
     if (payload.active !== undefined) fields.active = payload.active === true;
     fields.updatedAt = new Date();
 
