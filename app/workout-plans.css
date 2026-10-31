@@ -197,3 +197,10 @@
 
 .plans-detail-row > span:first-child small { line-height:1.5; overflow-wrap:anywhere; }
 .plans-detail-row > span:first-child img { max-width:100%; }
+
+.plans-exercise[draggable="true"] { cursor: grab; }
+.plans-exercise[draggable="true"]:active { cursor: grabbing; }
+.plans-exercise.is-dragging { opacity:.42; border-radius:7px; background:#eef4ef; }
+@media (pointer: coarse) {
+  .plans-exercise[draggable="true"] { cursor: default; }
+}
