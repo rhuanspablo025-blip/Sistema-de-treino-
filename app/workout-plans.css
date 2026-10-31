@@ -170,3 +170,17 @@
   .plans-detail-actions, .plans-detail-footer button { display: none; }
   .plans-detail-day { break-inside: avoid; }
 }
+
+/* Biblioteca: mídia demonstrativa e leitura do catálogo */
+.exercise-admin-card > img { grid-column: 1 / -1; display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 7px; background: #f3f5f3; }
+.exercise-admin-card > div a { width: fit-content; color: var(--coral); font-size: 11px; font-weight: 700; text-decoration: underline; }
+.exercise-admin-card > div small { line-height: 1.5; overflow-wrap: anywhere; }
+.exercise-editor { max-height: min(90vh, 900px); overflow-y: auto; }
+.exercise-editor > label { min-width: 0; }
+.exercise-editor input[type="url"] { min-width: 0; }
+.plans-detail-row > span:first-child a { width: fit-content; color: var(--coral); font-size: 10px; font-weight: 700; }
+@media (max-width: 720px) {
+  .exercise-admin-card { grid-template-columns: minmax(0, 1fr) auto; }
+  .exercise-admin-card > img { max-height: 190px; }
+  .exercise-editor { max-height: calc(100dvh - 16px); padding: 16px; }
+}
