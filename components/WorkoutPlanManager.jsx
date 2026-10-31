@@ -49,16 +49,16 @@ function getExerciseVideo(url) {
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\\./, '');
+    const host = parsed.hostname.replace(/^www\./, '');
     if (host === 'youtu.be' || host.endsWith('youtube.com')) {
-      const id = host === 'youtu.be' ? parsed.pathname.slice(1).split('/')[0] : parsed.searchParams.get('v') || parsed.pathname.match(/\\/(?:embed|shorts)\\/([^/?]+)/)?.[1];
+      const id = host === 'youtu.be' ? parsed.pathname.slice(1).split('/')[0] : parsed.searchParams.get('v') || parsed.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/)?.[1];
       return id ? { kind: 'embed', src: `https://www.youtube-nocookie.com/embed/${id}` } : null;
     }
     if (host.endsWith('vimeo.com')) {
-      const id = parsed.pathname.match(/\\/(\\d+)/)?.[1];
+      const id = parsed.pathname.match(/\/(\d+)/)?.[1];
       return id ? { kind: 'embed', src: `https://player.vimeo.com/video/${id}` } : null;
     }
-    if (/\\.(mp4|webm|ogg)(?:$|\\?)/i.test(parsed.href)) return { kind: 'file', src: parsed.href };
+    if (/\.(mp4|webm|ogg)(?:$|\?)/i.test(parsed.href)) return { kind: 'file', src: parsed.href };
     return { kind: 'link', src: parsed.href };
   } catch { return null; }
 }
