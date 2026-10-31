@@ -76,12 +76,6 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   const [externalDemoError, setExternalDemoError] = useState('');
   const [exerciseEditor, setExerciseEditor] = useState(null);
   const [templates, setTemplates] = useState([]);
-  const [executionDrafts, setExecutionDrafts] = useState({});
-  const [executionSaving, setExecutionSaving] = useState({});
-  const [executionMessages, setExecutionMessages] = useState({});
-  const [historyRecords, setHistoryRecords] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState('');
 
   useEffect(() => { setSection(initialTab); }, [initialTab]);
 
@@ -235,47 +229,11 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
   const safeLibraryPage = Math.min(libraryPage, libraryPageCount);
   const visibleExercises = filteredExercises.slice((safeLibraryPage - 1) * libraryPageSize, safeLibraryPage * libraryPageSize);
 
-  function updateExecutionDraft(exerciseId, field, value) {
-    setExecutionDrafts((current) => ({ ...current, [exerciseId]: { ...(current[exerciseId] || {}), [field]: value } }));
-  }
-  async function loadStudentHistory(studentId) {
-    if (!studentId) return;
-    setHistoryLoading(true); setHistoryError('');
-    try {
-      const data = await requestJson('/api/workout-history?studentId=' + encodeURIComponent(studentId));
-      setHistoryRecords(data.history || []);
-    } catch (error) { setHistoryError(error.message || 'Não foi possível carregar o histórico.'); }
-    finally { setHistoryLoading(false); }
-  }
-  async function saveExerciseExecution(day, exercise) {
-    const draft = executionDrafts[exercise.id] || {};
-    const plannedSets = Math.min(20, Math.max(1, Number(draft.sets ?? exercise.sets) || 1));
-    const repetitions = Number(draft.repetitions ?? (String(exercise.repetitions || '10').match(/\d+/)?.[0] || 10));
-    const load = Number(draft.load ?? exercise.load ?? 0);
-    if (!Number.isInteger(repetitions) || repetitions < 0 || repetitions > 500 || !Number.isFinite(load) || load < 0 || load > 10000) {
-      setExecutionMessages((current) => ({ ...current, [exercise.id]: 'Confira repetições e carga informadas.' })); return;
-    }
-    setExecutionSaving((current) => ({ ...current, [exercise.id]: true }));
-    setExecutionMessages((current) => ({ ...current, [exercise.id]: '' }));
-    try {
-      await requestJson('/api/workout-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        studentId: details.plan.studentId, workoutId: day.id, exerciseId: exercise.exerciseId,
-        observations: draft.observations || '',
-        sets: Array.from({ length: plannedSets }, () => ({ repetitions, load })),
-      }) });
-      setExecutionMessages((current) => ({ ...current, [exercise.id]: 'Execução registrada com sucesso.' }));
-      await loadStudentHistory(details.plan.studentId);
-    } catch (error) { setExecutionMessages((current) => ({ ...current, [exercise.id]: error.message || 'Não foi possível registrar a execução.' })); }
-    finally { setExecutionSaving((current) => ({ ...current, [exercise.id]: false })); }
-  }
-
   async function openDetails(plan) {
     setDetailsLoading(true);
     setDetailError('');
     try {
-      const data = await requestJson(`/api/workout-plans/${encodeURIComponent(plan.id)}`);
-      setDetails(data);
-      if (studentMode) await loadStudentHistory(data.plan.studentId);
+      setDetails(await requestJson(`/api/workout-plans/${encodeURIComponent(plan.id)}`));
     } catch (error) {
       setDetailError(error.message || 'Não foi possível carregar os detalhes da ficha.');
     } finally {
@@ -626,8 +584,6 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
         <div className="plans-detail-meta"><span><small>Nível</small><strong>{details.plan.level || 'Não definido'}</strong></span><span><small>Status</small><strong>{details.plan.active === false ? 'Inativa' : 'Ativa'}</strong></span><span><small>Período</small><strong>{dateLabel(details.plan.startDate)} – {dateLabel(details.plan.endDate)}</strong></span><span><small>Professor</small><strong>{details.plan.trainerName}</strong></span></div>
         {details.plan.observations && <p className="plans-detail-observations">{details.plan.observations}</p>}
         {details.days.length === 0 ? <div className="plans-state">Nenhum dia configurado nesta ficha.</div> : details.days.map((day) => <section className="plans-detail-day" key={day.id}><header><span>{WEEK_DAYS.find((slot) => slot.key === day.dayOfWeek)?.label || 'Treino'}</span><h2>{day.name}</h2></header>{day.isRestDay ? <p>Descanso</p> : day.exercises.length === 0 ? <p>Sem exercícios neste treino.</p> : <div className="plans-detail-table"><div className="plans-detail-row plans-detail-head"><span>Exercício</span><span>Séries</span><span>Repetições</span><span>Carga</span><span>Intervalo</span><span>Tempo</span></div>{day.exercises.map((exercise) => <div className="plans-detail-row" key={exercise.id}><span>{(exercise.exercise?.gifUrl || exercise.exercise?.imageUrl) && <img src={exercise.exercise.gifUrl || exercise.exercise.imageUrl} alt={`Demonstração de ${exercise.exercise.name || 'exercício'}`} loading="lazy" style={{width:88,height:66,objectFit:'contain',borderRadius:8,background:'#111',display:'block',marginBottom:6}} />}<strong>{exercise.exercise?.name || 'Exercício'}</strong><small>{exercise.exercise?.difficulty || 'Nível não definido'}{exercise.exercise?.primaryMuscles?.length ? ` · Foco: ${exercise.exercise.primaryMuscles.join(', ')}` : ''}{exercise.exercise?.secondaryMuscles?.length ? ` · Auxiliares: ${exercise.exercise.secondaryMuscles.join(', ')}` : ''}</small>{exercise.method && <small>Técnica: {exercise.method}</small>}{exercise.observations && <small>Observação: {exercise.observations}</small>}{exercise.exercise?.instructions && <small>Execução: {exercise.exercise.instructions}</small>}{exercise.exercise?.executionTips && <small>Dicas: {exercise.exercise.executionTips}</small>}{exercise.exercise?.contraindications && <small>Cuidados: {exercise.exercise.contraindications}</small>}{exercise.exercise?.videoUrl && <a href={exercise.exercise.videoUrl} target="_blank" rel="noreferrer">Ver demonstração</a>}{exercise.exercise?.mediaAttribution && <small>Crédito: {exercise.exercise.mediaAttribution}</small>}{exercise.exercise?.mediaSourceUrl && <a href={exercise.exercise.mediaSourceUrl} target="_blank" rel="noreferrer">Fonte / licença</a>}</span><span>{exercise.sets}</span><span>{exercise.repetitions}</span><span>{exercise.load === null ? '—' : `${exercise.load} kg`}</span><span>{exercise.rest}s</span><span>{exercise.timeSeconds ? `${exercise.timeSeconds}s` : '—'}</span></div>)}</div>}</section>)}
-        {studentMode && <section className="execution-list"><h2>Registrar execução</h2><p>Informe o desempenho real. O registro será salvo no histórico do aluno.</p>{details.days.filter((day) => !day.isRestDay).flatMap((day) => day.exercises.map((exercise) => ({ day, exercise }))).map(({ day, exercise }) => <form className="execution-card" key={exercise.id} onSubmit={(event) => { event.preventDefault(); saveExerciseExecution(day, exercise); }}><strong>{exercise.exercise?.name || 'Exercício'}</strong><div className="execution-fields"><label>Séries<input type="number" min="1" max="20" value={executionDrafts[exercise.id]?.sets ?? exercise.sets} onChange={(event) => updateExecutionDraft(exercise.id, 'sets', event.target.value)} /></label><label>Repetições por série<input type="number" min="0" max="500" value={executionDrafts[exercise.id]?.repetitions ?? (String(exercise.repetitions || '10').match(/\d+/)?.[0] || 10)} onChange={(event) => updateExecutionDraft(exercise.id, 'repetitions', event.target.value)} /></label><label>Carga (kg)<input type="number" min="0" max="10000" step="0.5" value={executionDrafts[exercise.id]?.load ?? exercise.load ?? 0} onChange={(event) => updateExecutionDraft(exercise.id, 'load', event.target.value)} /></label></div><label className="execution-observations">Observações<input maxLength="1000" value={executionDrafts[exercise.id]?.observations || ''} onChange={(event) => updateExecutionDraft(exercise.id, 'observations', event.target.value)} placeholder="Ex.: facilidade, dificuldade ou ajuste de carga" /></label><div className="execution-submit"><button className="primary-button" type="submit" disabled={executionSaving[exercise.id]}>{executionSaving[exercise.id] ? 'Salvando...' : 'Registrar execução'}</button>{executionMessages[exercise.id] && <small role="status">{executionMessages[exercise.id]}</small>}</div></form>)}</section>}
-        {studentMode && <section className="execution-history"><header><h2>Histórico recente</h2><button type="button" className="outline-button" onClick={() => loadStudentHistory(details.plan.studentId)} disabled={historyLoading}>{historyLoading ? 'Atualizando...' : 'Atualizar'}</button></header>{historyError && <p role="alert">{historyError}</p>}{historyLoading && historyRecords.length === 0 ? <p>Carregando histórico...</p> : historyRecords.length === 0 ? <p>Nenhuma execução registrada ainda.</p> : <div className="execution-history-list">{historyRecords.slice(0, 12).map((record) => <article key={record.id}><strong>{record.sets?.length || 0} séries registradas</strong><span>{new Date(record.date).toLocaleString('pt-BR')}</span><small>{(record.sets || []).map((set) => set.repetitions + ' reps · ' + set.load + ' kg').join(' / ')}</small>{record.observations && <small>{record.observations}</small>}</article>)}</div>}</section>}
         <footer className="plans-detail-footer"><small>Criada em {dateLabel(details.plan.createdAt)} · Atualizada em {dateLabel(details.plan.updatedAt)}</small>{canEdit && <button className="primary-button" onClick={() => { const plan = details.plan; setDetails(null); openEditor(plan); }}>Editar ficha</button>}</footer>
       </article>
     </div>}
