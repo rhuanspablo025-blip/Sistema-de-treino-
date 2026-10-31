@@ -14,14 +14,14 @@ const safeUrl = (value) => {
   }
 };
 const cleanDescription = (value) => safeText(String(value || '')
-  .replace(/<br\\s*\\/?\\s*>/gi, '\\n')
-  .replace(/<\\/p>/gi, '\\n')
+  .replace(/<br\s*\/?\s*>/gi, '\n')
+  .replace(/<\/p>/gi, '\n')
   .replace(/<[^>]*>/g, ' ')
   .replace(/&nbsp;/gi, ' ')
   .replace(/&amp;/gi, '&')
   .replace(/&quot;/gi, '"')
   .replace(/&#39;/gi, "'")
-  .replace(/\\s+/g, ' '), 2000);
+  .replace(/\s+/g, ' '), 2000);
 
 async function wgerRequest(path) {
   const response = await fetch(`${WGER_API}${path}`, {
@@ -43,7 +43,7 @@ export async function GET(request) {
 
   try {
     if (id) {
-      if (!/^\\d{1,8}$/.test(id)) return NextResponse.json({ error: 'Identificador externo inválido.' }, { status: 400 });
+      if (!/^\d{1,8}$/.test(id)) return NextResponse.json({ error: 'Identificador externo inválido.' }, { status: 400 });
       const data = await wgerRequest(`/exerciseinfo/${id}/`);
       const translations = Array.isArray(data.translations) ? data.translations : [];
       const translation = translations.find((item) => item.language === 2) || translations.find((item) => item.name) || {};
