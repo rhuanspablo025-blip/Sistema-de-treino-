@@ -184,3 +184,13 @@
   .exercise-admin-card > img { max-height: 190px; }
   .exercise-editor { max-height: calc(100dvh - 16px); padding: 16px; }
 }
+
+.exercise-library-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0 2px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
+.exercise-library-pagination > div { display:flex; gap:8px; }
+.exercise-library-pagination .outline-button { min-height:34px; padding:7px 12px; }
+.exercise-library-pagination .outline-button:disabled { opacity:.45; cursor:not-allowed; }
+@media (max-width:520px) {
+  .exercise-library-pagination { align-items:flex-start; flex-direction:column; }
+  .exercise-library-pagination > div { width:100%; }
+  .exercise-library-pagination .outline-button { flex:1; }
+}
