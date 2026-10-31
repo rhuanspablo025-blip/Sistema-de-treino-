@@ -219,17 +219,3 @@
 @media (max-width:720px) {
   .exercise-external-search-controls,.exercise-external-results { grid-template-columns:minmax(0,1fr); }
 }
-
-
-/* Registro de execução do aluno */
-.execution-list,.execution-history{margin:24px 0;padding:20px;border:1px solid var(--border-color,#30343b);border-radius:14px;background:rgba(255,255,255,.025)}
-.execution-list>h2,.execution-history h2{margin:0 0 8px;font-size:1.1rem}
-.execution-list>p{margin:0 0 14px;color:var(--muted,#a1a1aa)}
-.execution-card{display:grid;gap:12px;padding:16px 0;border-top:1px solid var(--border-color,#30343b)}
-.execution-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.execution-fields label,.execution-observations{display:grid;gap:6px;font-size:.85rem;color:var(--muted,#a1a1aa)}
-.execution-fields input,.execution-observations input{width:100%;min-width:0;padding:10px;border:1px solid var(--border-color,#30343b);border-radius:8px;background:var(--surface,#17191e);color:inherit}
-.execution-submit{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.execution-submit small{color:var(--muted,#a1a1aa)}
-.execution-history>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.execution-history-list{display:grid;gap:10px}.execution-history-list article{display:grid;gap:5px;padding:12px;border-radius:10px;background:rgba(255,255,255,.035)}.execution-history-list article span,.execution-history-list article small{color:var(--muted,#a1a1aa)}
-@media(max-width:640px){.execution-fields{grid-template-columns:1fr}.execution-card{padding:14px 0}.execution-list,.execution-history{padding:14px}}
