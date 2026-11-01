@@ -1,25 +1,29 @@
 # Atlas Training
 
-Sistema web para gestão de alunos e fichas de treino de uma academia, com autenticação própria e MongoDB Atlas.
+Sistema web para gestão de alunos e fichas de treino de uma academia, com autenticação própria e Turso/libSQL.
 
 ## Configuração local
 
 1. Instale Node.js 20.9 ou superior e execute `npm install`.
-2. Crie um cluster no MongoDB Atlas, um usuário de banco e libere o IP do ambiente que executará o app.
-3. Copie `.env.example` para `.env.local` e preencha `MONGODB_URI` com a URI do usuário de aplicação.
-4. Para criar o primeiro administrador, preencha `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
-5. Para criar o usuário mestre de desenvolvimento, configure `DEV_USERNAME`, `DEV_PASSWORD` (mínimo 8 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
-6. Inicie com `npm run dev` e abra `http://localhost:3000`.
+2. Crie um banco Turso e gere um database URL e auth token.
+3. Copie `.env.example` para `.env.local` e configure `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` e um `SESSION_SECRET` aleatório com pelo menos 32 bytes.
+4. Se estiver migrando os dados atuais do MongoDB, configure as URIs de origem e execute `npm run migrate:mongodb-to-turso` uma vez antes do deploy.
+5. Para criar o primeiro administrador, preencha `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_NAME` localmente e execute `npm run admin:create`.
+6. Para criar o usuário mestre de desenvolvimento, configure `DEV_USERNAME`, `DEV_PASSWORD` (mínimo 8 caracteres) e `DEV_NAME`, então execute `npm run dev:create`.
+7. Inicie com `npm run dev` e abra `http://localhost:3000`.
 
-O login usa somente username, único e sem distinção entre maiúsculas e minúsculas. São aceitos de 3 a 30 caracteres: letras ASCII, números, hífen e sublinhado, sem espaços. O cadastro público cria contas ativas de aluno; a tela de cadastro informa se o username já está em uso. Perfis administrativos e de professor são criados somente por usuários autorizados. O `id` UUID é a identidade da aplicação usada por sessões e relações (`userId`); o `_id` automático do Mongo permanece como chave interna do documento.
+O login usa somente username, único e sem distinção entre maiúsculas e minúsculas. São aceitos de 3 a 30 caracteres: letras ASCII, números, hífen e sublinhado, sem espaços. O cadastro público cria contas ativas de aluno; a tela de cadastro informa se o username já está em uso. Perfis administrativos e de professor são criados somente por usuários autorizados. O `id` UUID é a identidade da aplicação usada por sessões e relações (`userId`); durante a migração, `_id` legado pode ser mantido no documento.
 
 ## Publicar na Vercel
 
 1. Importe este repositório no painel da Vercel e mantenha o framework **Next.js**.
-2. Em **Settings > Environment Variables**, configure `MONGODB_URI`.
-3. Faça redeploy após salvar as variáveis. O MongoDB é acessado somente pelo servidor; a URI não deve usar prefixo `NEXT_PUBLIC_`.
+2. Em **Settings > Environment Variables**, configure `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` e um `SESSION_SECRET` aleatório com pelo menos 32 bytes para Production, Preview e Development conforme os ambientes usados.
+3. Configure `TURSO_MIGRATE_FROM_MONGO=true` somente em Production para o primeiro deploy de cutover. O `npm run build` migra em lotes e grava um marcador no Turso; builds seguintes não repetem a cópia. Mantenha essa flag ativa se o build falhar para permitir retomada idempotente.
+4. Faça redeploy após salvar as variáveis. Turso é acessado somente pelo servidor; URL e token não devem usar prefixo `NEXT_PUBLIC_`.
 
-O banco é fixado pelo código como `sistema_treino`; a chave de sessão é derivada no servidor da URI privada e não precisa de outra variável. Rotacionar a URI invalida as sessões atuais. No Atlas, o usuário da aplicação deve ter somente a role integrada `readWrite` no banco `sistema_treino`; não use `atlasAdmin` nem acesso a todos os recursos. Configure uma regra de rede apropriada para a Vercel. Não publique a URI no repositório.
+O banco runtime é Turso/libSQL, e URL, auth token e `SESSION_SECRET` só são usados no servidor. Não use prefixo `NEXT_PUBLIC_` nem publique esses valores no repositório. Gere um segredo de sessão independente e estável; rotacioná-lo encerra as sessões atuais. As variáveis `MONGODB_URI_*` são somente para a migração de origem e podem ser removidas da Vercel após confirmar a cópia e manter o backup necessário.
+
+A camada de compatibilidade mantém as coleções Mongo como documentos JSON na tabela `turso_documents`, com metadados de coleção/índice em tabelas auxiliares. Isso preserva as regras atuais durante a migração; filtros e ordenação são aplicados pela aplicação após ler a coleção. Para volumes muito altos de histórico, planeje uma etapa posterior de normalização para tabelas relacionais e índices SQL específicos.
 
 A senha pode ser redefinida por um administrador na tela de gerenciamento de usuários. Não há recuperação por e-mail, pois e-mail não é exigido nem usado como identificador de conta.
 
@@ -31,7 +35,9 @@ Os metadados da ficha ficam em `workout_plans`; cada dia semanal é um documento
 
 ## Migração dos dados existentes
 
-A alteração do código não copia automaticamente dados do Supabase. Antes de desativá-lo, exporte usuários, fichas e medidas e migre-os para `users`, `students`, `trainers`, `exercises`, `workout_plans`, `workouts`, `workout_history` e `audit_logs`. Os usuários devem conter `id`, `name`, `username`, `passwordHash`, `role`, `active`, `createdAt` e `updatedAt`; senhas existentes precisam ser redefinidas, nunca importadas em texto puro. Na inicialização, contas antigas convertem o trecho anterior ao `@` em username. Contas sem username válido ou com colisão recebem um username determinístico `usuario-...`, registrado no log da aplicação, e os campos de e-mail são removidos.
+A migração MongoDB → Turso é explícita e não roda no deploy. Faça backup dos quatro clusters, crie um banco Turso vazio, configure `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` e as URIs Mongo de origem em `.env.local`, então execute `npm run migrate:mongodb-to-turso -- --dry-run` para contar os documentos. Revise o resultado e execute `npm run migrate:mongodb-to-turso` para importar. O script recusa destinos com dados existentes, a menos que seja passado `--resume`; mantenha o backup Mongo até validar login, fichas, medidas, auditoria e financeiro no Turso.
+
+A inicialização mantém a migração legada de username: contas antigas convertem o trecho anterior ao `@`; contas sem username válido ou com colisão recebem um username determinístico `usuario-...`, e campos de e-mail legados são removidos. Senhas são copiadas como hashes bcrypt, nunca em texto puro.
 
 A aplicação armazena senhas com bcrypt e usa cookie HTTP-only assinado para as sessões. A política de privacidade está em `/privacy`; revise os dados de contato do controlador antes de usar dados pessoais reais.
 

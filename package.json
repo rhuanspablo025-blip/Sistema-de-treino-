@@ -7,19 +7,21 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate-on-build.js && next build",
     "start": "next start",
     "test": "node --test",
     "admin:create": "node scripts/create-admin-user.js",
     "super-admin:setup": "node scripts/setup-super-admin.js",
-    "dev:create": "node scripts/create-dev-user.js"
+    "dev:create": "node scripts/create-dev-user.js",
+    "migrate:mongodb-to-turso": "node scripts/migrate-mongodb-to-turso.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.4.2",
     "jose": "^6.1.0",
     "mongodb": "^6.18.0",
-    "next": "latest",
+    "next": "^16.4.3",
     "react": "latest",
     "react-dom": "latest"
   }

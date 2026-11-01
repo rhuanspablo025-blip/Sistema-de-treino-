@@ -50,7 +50,7 @@ export async function POST(request) {
     });
     return response;
   } catch (error) {
-    const status = error.message?.includes('MONGODB_URI') ? 503 : 500;
+    const status = /TURSO_DATABASE_URL|TURSO_AUTH_TOKEN|SESSION_SECRET/.test(error.message || '') ? 503 : 500;
     return NextResponse.json({ error: status === 503 ? error.message : 'Não foi possível entrar.' }, { status });
   }
 }
