@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ExerciseAnimation from './ExerciseAnimation';
-import { findAnimation, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
+import { findAnimation, findExerciseVideo, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
 
 const WEEK_DAYS = [
   { key: 'monday', label: 'Segunda' },
@@ -239,7 +239,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
 
   const exercisesWithDemos = useMemo(() => new Set(
     animationDataset
-      ? catalog.filter((item) => findAnimation(item, animationDataset)).map((item) => item.id)
+      ? catalog.filter((item) => findAnimation(item, animationDataset) || findExerciseVideo(item)).map((item) => item.id)
       : [],
   ), [catalog, animationDataset]);
 
