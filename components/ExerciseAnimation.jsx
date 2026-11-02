@@ -1,30 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { findAnimation } from '../lib/exercise-animation-matching.mjs';
+import { findAnimation, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
 
-const DATA_URL = 'https://cdn.jsdelivr.net/gh/ozansozuozgit/flow-exercise-dataset@main/data/exercises.json';
 const REPO_CDN = 'https://raw.githubusercontent.com/ozansozuozgit/flow-exercise-dataset/main/';
-let datasetPromise;
-
-function loadDataset() {
-  if (!datasetPromise) {
-    datasetPromise = fetch(DATA_URL, { cache: 'force-cache' })
-      .then((response) => {
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-      })
-      .then((data) => {
-        if (!Array.isArray(data)) throw new Error('Formato inválido do catálogo.');
-        return data;
-      })
-      .catch((error) => {
-        datasetPromise = null;
-        throw error;
-      });
-  }
-  return datasetPromise;
-}
 
 function resolveFrameUrl(record, frameIndex) {
   const framePath = record?.animation?.frames?.[frameIndex];
@@ -49,7 +28,7 @@ export default function ExerciseAnimation({ exercise }) {
     setRecord(null);
     setSequencePosition(0);
     setStatus('loading');
-    loadDataset().then((records) => {
+    loadExerciseAnimationDataset().then((records) => {
       if (!active) return;
       const match = findAnimation(exercise, records);
       setRecord(match);
