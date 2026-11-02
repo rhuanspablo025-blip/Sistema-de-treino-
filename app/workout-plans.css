@@ -233,5 +233,6 @@
 /* Demonstrações animadas nativas da biblioteca Flow Exercise */
 .exercise-animation{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:260px;padding:10px;margin:10px 0;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:#111}
 .exercise-animation img{display:block;width:100%;height:190px;object-fit:contain}
+.exercise-animation video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px}
 .exercise-animation small{color:#a9a9a9;font-size:11px;text-align:center}
 .exercise-animation-placeholder{display:inline-flex;align-items:center;min-height:34px;margin:8px 0;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.045);color:#aaa;font-size:12px}

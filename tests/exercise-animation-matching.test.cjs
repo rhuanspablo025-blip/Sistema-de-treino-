@@ -99,6 +99,15 @@ test('prefers the exact equipment variation over a generic alias', async () => {
   assert.equal(findAnimation({ name: 'Supino inclinado com halteres' }, records)?.name, 'dumbbell incline bench press');
 });
 
+test('selects licensed videos only for exact name and equipment matches', async () => {
+  const { findExerciseVideo } = await import('../lib/exercise-animation-matching.mjs');
+
+  assert.equal(findExerciseVideo({ name: 'Supino reto', equipment: 'Barra' })?.license, 'CC BY-SA 4.0');
+  assert.equal(findExerciseVideo({ name: 'Tríceps testa', equipment: 'Barra EZ' })?.license, 'CC BY-SA 4.0');
+  assert.equal(findExerciseVideo({ name: 'Tríceps testa', equipment: 'Halteres' }), null);
+  assert.equal(findExerciseVideo({ name: 'Mergulho entre bancos', equipment: 'Peso corporal' }), null);
+});
+
 test('ignores records without usable animation frames', async () => {
   const { findAnimation } = await import('../lib/exercise-animation-matching.mjs');
   const unusable = [{ name: 'crunch floor', mediaStatus: 'instructions-only', animation: null }];

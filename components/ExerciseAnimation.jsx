@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { findAnimation, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
+import { findAnimation, findExerciseVideo, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
 
 const REPO_CDN = 'https://raw.githubusercontent.com/ozansozuozgit/flow-exercise-dataset/main/';
 
@@ -18,16 +18,21 @@ export default function ExerciseAnimation({ exercise }) {
   const [record, setRecord] = useState(null);
   const [sequencePosition, setSequencePosition] = useState(0);
   const [status, setStatus] = useState('loading');
+  const [videoFailed, setVideoFailed] = useState(false);
+  const videoDemo = findExerciseVideo(exercise);
   const sequence = useMemo(
     () => record?.animation?.sequence?.length ? record.animation.sequence : [0, 1, 2, 1],
     [record],
   );
+
+  useEffect(() => { setVideoFailed(false); }, [exercise?.name, exercise?.exerciseName, exercise?.equipment]);
 
   useEffect(() => {
     let active = true;
     setRecord(null);
     setSequencePosition(0);
     setStatus('loading');
+    if (videoDemo && !videoFailed) return () => { active = false; };
     loadExerciseAnimationDataset().then((records) => {
       if (!active) return;
       const match = findAnimation(exercise, records);
@@ -35,7 +40,7 @@ export default function ExerciseAnimation({ exercise }) {
       setStatus(match ? 'ready' : 'not-found');
     }).catch(() => { if (active) setStatus('error'); });
     return () => { active = false; };
-  }, [exercise?.name, exercise?.exerciseName]);
+  }, [exercise?.name, exercise?.exerciseName, exercise?.equipment, videoDemo, videoFailed]);
 
   const frameUrls = useMemo(
     () => record ? [...new Set(sequence)].map((index) => resolveFrameUrl(record, index)) : [],
@@ -54,6 +59,24 @@ export default function ExerciseAnimation({ exercise }) {
   useEffect(() => {
     frameUrls.forEach((url) => { const image = new Image(); image.src = url; });
   }, [frameUrls]);
+
+  if (videoDemo && !videoFailed) {
+    return <div className="exercise-animation" aria-label={`Vídeo demonstrativo: ${exercise?.name}`}>
+      <video
+        key={videoDemo.videoUrl}
+        controls
+        playsInline
+        preload="metadata"
+        poster={videoDemo.posterUrl}
+        onError={() => setVideoFailed(true)}
+      >
+        <source src={videoDemo.videoUrl} type="video/mp4" />
+      </video>
+      <small>
+        Vídeo: {videoDemo.author} · <a href={videoDemo.licenseUrl} target="_blank" rel="noopener noreferrer">{videoDemo.license}</a> · Capa: {videoDemo.posterAuthor} · <a href={videoDemo.posterLicenseUrl} target="_blank" rel="noopener noreferrer">{videoDemo.posterLicense}</a> · <a href={videoDemo.sourceUrl} target="_blank" rel="noopener noreferrer">Fonte wger</a>
+      </small>
+    </div>;
+  }
 
   if (status !== 'ready' || !record) {
     const message = status === 'loading'
