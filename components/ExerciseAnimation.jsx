@@ -7,6 +7,10 @@ const REPO_CDN = 'https://cdn.jsdelivr.net/gh/ozansozuozgit/flow-exercise-datase
 let datasetPromise;
 
 const ALIASES = [
+  [/abdominal.*v.?up|v.?up/i, ['jackknife sit-up', 'band v-up']],
+  [/abdominal.*bicicleta|bicicleta|bicycle crunch/i, ['band bicycle crunch']],
+  [/abdominal.*canivete|canivete|jackknife/i, ['jackknife sit-up', 'band jack knife sit-up']],
+  [/abdominal.*crunch|crunch floor/i, ['crunch floor']],
   [/cadeira flexora|mesa flexora/i, ['seated leg curl', 'lever seated leg curl', 'lying leg curl', 'lever lying leg curl']],
   [/cadeira extensora/i, ['leg extension', 'lever leg extension']],
   [/caminhada.*fazendeiro|farmer/i, ['farmer walk', 'farmers walk', 'single arm farmer walk', 'farmer carry']],
@@ -151,6 +155,9 @@ export default function ExerciseAnimation({ exercise }) {
       loading="lazy"
       onError={() => setStatus('asset-error')}
     />
-    <small>{status === 'asset-error' ? 'Falha ao carregar os quadros desta animação.' : `Animação ilustrativa · ${record.name}`}</small>
+    <small>
+      {status === 'asset-error' ? 'Falha ao carregar os quadros desta animação. ' : `Animação ilustrativa · ${record.name} · `}
+      <a href="https://github.com/ozansozuozgit/flow-exercise-dataset" target="_blank" rel="noopener noreferrer">Flow Exercise Dataset</a>
+    </small>
   </div>;
 }
