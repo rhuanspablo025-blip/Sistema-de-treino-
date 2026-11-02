@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { findAnimation } from '../lib/exercise-animation-matching.mjs';
 
 const DATA_URL = 'https://cdn.jsdelivr.net/gh/ozansozuozgit/flow-exercise-dataset@main/data/exercises.json';
-const REPO_CDN = 'https://cdn.jsdelivr.net/gh/ozansozuozgit/flow-exercise-dataset@main/';
+const REPO_CDN = 'https://raw.githubusercontent.com/ozansozuozgit/flow-exercise-dataset/main/';
 let datasetPromise;
 
 function loadDataset() {
