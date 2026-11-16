@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import atlasfitLogo from "../public/brand/atlasfit-logo-horizontal.jpeg";
+import atlasfitSymbol from "../public/brand/atlasfit-symbol.jpeg";
 import { saveMeasurements } from "../lib/atlas-data";
 import WorkoutPlanManager from "../components/WorkoutPlanManager";
 import FinancialManager from "../components/FinancialManager";
@@ -22,6 +25,7 @@ const Dumbbell = (props) => <SimpleIcon {...props}>╫</SimpleIcon>;
 const LayoutDashboard = (props) => <SimpleIcon {...props}>▦</SimpleIcon>;
 const LogOut = (props) => <SimpleIcon {...props}>↪</SimpleIcon>;
 const Menu = (props) => <SimpleIcon {...props}>☰</SimpleIcon>;
+const MoreHorizontal = (props) => <SimpleIcon {...props}>?</SimpleIcon>;
 const Plus = (props) => <SimpleIcon {...props}>+</SimpleIcon>;
 const Search = (props) => <SimpleIcon {...props}>⌕</SimpleIcon>;
 const Settings = (props) => <SimpleIcon {...props}>⚙</SimpleIcon>;
@@ -29,7 +33,7 @@ const UserRound = (props) => <SimpleIcon {...props}>○</SimpleIcon>;
 const UsersRound = (props) => <SimpleIcon {...props}>♙</SimpleIcon>;
 const X = (props) => <SimpleIcon {...props}>×</SimpleIcon>;
 
-const emptyStudent = { name: 'Nenhum aluno cadastrado', initials: '--', goal: 'Não definido', status: 'Em dia', color: 'coral', updated: 'Sem ficha' };
+const emptyStudent = { name: 'Nenhum aluno cadastrado', initials: '--', goal: 'Não definido', status: 'Em dia', color: 'brand', updated: 'Sem ficha' };
 
 const navItems = [
   { label: "Visão geral", icon: LayoutDashboard, key: "overview" },
@@ -37,6 +41,14 @@ const navItems = [
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
   { label: "Financeiro", icon: BarChart3, key: "finance" },
   { label: "Documentação", icon: ClipboardList, key: "documentation" },
+];
+
+const navGroups = [
+  { label: 'VISÃO GERAL', keys: ['overview'] },
+  { label: 'PESSOAS', keys: ['admins'] },
+  { label: 'TREINAMENTO', keys: ['workouts'] },
+  { label: 'OPERAÇÃO', keys: ['finance'] },
+  { label: 'SISTEMA', keys: ['documentation'] },
 ];
 
 function DocumentationModule() {
@@ -168,11 +180,11 @@ function UserManagement({ trainers = [] }) {
 
   return <div className="page-content user-management-page">
     <div className="page-heading"><div><p className="eyebrow">GESTÃO DE PESSOAS</p><h1>Cadastros</h1><p className="heading-copy">Uma pessoa, um login e os perfis que ela precisa.</p></div><button className="primary-button" onClick={() => { setEditingRoles(['student']); setEditingUser({}); }}><Plus size={17} /> Novo cadastro</button></div>
-    <div className="stats-row user-stats"><div className="stat-card"><span className="stat-icon coral-bg"><UsersRound size={18} /></span><span><small>Total de cadastros</small><strong>{counts.total}</strong></span></div><div className="stat-card"><span className="stat-icon green-bg"><UserRound size={18} /></span><span><small>Alunos</small><strong>{counts.students}</strong></span></div><div className="stat-card"><span className="stat-icon yellow-bg"><Settings size={18} /></span><span><small>Equipe</small><strong>{counts.team}</strong></span></div></div>
+    <div className="stats-row user-stats"><div className="stat-card"><span className="stat-icon brand-bg"><UsersRound size={18} /></span><span><small>Total de cadastros</small><strong>{counts.total}</strong></span></div><div className="stat-card"><span className="stat-icon green-bg"><UserRound size={18} /></span><span><small>Alunos</small><strong>{counts.students}</strong></span></div><div className="stat-card"><span className="stat-icon yellow-bg"><Settings size={18} /></span><span><small>Equipe</small><strong>{counts.team}</strong></span></div></div>
     <section className="panel module-panel user-directory"><div className="panel-header user-directory-heading"><div><h2>Pessoas e acessos</h2><p>Edite perfis, redefina senhas e altere o status de acesso.</p></div><span className="user-active-count">{counts.active} ativos</span></div>
     <div className="user-filters"><div className="search-box"><Search size={17} /><input aria-label="Buscar cadastro" placeholder="Buscar por nome ou usuário..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></div><label className="user-filter-select"><span>Perfil</span><select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value); setPage(1); }}><option value="Todos">Todos os perfis</option><option value="student">Alunos</option><option value="trainer">Professores</option><option value="admin">Administradores</option><option value="dev">Desenvolvedores</option></select></label><div className="filter-tabs">{['Todos', 'Ativos', 'Inativos', 'Excluídos'].map((item) => <button className={statusFilter === item ? 'filter active' : 'filter'} key={item} onClick={() => { setStatusFilter(item); setPage(1); }}>{item}</button>)}</div></div>
     {error && <p className="login-error" role="alert">{error}</p>}{feedback && <p className="profile-status" role="status">{feedback}</p>}
-    {loading ? <p className="empty-state">Carregando cadastros...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum cadastro encontrado com esses filtros.</p> : <div className="user-directory-list">{visibleUsers.map((user) => { const protectedAccount = user.role === 'SUPER_ADMIN'; const lockedAccount = protectedAccount || Boolean(user.deletedAt); const roles = user.roles || [user.role]; return <article className={`user-directory-row ${user.deletedAt ? 'is-deleted' : user.active === false ? 'is-inactive' : ''}`} key={user.id}><span className="student-avatar coral">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span className="user-directory-name"><strong>{user.name}</strong><small>@{user.username}</small></span><span className="user-role-badge">{roles.map((role) => roleLabels[role]).filter(Boolean).join(' · ') || 'Usuário'}</span><span className={`status ${user.deletedAt ? 'deleted' : user.active === false ? 'inativo' : ''}`}><i />{user.deletedAt ? 'Excluído' : user.active === false ? 'Inativo' : 'Ativo'}</span><div className="user-row-actions"><button className="outline-button small-button" onClick={() => { setEditingUser(user); setEditingRoles(roles.filter((role) => ['student','trainer','admin','dev'].includes(role))); }} disabled={lockedAccount}>Editar</button><button className="user-action-button" onClick={() => toggleUser(user)} disabled={lockedAccount} aria-label={user.active === false ? `Ativar ${user.name}` : `Inativar ${user.name}`}>{user.active === false ? 'Ativar' : 'Inativar'}</button><button className="user-action-button danger" onClick={() => deleteUser(user)} disabled={lockedAccount} aria-label={`Excluir ${user.name}`}>Excluir</button></div></article>; })}</div>}
+    {loading ? <p className="empty-state">Carregando cadastros...</p> : visibleUsers.length === 0 ? <p className="empty-state">Nenhum cadastro encontrado com esses filtros.</p> : <div className="user-directory-list">{visibleUsers.map((user) => { const protectedAccount = user.role === 'SUPER_ADMIN'; const lockedAccount = protectedAccount || Boolean(user.deletedAt); const roles = user.roles || [user.role]; const labels = roles.map((role) => roleLabels[role]).filter(Boolean); return <article className={`user-directory-row ${user.deletedAt ? 'is-deleted' : user.active === false ? 'is-inactive' : ''}`} key={user.id}><span className="student-avatar brand">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span className="user-directory-name"><strong>{user.name}</strong><small>@{user.username}</small></span><span className="user-role-badge" title={labels.join(' · ')}>{labels[0] || 'Usuário'}{labels.length > 1 && <span className="user-role-count">+{labels.length - 1}</span>}</span><span className={`status ${user.deletedAt ? 'deleted' : user.active === false ? 'inativo' : ''}`}><i />{user.deletedAt ? 'Excluído' : user.active === false ? 'Inativo' : 'Ativo'}</span><details className="user-actions-menu"><summary aria-label={`Ações para ${user.name}`} title="Ações" aria-disabled={lockedAccount}><MoreHorizontal size={19} /></summary><div className="user-actions-dropdown"><button onClick={() => { setEditingUser(user); setEditingRoles(roles.filter((role) => ['student','trainer','admin','dev'].includes(role))); }} disabled={lockedAccount}>Editar cadastro</button><button onClick={() => toggleUser(user)} disabled={lockedAccount}>{user.active === false ? 'Ativar acesso' : 'Inativar acesso'}</button><button className="danger" onClick={() => deleteUser(user)} disabled={lockedAccount}>Excluir cadastro</button></div></details></article>; })}</div>}
     <div className="user-directory-footer"><small>{filteredUsers.length} cadastro(s)</small><div><button className="filter" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Anterior</button><span> Página {page} de {pageCount} </span><button className="filter" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Próxima</button></div></div></section>
     {editingUser && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingUser(null)}><div className="modal user-editor-modal"><button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Fechar"><X size={18} /></button><span className="modal-kicker"><UserRound size={16} /></span><h2>{editingUser.needsAccount ? 'Criar acesso do aluno' : editingUser.id ? 'Editar cadastro' : 'Novo cadastro'}</h2><p>{editingUser.needsAccount ? 'O perfil já existe. Defina usuário e senha para liberar o acesso.' : 'Use um único login e marque todos os perfis dessa pessoa.'}</p><form onSubmit={saveUser}><fieldset className="user-role-picker" disabled={editingUser.role === 'SUPER_ADMIN' || editingUser.needsAccount}><legend>Perfis e acessos</legend>{[['student','Aluno'],['trainer','Professor'],['admin','Administrador'],['dev','Desenvolvedor']].map(([role,label]) => <label key={role}><input type="checkbox" checked={editingRoles.includes(role)} onChange={(event) => setEditingRoles((current) => event.target.checked ? [...current, role] : current.filter((item) => item !== role))} />{label}</label>)}</fieldset><label>Nome completo<input name="name" required minLength="2" maxLength="120" defaultValue={editingUser.name || ''} /></label><label>Nome de usuário<input name="username" required minLength="3" maxLength="30" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,28}[a-zA-Z0-9]" defaultValue={editingUser.username || ''} autoComplete="username" /></label><div className="user-editor-profile-fields" data-roles={editingRoles.join(' ')}><label data-profile="student">Objetivo<input name="goal" maxLength="240" defaultValue={editingUser.goal || ''} placeholder="Ex.: hipertrofia" /></label><label data-profile="student">Telefone<input name="phone" type="tel" maxLength="40" defaultValue={editingUser.phone || ''} autoComplete="tel" /></label><label data-profile="student">Data de nascimento<input name="dateOfBirth" type="date" defaultValue={editingUser.dateOfBirth || ''} /></label><label data-profile="student">Professor/personal responsável<select name="trainerId" required={editingRoles.includes('student')} defaultValue={editingUser.trainerId || ''}><option value="" disabled>Selecione um professor/personal ou aluno avulso</option><option value="avulso">Aluno avulso (sem personal)</option>{trainerOptions.map((trainer) => <option key={trainer.id} value={trainer.id}>{trainer.name}{trainer.id === editingUser.id ? ' (eu mesmo)' : ''}</option>)}</select></label><label data-profile="trainer">CREF<input name="cref" maxLength="40" defaultValue={editingUser.cref || ''} /></label></div>{editingRoles.some((role) => ['admin','dev'].includes(role)) && <label className="user-active-toggle"><input name="financialAccessExempt" type="checkbox" defaultChecked={editingUser.financialAccessExempt === true} /> Acesso permanente ao financeiro, sem bloqueio por vencimento</label>}<label>Senha {editingUser.needsAccount ? '(obrigatória para criar acesso)' : editingUser.id ? '(deixe em branco para manter)' : ''}<input name="password" type="password" minLength="8" maxLength="72" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label>Confirmar senha<input name="confirmPassword" type="password" minLength="8" maxLength="72" required={!editingUser.id || editingUser.needsAccount} autoComplete="new-password" /></label><label className="user-active-toggle"><input name="active" type="checkbox" defaultChecked={editingUser.active !== false} /> Cadastro ativo</label><button className="primary-button" disabled={saving || editingRoles.length === 0}>{saving ? 'Salvando...' : editingUser.needsAccount ? 'Criar acesso' : 'Salvar cadastro'}</button></form></div></div>}
   </div>;
@@ -329,7 +341,7 @@ function BodyFigure({ measurements }) {
   const armRight = Math.max(13, Math.min(25, value(measurements.armRight, 34) * 0.58));
   const thighLeft = Math.max(21, Math.min(37, value(measurements.thighLeft, 58) * 0.48));
   const thighRight = Math.max(21, Math.min(37, value(measurements.thighRight, 58) * 0.48));
-  return <div className="body-map"><div className="body-measure-tag tag-shoulder">Ombros {measurements.shoulder} cm</div><div className="body-measure-tag tag-waist">Cintura {measurements.waist} cm</div><svg viewBox="0 0 260 430" role="img" aria-label="Visualização proporcional do corpo"><defs><linearGradient id="figureGradient" x1="0" x2="1"><stop offset="0" stopColor="#277665" /><stop offset="1" stopColor="#3a927c" /></linearGradient></defs><circle cx="130" cy="42" r="29" fill="#d89575" /><path d="M115 67h30l6 25h-42z" fill="#d89575" /><path d={`M${130 - shoulder / 2} 86 Q130 73 ${130 + shoulder / 2} 86 L${130 + chest / 2} 185 Q130 204 ${130 - chest / 2} 185Z`} fill="url(#figureGradient)" /><path d={`M${130 - shoulder / 2} 94 L${130 - shoulder / 2 - armLeft - 12} 190 Q${130 - shoulder / 2 - armLeft - 12} 207 ${130 - shoulder / 2 - armLeft} 209 Q${130 - shoulder / 2 - armLeft + 8} 208 ${130 - shoulder / 2 - armLeft + 10} 190 L${130 - shoulder / 2 + 7} 112Z`} fill="#d89575" /><path d={`M${130 + shoulder / 2} 94 L${130 + shoulder / 2 + armRight + 12} 190 Q${130 + shoulder / 2 + armRight + 12} 207 ${130 + shoulder / 2 + armRight} 209 Q${130 + shoulder / 2 + armRight - 8} 208 ${130 + shoulder / 2 + armRight - 10} 190 L${130 + shoulder / 2 - 7} 112Z`} fill="#d89575" /><path d={`M${130 - hip / 2} 177 Q130 195 ${130 + hip / 2} 177 L${130 + hip / 2 - 7} 220 L${130 + thighRight / 2} 350 Q130 360 ${130 - thighLeft / 2} 350 L${130 - hip / 2 + 7} 220Z`} fill="url(#figureGradient)" /><path d={`M${130 - thighLeft / 2} 340 L${130 - thighLeft / 2 - 4} 405 Q130 414 ${130 - thighLeft / 2 + 10} 414 L130 405 L130 340Z`} fill="#315f57" /><path d={`M${130 + thighRight / 2} 340 L${130 + thighRight / 2 + 4} 405 Q260 414 ${130 + thighRight / 2 - 10} 414 L130 405 L130 340Z`} fill="#315f57" /></svg><div className="body-measure-legend"><span><i className="legend-teal" /> Proporções estimadas</span><span><i className="legend-coral" /> Medidas editáveis</span></div></div>;
+  return <div className="body-map"><div className="body-measure-tag tag-shoulder">Ombros {measurements.shoulder} cm</div><div className="body-measure-tag tag-waist">Cintura {measurements.waist} cm</div><svg viewBox="0 0 260 430" role="img" aria-label="Visualização proporcional do corpo"><defs><linearGradient id="figureGradient" x1="0" x2="1"><stop offset="0" stopColor="#277665" /><stop offset="1" stopColor="#3a927c" /></linearGradient></defs><circle cx="130" cy="42" r="29" fill="#d89575" /><path d="M115 67h30l6 25h-42z" fill="#d89575" /><path d={`M${130 - shoulder / 2} 86 Q130 73 ${130 + shoulder / 2} 86 L${130 + chest / 2} 185 Q130 204 ${130 - chest / 2} 185Z`} fill="url(#figureGradient)" /><path d={`M${130 - shoulder / 2} 94 L${130 - shoulder / 2 - armLeft - 12} 190 Q${130 - shoulder / 2 - armLeft - 12} 207 ${130 - shoulder / 2 - armLeft} 209 Q${130 - shoulder / 2 - armLeft + 8} 208 ${130 - shoulder / 2 - armLeft + 10} 190 L${130 - shoulder / 2 + 7} 112Z`} fill="#d89575" /><path d={`M${130 + shoulder / 2} 94 L${130 + shoulder / 2 + armRight + 12} 190 Q${130 + shoulder / 2 + armRight + 12} 207 ${130 + shoulder / 2 + armRight} 209 Q${130 + shoulder / 2 + armRight - 8} 208 ${130 + shoulder / 2 + armRight - 10} 190 L${130 + shoulder / 2 - 7} 112Z`} fill="#d89575" /><path d={`M${130 - hip / 2} 177 Q130 195 ${130 + hip / 2} 177 L${130 + hip / 2 - 7} 220 L${130 + thighRight / 2} 350 Q130 360 ${130 - thighLeft / 2} 350 L${130 - hip / 2 + 7} 220Z`} fill="url(#figureGradient)" /><path d={`M${130 - thighLeft / 2} 340 L${130 - thighLeft / 2 - 4} 405 Q130 414 ${130 - thighLeft / 2 + 10} 414 L130 405 L130 340Z`} fill="#315f57" /><path d={`M${130 + thighRight / 2} 340 L${130 + thighRight / 2 + 4} 405 Q260 414 ${130 + thighRight / 2 - 10} 414 L130 405 L130 340Z`} fill="#315f57" /></svg><div className="body-measure-legend"><span><i className="legend-teal" /> Proporções estimadas</span><span><i className="legend-brand" /> Medidas editáveis</span></div></div>;
 }
 
 function BodyProfileEditor({ measurements, setMeasurements }) {
@@ -719,6 +731,7 @@ export default function Home() {
   const [filter, setFilter] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => {
     if (!mobileNav) return undefined;
     const previousOverflow = document.body.style.overflow;
@@ -787,7 +800,7 @@ export default function Home() {
       const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), username: form.get('username'), password: form.get('password'), confirmPassword: form.get('password'), goal: form.get('goal'), phone: form.get('phone'), dateOfBirth: form.get('dateOfBirth'), trainerId: form.get('trainerId') === 'avulso' ? null : form.get('trainerId') || (currentUser?.role === 'trainer' ? currentUser.id : null), role: 'student', active: true }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível cadastrar o aluno.');
-      const student = { id: body.user.id, name: body.user.name, trainerId: form.get('trainerId') === 'avulso' ? null : form.get('trainerId') || (currentUser?.role === 'trainer' ? currentUser.id : null), initials: body.user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(), goal: form.get('goal'), status: 'Em dia', color: 'coral', updated: 'Agora' };
+      const student = { id: body.user.id, name: body.user.name, trainerId: form.get('trainerId') === 'avulso' ? null : form.get('trainerId') || (currentUser?.role === 'trainer' ? currentUser.id : null), initials: body.user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(), goal: form.get('goal'), status: 'Em dia', color: 'brand', updated: 'Agora' };
       setStudents((current) => [student, ...current]); setSelectedStudent(student); setShowModal(false); showAction('Aluno cadastrado com sucesso.');
     } catch (error) { showAction(error.message); }
   }
@@ -821,14 +834,13 @@ export default function Home() {
   return (
     <main className="app-shell">
       {mobileNav && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileNav(false)} />}
-      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
-        <div className="brand">
-          <span className="brand-mark">
-            <Activity size={20} />
-          </span>
-          <span>
-            atlas<span className="brand-dot">.</span>
-          </span>
+      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""} ${sidebarCollapsed && !mobileNav ? "sidebar-collapsed" : ""}`}>
+        <div className="sidebar-header">
+          <Image className="brand-horizontal" src={atlasfitLogo} alt="AtlasFit" width={192} height={64} priority />
+          <Image className="brand-symbol" src={atlasfitSymbol} alt="AtlasFit" width={48} height={48} />
+          <button className="sidebar-collapse-button" type="button" onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'} title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}>
+            <Menu size={18} />
+          </button>
         </div>
         <div className="workspace-switcher">
           <span className="workspace-avatar">AT</span>
@@ -838,28 +850,22 @@ export default function Home() {
           </span>
           <ChevronDown size={15} />
         </div>
-        {isStaff && <nav className="main-nav" id="main-navigation">
-          {navItems.filter(({ key }) => (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)) && (key !== 'documentation' || (currentUser?.roles || [currentUser?.role]).some((role) => ['admin', 'SUPER_ADMIN'].includes(role))) && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true)).map(({ label, icon: Icon, key }) => (
-            <button
-              className={
-                adminView === key && mode === "admin"
-                  ? "nav-item active"
-                  : "nav-item"
-              }
-              key={label}
-              onClick={() => {
-                setMode("admin");
-                setAdminView(key);
-                setMobileNav(false);
-              }}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {adminView === key && mode === "admin" && (
-                <span className="nav-indicator" />
-              )}
-            </button>
-          ))}
+        {isStaff && <nav className="main-nav" id="main-navigation" aria-label="Navegação principal">
+          {navGroups.map((group) => {
+            const items = navItems.filter(({ key }) => group.keys.includes(key)
+              && (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role))
+              && (key !== 'documentation' || (currentUser?.roles || [currentUser?.role]).some((role) => ['admin', 'SUPER_ADMIN'].includes(role)))
+              && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true));
+            if (!items.length) return null;
+            return <div className="nav-group" key={group.label}>
+              {!sidebarCollapsed && <p className="nav-group-label">{group.label}</p>}
+              {items.map(({ label, icon: Icon, key }) => <button className={adminView === key && mode === "admin" ? "nav-item active" : "nav-item"} key={label} onClick={() => { setMode("admin"); setAdminView(key); setMobileNav(false); }} title={sidebarCollapsed ? label : undefined}>
+                <Icon size={18} />
+                <span>{label}</span>
+                {adminView === key && mode === "admin" && <span className="nav-indicator" />}
+              </button>)}
+            </div>;
+          })}
         </nav>}
         {isStaff && <nav className="main-nav view-mode-nav" aria-label="Alternar visão do sistema">
           <button className={mode === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('admin'); setMobileNav(false); }}><LayoutDashboard size={18} /><span>Visão prof/adm</span>{mode === 'admin' && <span className="nav-indicator" />}</button>
@@ -888,7 +894,7 @@ export default function Home() {
               else window.location.href = "/login";
             }}
           >
-            <LogOut size={16} /> Sair da conta
+            <LogOut size={16} /><span>Sair da conta</span>
           </button>
         </div>
       </aside>
@@ -905,9 +911,9 @@ export default function Home() {
             {mobileNav ? <X size={21} /> : <Menu size={21} />}
           </button>
           <div className="breadcrumbs">
-            <span>{mode === "admin" ? "Alunos" : "Área do aluno"}</span>
+            <span>AtlasFit</span>
             <ChevronRight size={15} />
-            <strong>{mode === 'student' ? ownStudentView.name : selectedStudent.name}</strong>
+            <strong>{mode === 'student' ? ownStudentView.name : adminView === 'students' ? selectedStudent.name : navItems.find((item) => item.key === adminView)?.label || 'Visão geral'}</strong>
           </div>
           <div className="topbar-actions">
             <button
@@ -920,8 +926,9 @@ export default function Home() {
             </button>
             <span className="topbar-divider" />
             <span className="topbar-date">
-              <Clock3 size={15} /> Sexta, 14 de junho
+              <Clock3 size={15} /> <span suppressHydrationWarning>{new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</span>
             </span>
+            {currentUser && <div className="topbar-account"><span className="topbar-account-avatar">{currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{currentUser.name}</strong><small>{currentUser.role === 'SUPER_ADMIN' ? 'Super admin' : currentUser.role === 'trainer' ? 'Professor' : currentUser.role === 'student' ? 'Aluno' : 'Equipe AtlasFit'}</small></span></div>}
           </div>
         </header>
         {currentUser?.financialAccess?.level && currentUser.financialAccess.level !== 'ACTIVE' && <div className={`financial-access-banner ${currentUser.financialAccess.level === 'WARNING' ? 'is-warning' : ''}`} role="status"><span>{currentUser.financialAccess.restricted ? 'Seu acesso está restrito por pendência financeira.' : 'Há uma cobrança próxima do vencimento na sua conta.'}</span><a href="/billing">Ver cobrança</a></div>}
@@ -965,7 +972,7 @@ export default function Home() {
             </div>
             <div className="stats-row">
               <div className="stat-card">
-                <span className="stat-icon coral-bg">
+                <span className="stat-icon brand-bg">
                   <UsersRound size={18} />
                 </span>
                 <span>

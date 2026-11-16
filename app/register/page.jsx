@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AuthShell from '../../components/AuthShell';
 
 export default function RegisterPage() {
   const [error, setError] = useState('');
@@ -41,8 +42,7 @@ export default function RegisterPage() {
     }
   }
 
-  return <main className="login-page">
-    <div className="login-brand"><span className="brand-mark"><span className="simple-icon">⌁</span></span><span>atlas<span className="brand-dot">.</span></span></div>
+  return <AuthShell>
     <section className="login-card">
       <p className="eyebrow">NOVO ALUNO</p>
       <h1>Criar conta</h1>
@@ -63,6 +63,5 @@ export default function RegisterPage() {
       </form>
       <div className="login-links"><a href="/login">Voltar ao login</a></div>
     </section>
-    <p className="login-footer">Atlas Training · Gestão inteligente de treinos</p>
-  </main>;
+  </AuthShell>;
 }

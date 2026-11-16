@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AuthShell from '../../components/AuthShell';
 
 const Icon = ({ children }) => <span className="simple-icon">{children}</span>;
 const Activity = () => <Icon>⌁</Icon>;
@@ -43,8 +44,7 @@ export default function LoginPage() {
     }
   }
 
-  return <main className="login-page">
-    <div className="login-brand"><span className="brand-mark"><Activity /></span><span>atlas<span className="brand-dot">.</span></span></div>
+  return <AuthShell>
     <section className="login-card">
       <p className="eyebrow">ÁREA RESTRITA</p>
       <h1>Bem-vindo de volta</h1>
@@ -58,6 +58,6 @@ export default function LoginPage() {
       </form>
       <div className="login-links"><a href="/forgot-password">Preciso redefinir minha senha</a><a href="/register">Criar conta de aluno</a></div>
     </section>
-    <p className="login-footer">Atlas Training · Gestão inteligente de treinos · <a href="/privacy">Privacidade</a></p>
-  </main>;
+    <div className="auth-privacy"><a href="/privacy">Privacidade</a></div>
+  </AuthShell>;
 }

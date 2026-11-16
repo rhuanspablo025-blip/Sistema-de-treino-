@@ -13,7 +13,7 @@
 .plans-toolbar { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(130px, 1fr)); gap: 9px; margin-bottom: 17px; }
 .plans-toolbar select, .plans-search, .plans-field input, .plans-field select, .plans-field textarea, .plans-add-exercise input, .plans-add-exercise select { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 6px; outline: 0; color: var(--ink); background: #fff; font-size: 12px; }
 .plans-toolbar select { height: 38px; padding: 0 9px; }
-.plans-toolbar select:focus, .plans-search:focus-within, .plans-field input:focus, .plans-field select:focus, .plans-field textarea:focus, .plans-add-exercise input:focus, .plans-add-exercise select:focus { border-color: var(--coral); }
+.plans-toolbar select:focus, .plans-search:focus-within, .plans-field input:focus, .plans-field select:focus, .plans-field textarea:focus, .plans-add-exercise input:focus, .plans-add-exercise select:focus { border-color: var(--brand); }
 .plans-search { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; color: #8b9691; }
 .plans-search input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 12px; }
 .plans-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -24,7 +24,7 @@
 .plans-status, .plans-day-badge { flex-shrink: 0; padding: 5px 8px; border-radius: 5px; color: #287b69; background: #e7f3eb; font-size: 10px; font-weight: 700; }
 .plans-status.inactive, .plans-day-badge.rest { color: #75807c; background: #f0f2f0; }
 .plans-card-student { display: flex; align-items: center; gap: 9px; margin: 16px 0 13px; }
-.plans-avatar { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 50%; color: #8b4938; background: #f6c0af; font-size: 10px; font-weight: 700; }
+.plans-avatar { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 50%; color: #f2c879; background: #49351a; font-size: 10px; font-weight: 700; }
 .plans-card-student > span:last-child { display: grid; gap: 3px; min-width: 0; }
 .plans-card-student strong { font-size: 12px; }
 .plans-card-student small { color: var(--muted); font-size: 10px; }
@@ -34,10 +34,10 @@
 .plans-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 13px; }
 .plans-card-footer > small { color: var(--muted); font-size: 10px; }
 .plans-card-actions, .plans-row-actions, .plans-detail-actions { display: flex; align-items: center; gap: 5px; }
-.plans-text-button { padding: 5px 7px; border: 0; color: var(--coral); background: transparent; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.plans-text-button { padding: 5px 7px; border: 0; color: var(--brand); background: transparent; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .plans-text-button:hover { color: #ba4938; }
 .plans-icon-button { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px; color: #66736d; background: #fff; font-size: 15px; }
-.plans-icon-button:hover:not(:disabled) { border-color: #d8a092; color: var(--coral); }
+.plans-icon-button:hover:not(:disabled) { border-color: #d8a092; color: var(--brand); }
 .plans-icon-button.danger:hover { border-color: #edc5bd; color: #b84d3d; }
 .plans-icon-button:disabled { cursor: not-allowed; opacity: .4; }
 .plans-state { display: grid; justify-items: center; gap: 8px; min-height: 180px; align-content: center; color: var(--muted); text-align: center; font-size: 12px; }
@@ -98,7 +98,7 @@
 .plans-detail-observations { padding: 11px; border-radius: 6px; color: #55635c; background: #f5f7f5; font-size: 12px; }
 .plans-detail-day { margin-top: 20px; }
 .plans-detail-day > header { display: flex; align-items: baseline; gap: 10px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
-.plans-detail-day > header span { color: var(--coral); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.plans-detail-day > header span { color: var(--brand); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .plans-detail-day h2 { margin: 0; font: 600 16px 'Space Grotesk', sans-serif; }
 .plans-detail-day > p { color: var(--muted); font-size: 12px; }
 .plans-detail-table { display: grid; }
@@ -173,12 +173,12 @@
 
 /* Biblioteca: mídia demonstrativa e leitura do catálogo */
 .exercise-admin-card > img { grid-column: 1 / -1; display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 7px; background: #f3f5f3; }
-.exercise-admin-card > div a { width: fit-content; color: var(--coral); font-size: 11px; font-weight: 700; text-decoration: underline; }
+.exercise-admin-card > div a { width: fit-content; color: var(--brand); font-size: 11px; font-weight: 700; text-decoration: underline; }
 .exercise-admin-card > div small { line-height: 1.5; overflow-wrap: anywhere; }
 .exercise-editor { max-height: min(90vh, 900px); overflow-y: auto; }
 .exercise-editor > label { min-width: 0; }
 .exercise-editor input[type="url"] { min-width: 0; }
-.plans-detail-row > span:first-child a { width: fit-content; color: var(--coral); font-size: 10px; font-weight: 700; }
+.plans-detail-row > span:first-child a { width: fit-content; color: var(--brand); font-size: 10px; font-weight: 700; }
 @media (max-width: 720px) {
   .exercise-admin-card { grid-template-columns: minmax(0, 1fr) auto; }
   .exercise-admin-card > img { max-height: 190px; }
@@ -215,7 +215,7 @@
 .exercise-external-results button { display:grid; gap:4px; padding:9px; border:1px solid var(--line); border-radius:6px; text-align:left; background:#fff; cursor:pointer; }
 .exercise-external-results button strong { font-size:11px; }
 .exercise-external-results button small { color:var(--muted); font-size:9px; }
-.exercise-external-results button:hover { border-color:var(--coral); }
+.exercise-external-results button:hover { border-color:var(--brand); }
 @media (max-width:720px) {
   .exercise-external-search-controls,.exercise-external-results { grid-template-columns:minmax(0,1fr); }
 }

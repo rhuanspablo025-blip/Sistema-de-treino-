@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import atlasfitLogo from '../../public/brand/atlasfit-logo-horizontal.jpeg';
 import './billing.css';
 
 function money(cents) {
@@ -34,7 +36,7 @@ export default function BillingPage() {
   const accessBlocked = data?.access?.blocked || data?.access?.restricted;
 
   return <main className="billing-page">
-    <header className="billing-topbar"><a href="/" className="billing-brand">atlas<span>.</span></a>{!accessBlocked && <a href="/" className="outline-button">Voltar ao sistema</a>}</header>
+    <header className="billing-topbar"><a href="/" className="billing-brand" aria-label="AtlasFit"><Image src={atlasfitLogo} alt="AtlasFit" priority /></a>{!accessBlocked && <a href="/" className="outline-button">Voltar ao sistema</a>}</header>
     <section className="billing-content">
       <p className="eyebrow">FINANCEIRO DA CONTA</p>
       <h1>{accessBlocked ? 'Acesso suspenso' : 'Plano e pagamentos'}</h1>

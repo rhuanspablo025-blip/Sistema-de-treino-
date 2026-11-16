@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main>
+    <main className="privacy-page">
       <h1>Política de Privacidade</h1>
       <p>O Atlas Training trata nome, nome de usuário, dados de contato fornecidos à academia, dados de autenticação e medidas corporais exclusivamente para gerir alunos e fichas de treino.</p>
       <p>As medidas corporais são dados pessoais sensíveis. O acesso é restrito ao titular e à equipe autorizada, conforme as permissões do sistema.</p>

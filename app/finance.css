@@ -24,7 +24,7 @@
 .finance-chart { display: flex; align-items: end; justify-content: space-around; gap: 12px; min-height: 205px; padding: 15px 7px 0; border-bottom: 1px solid var(--line); }
 .finance-bar-group { display: grid; flex: 1; justify-items: center; gap: 9px; height: 100%; color: var(--muted); font-size: 10px; }
 .finance-bar-track { display: flex; align-items: end; justify-content: center; width: min(100%, 34px); height: 160px; overflow: hidden; border-radius: 6px 6px 0 0; background: #f2f5f3; }
-.finance-bar-track span { display: block; width: 100%; min-height: 4px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #ed806a, var(--coral)); }
+.finance-bar-track span { display: block; width: 100%; min-height: 4px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #f5b717, var(--brand)); }
 .finance-link { align-self: center; padding: 8px 11px; border: 1px solid var(--line); border-radius: 7px; color: var(--teal); background: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
 .finance-link:hover { background: #f1f8f5; }
 .finance-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
