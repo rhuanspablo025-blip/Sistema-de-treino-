@@ -13,7 +13,10 @@
     "admin:create": "node scripts/create-admin-user.js",
     "super-admin:setup": "node scripts/setup-super-admin.js",
     "dev:create": "node scripts/create-dev-user.js",
-    "migrate:mongodb-to-turso": "node scripts/migrate-mongodb-to-turso.js"
+    "migrate:mongodb-to-turso": "node scripts/migrate-mongodb-to-turso.js",
+    "migrate:training-relational": "node scripts/migrate-training-relational.js"
+    ,"backfill:identity": "node scripts/backfill-identity.js",
+    "backfill:financial": "node scripts/backfill-financial.js"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

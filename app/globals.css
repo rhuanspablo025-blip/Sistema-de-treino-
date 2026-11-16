@@ -4,6 +4,43 @@
 @import './body-map-overrides.css';
 @import './auth-overrides.css';
 
+/* AtlasFit visual foundation: graphite surfaces with a restrained amber accent. */
+:root { color-scheme: dark; --ink:#f4f3ef; --muted:#a5a39d; --line:#2b2c2e; --paper:#101112; --white:#191a1c; --coral:#e9a92b; --coral-soft:#302718; --teal:#e9a92b; --atlas-bg:#101112; --atlas-surface:#191a1c; --atlas-raised:#202123; --atlas-border:#303134; --atlas-text:#f4f3ef; --atlas-muted:#a5a39d; --atlas-brand:#e9a92b; --atlas-brand-hover:#f5bd4d; }
+body { color:var(--atlas-text); background:var(--atlas-bg); font-family:Arial,Helvetica,sans-serif; }
+button,input,select,textarea { color:inherit; }
+.sidebar { background:#151617; border-color:#292a2c; }
+.brand { color:#fff; letter-spacing:-.6px; }
+.brand-mark { background:var(--atlas-brand); color:#171717; border-radius:9px; }
+.brand-dot,.eyebrow { color:var(--atlas-brand); }
+.workspace-switcher { background:#1c1d1f; border-color:#303134; }
+.workspace-avatar,.user-avatar { background:#a97819; color:#fff; }
+.nav-item { color:#aaa9a4; transition:background .18s,color .18s; }
+.nav-item:hover { background:#222325; color:#fff; }
+.nav-item.active { color:#f4bd53; background:#302719; }
+.nav-indicator { background:var(--atlas-brand); }
+.content-area,.topbar { background:var(--atlas-bg); }
+.topbar { border-color:var(--atlas-border); }
+.breadcrumbs strong,.page-heading h1,.panel h2,.workout-top h2 { color:#f4f3ef; }
+.icon-button,.outline-button,.search-box,.login-input { color:#c3c0b9; background:#1b1c1e; border-color:#343538; }
+.panel,.stat-card,.student-side-card,.students-panel,.workout-panel { color:#f4f3ef; background:var(--atlas-surface); border-color:var(--atlas-border); }
+.student-row,.exercise-row,.student-exercise { border-color:#2b2c2e; }
+.student-row.selected { background:#2e261a; }
+.student-info strong,.exercise-name strong,.student-exercise strong { color:#f0efeb; }
+.primary-button { color:#171717; background:var(--atlas-brand); box-shadow:none; transition:background .18s,transform .18s; }
+.primary-button:hover { background:var(--atlas-brand-hover); transform:translateY(-1px); }
+.primary-button:focus-visible,.nav-item:focus-visible,.icon-button:focus-visible { outline:2px solid #f5bd4d; outline-offset:2px; }
+.filter-tabs { background:#111214; }.filter.active { color:#f4bd53; background:#292a2c; box-shadow:none; }
+.student-hero { background:#272116; box-shadow:none; }
+.modal { color:#f4f3ef; background:#202123; }
+.modal input,.modal select { color:#f4f3ef; background:#17181a; border-color:#393a3c; }
+.login-page { position:relative; isolation:isolate; overflow:hidden; color:#f4f3ef; background:radial-gradient(ellipse at 78% 46%,#392b16 0,transparent 37%),radial-gradient(ellipse at 20% 15%,#202123 0,transparent 40%),#0b0c0d; }
+.login-page::before { position:absolute; z-index:-1; inset:0; content:""; opacity:.18; background:linear-gradient(135deg,transparent 0 48%,#d99b2b 48.1%,transparent 48.3% 70%,#d99b2b 70.1%,transparent 70.3%); }
+.login-brand { color:#fff; }.login-card { color:#f4f3ef; background:#191a1c; border-color:#303134; border-radius:16px; box-shadow:0 24px 80px #0008; }
+.login-card label { color:#d0cec8; }.login-input input { color:#fff; background:transparent; }.login-input input::placeholder { color:#777873; }
+.login-links a,.login-footer a { color:#e9a92b; }.login-footer { color:#92918c; }
+.login-card .remember-login { color:#aaa9a4; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
 :root { --ink: #17221f; --muted: #75807c; --line: #e6ebe7; --paper: #f8faf8; --white: #fff; --coral: #e9664e; --coral-soft: #fff0eb; --teal: #287b69; }
 * { box-sizing: border-box; }
 html { min-width: 320px; overflow-x: clip; }

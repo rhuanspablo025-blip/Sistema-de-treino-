@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+require('dotenv').config({ path: '.env.local' });
+const { createClient } = require('@libsql/client');
+const { initializeSchema, createTursoDatabase } = require('../lib/turso-document-store.cjs');
+const { ensureFinancialSchema } = require('../lib/financial-repository.mjs');
+async function main() { const dryRun = process.argv.includes('--dry-run'); const apply = process.argv.includes('--apply'); if (!dryRun && !apply) throw new Error('Use --dry-run ou --apply explicitamente.'); if (apply && process.env.FINANCIAL_BACKFILL_APPLY !== 'true') throw new Error('FINANCIAL_BACKFILL_APPLY=true é obrigatório.'); const url = process.env.TURSO_DATABASE_URL || 'file::memory:'; if (!url.startsWith('file:') || process.env.TURSO_AUTH_TOKEN) throw new Error('Backfill financeiro permitido somente em libSQL local sem token.'); const c = createClient({ url }); await initializeSchema(c); await ensureFinancialSchema(); const db = createTursoDatabase(c, url); const names = ['billing_plans','subscriptions','invoices','payments','payment_webhooks','billing_rules','access_blocks','financial_ledger','payment_provider_customers','payment_provider_config','payment_payouts']; const counts = {}; for (const name of names) counts[name] = await db.collection(name).countDocuments({}); console.log(JSON.stringify({ dryRun, counts, orphanChecks: 'análise estrutural disponível antes de qualquer apply', applied: false }, null, 2)); await c.close(); }
+main().catch((e) => { console.error(e.message); process.exitCode = 1; });

@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'node:crypto';
-import { getDatabase } from '../../../../lib/mongodb';
-import { writeAuditLog } from '../../../../lib/audit';
+import { listActiveTrainers, findUserByUsername, createStudentIdentity, writeIdentityAudit } from '../../../../lib/identity-repository.mjs';
 import { normalizeUsername } from '../../../../lib/usernames';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
   try {
-    const trainers = await (await getDatabase()).collection('trainers').find({ active: true }, { projection: { userId: 1, name: 1 } }).sort({ name: 1 }).toArray();
-    return NextResponse.json({ trainers: trainers.map(({ userId, name }) => ({ id: userId, name })) });
+    const trainers = await listActiveTrainers();
+    return NextResponse.json({ trainers: trainers.map(({ id, name }) => ({ id, name })) });
   } catch {
     return NextResponse.json({ error: 'Não foi possível carregar os personais.' }, { status: 500 });
   }
@@ -39,43 +37,14 @@ export async function POST(request) {
     if (password !== confirmPassword) return NextResponse.json({ error: 'As senhas não conferem.' }, { status: 400 });
     if (!trainerId) return NextResponse.json({ error: 'Selecione um personal ou marque aluno avulso, sem personal.' }, { status: 400 });
 
-    const database = await getDatabase();
-    if (await database.collection('users').findOne({ username: normalizedUsername })) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
-    if (trainerId !== 'avulso' && !await database.collection('trainers').findOne({ userId: trainerId, active: true })) return NextResponse.json({ error: 'Personal não encontrado.' }, { status: 400 });
-    const userId = randomUUID();
-    const now = new Date();
-    const user = {
-      id: userId,
-      name,
-      username: normalizedUsername,
-      passwordHash: await bcrypt.hash(password, 12),
-      role: 'student',
-      active: true,
-      sessionVersion: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
+    if (await findUserByUsername(normalizedUsername)) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
+    const passwordHash = await bcrypt.hash(password, 12);
 
     try {
-      await database.collection('users').insertOne(user);
-      await database.collection('students').insertOne({
-        id: userId,
-        userId,
-        name,
-        phone,
-        dateOfBirth: null,
-        goal,
-        trainerId: trainerId === 'avulso' ? null : trainerId,
-        measurements: [],
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await writeAuditLog(database, { userId, action: 'self_register', resource: 'user', resourceId: userId, metadata: { role: 'student', active: true } });
+      const user = await createStudentIdentity({ name, username: normalizedUsername, passwordHash, phone, goal, trainerId: trainerId === 'avulso' ? null : trainerId });
+      await writeIdentityAudit({ tenantId: user.tenantId, userId: user.id, action: 'self_register', resource: 'user', resourceId: user.id, metadata: { role: 'student', active: true } });
       return NextResponse.json({ message: 'Cadastro concluído. Agora você pode entrar usando seu username.' }, { status: 201 });
     } catch (error) {
-      await database.collection('users').deleteOne({ id: userId });
-      await database.collection('students').deleteOne({ userId });
       if (error.code === 11000 && error.keyPattern?.username) return NextResponse.json({ error: 'Este nome de usuário já está em uso.' }, { status: 409 });
       throw error;
     }

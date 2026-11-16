@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createSession, SESSION_COOKIE, SESSION_DURATION, TEMP_SESSION_DURATION } from '../../../../lib/session';
 import { getFinancialAccess } from '../../../../lib/finance-access';
-import { getDatabase } from '../../../../lib/mongodb';
+import { findUserByUsername, writeIdentityAudit } from '../../../../lib/identity-repository.mjs';
 import { normalizeUsername } from '../../../../lib/usernames';
 import { clearLoginFailures, checkLoginRateLimit, recordLoginFailure } from '../../../../lib/login-rate-limit';
-import { writeAuditLog } from '../../../../lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -22,19 +21,18 @@ export async function POST(request) {
     const normalizedUsername = normalizeUsername(username);
     if (!normalizedUsername || typeof password !== 'string' || !password) return NextResponse.json({ error: 'Informe usuário e senha.' }, { status: 400 });
 
-    const database = await getDatabase();
     const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rate = await checkLoginRateLimit(normalizedUsername, ipAddress);
     if (rate.limited) return NextResponse.json({ error: 'Muitas tentativas. Aguarde antes de tentar novamente.' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } });
-    const user = await database.collection('users').findOne({ username: normalizedUsername });
+    const user = await findUserByUsername(normalizedUsername);
     if (!user || user.active === false || !(await bcrypt.compare(String(password), user.passwordHash || ''))) {
       await recordLoginFailure(rate.key);
-      if (user?.role === 'SUPER_ADMIN') await writeAuditLog(database, { userId: user.id, action: 'super_admin_login_failed', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
+      if (user?.role === 'SUPER_ADMIN') await writeIdentityAudit({ tenantId: user.tenantId, userId: user.id, action: 'super_admin_login_failed', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
       return NextResponse.json({ error: 'Usuário ou senha inválidos.' }, { status: 401 });
     }
 
     await clearLoginFailures(rate.key);
-    if (user.role === 'SUPER_ADMIN') await writeAuditLog(database, { userId: user.id, action: 'super_admin_login', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
+    if (user.role === 'SUPER_ADMIN') await writeIdentityAudit({ tenantId: user.tenantId, userId: user.id, action: 'super_admin_login', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
     const financialAccess = await getFinancialAccess(user);
     if (financialAccess.blocked || financialAccess.restricted) return NextResponse.json({ error: 'Acesso suspenso por inadimplência. Entre em contato com o responsável financeiro.' }, { status: 423 });
     const rememberMe = payload.rememberMe !== false;
