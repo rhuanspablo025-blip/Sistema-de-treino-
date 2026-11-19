@@ -3,6 +3,7 @@ import './workout-plans.css';
 import './finance.css';
 import './atlasfit-theme.css';
 import './studio.css';
+import './brand-refinement.css';
 
 export const metadata = {
   title: 'Atlas Training | Gestão de treinos',
