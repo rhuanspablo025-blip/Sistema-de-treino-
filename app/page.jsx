@@ -37,8 +37,9 @@ const emptyStudent = { name: 'Nenhum aluno cadastrado', initials: '--', goal: 'N
 
 const navItems = [
   { label: "Visão geral", icon: LayoutDashboard, key: "overview" },
-  { label: "Cadastros", icon: UserRound, key: "admins" },
+  { label: "Alunos e equipe", icon: UserRound, key: "admins" },
   { label: "Fichas de treino", icon: ClipboardList, key: "workouts" },
+  { label: "Biblioteca de exercícios", icon: Dumbbell, key: "exercises" },
   { label: "Financeiro", icon: BarChart3, key: "finance" },
   { label: "Documentação", icon: ClipboardList, key: "documentation" },
 ];
@@ -46,9 +47,9 @@ const navItems = [
 const navGroups = [
   { label: 'VISÃO GERAL', keys: ['overview'] },
   { label: 'PESSOAS', keys: ['admins'] },
-  { label: 'TREINAMENTO', keys: ['workouts'] },
-  { label: 'OPERAÇÃO', keys: ['finance'] },
-  { label: 'SISTEMA', keys: ['documentation'] },
+  { label: 'TREINAMENTO', keys: ['workouts', 'exercises'] },
+  { label: 'GESTÃO', keys: ['finance'] },
+  { label: 'RECURSOS', keys: ['documentation'] },
 ];
 
 function DocumentationModule() {
@@ -312,17 +313,15 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
         <section className="panel module-panel">
           <div className="exercise-library">
             {exerciseList.map((exercise) => (
-              <button
+              <article
                 key={exercise}
-                onClick={() => onAction(`Editando ${exercise}`)}
               >
                 <Dumbbell size={16} />
                 <span>
                   <strong>{exercise}</strong>
-                  <small>Editar detalhes e instruções</small>
+                  <small>Disponível para adicionar às fichas de treino</small>
                 </span>
-                <ChevronRight size={16} />
-              </button>
+              </article>
             ))}
           </div>
         </section>
@@ -855,6 +854,7 @@ export default function Home() {
             const items = navItems.filter(({ key }) => group.keys.includes(key)
               && (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role))
               && (key !== 'documentation' || (currentUser?.roles || [currentUser?.role]).some((role) => ['admin', 'SUPER_ADMIN'].includes(role)))
+              && (key !== 'exercises' || ['admin', 'dev', 'SUPER_ADMIN', 'trainer'].includes(currentUser?.role))
               && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true));
             if (!items.length) return null;
             return <div className="nav-group" key={group.label}>
