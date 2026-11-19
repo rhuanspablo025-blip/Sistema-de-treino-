@@ -518,12 +518,19 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
 
         <section className="plans-section plans-week-section">
           <div className="plans-section-heading"><div><p className="eyebrow">ETAPA 2</p><h2>Estrutura semanal</h2></div><span>{editor.days.filter((day) => !day.isRestDay).length} treinos · {editor.days.filter((day) => day.isRestDay).length} descansos</span></div>
+          <nav className="week-index" aria-label="Ir ao dia do treino">
+            {WEEK_DAYS.map(slot => <button type="button" key={slot.key} onClick={() => {
+              const column = document.getElementById('training-day-' + slot.key);
+              column?.focus({ preventScroll: true });
+              column?.scrollIntoView({ block: 'nearest', inline: 'start' });
+            }}>{slot.label}</button>)}
+          </nav>
           <div className="plans-week-grid">
             {WEEK_DAYS.map((slot) => {
               const day = editor.days.find((item) => item.dayOfWeek === slot.key);
               const exerciseQuery = (exerciseSearch[slot.key] || '').toLowerCase().trim();
               const availableExercises = catalog.filter((exercise) => exercise.active !== false && (!animationDataset || exercisesWithDemos.has(exercise.id)) && `${exercise.name} ${exercise.muscleGroup} ${exercise.equipment} ${(exercise.primaryMuscles || []).join(' ')} ${(exercise.secondaryMuscles || []).join(' ')}`.toLowerCase().includes(exerciseQuery));
-              return <article key={slot.key} className={`plans-day ${day?.isRestDay ? 'is-rest' : ''}`}>
+              return <article id={'training-day-' + slot.key} tabIndex={-1} key={slot.key} className={`plans-day ${day?.isRestDay ? 'is-rest' : ''}`}>
                 <header className="plans-day-header"><span className="plans-day-label">{slot.label}</span>{day ? <span className={`plans-day-badge ${day.isRestDay ? 'rest' : ''}`}>{day.isRestDay ? 'Descanso' : `${day.exercises.length} exercícios`}</span> : <span className="plans-day-badge rest">Sem treino</span>}</header>
                 {!day ? <div className="plans-day-empty"><button type="button" className="outline-button" onClick={() => addDay(slot.key)}>+ Adicionar treino</button><button type="button" className="plans-text-button" onClick={() => addDay(slot.key, true)}>Marcar descanso</button></div> : <>
                   <div className="plans-day-controls">

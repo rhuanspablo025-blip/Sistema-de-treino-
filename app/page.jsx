@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import TrainingDesk from "../components/TrainingDesk";
 import Image from "next/image";
 import atlasfitLogo from "../public/brand/atlasfit-logo-horizontal.jpeg";
 import atlasfitSymbol from "../public/brand/atlasfit-symbol.jpeg";
@@ -25,7 +26,7 @@ const Dumbbell = (props) => <SimpleIcon {...props}>╫</SimpleIcon>;
 const LayoutDashboard = (props) => <SimpleIcon {...props}>▦</SimpleIcon>;
 const LogOut = (props) => <SimpleIcon {...props}>↪</SimpleIcon>;
 const Menu = (props) => <SimpleIcon {...props}>☰</SimpleIcon>;
-const MoreHorizontal = (props) => <SimpleIcon {...props}>?</SimpleIcon>;
+const MoreHorizontal = (props) => <SimpleIcon {...props}>⋯</SimpleIcon>;
 const Plus = (props) => <SimpleIcon {...props}>+</SimpleIcon>;
 const Search = (props) => <SimpleIcon {...props}>⌕</SimpleIcon>;
 const Settings = (props) => <SimpleIcon {...props}>⚙</SimpleIcon>;
@@ -53,6 +54,14 @@ const navGroups = [
 ];
 
 function ProductNavigation({ currentKey, currentUser, onNavigate }) {
+  const [openMenu, setOpenMenu] = useState(null);
+  const navRef = useRef(null);
+  useEffect(() => {
+    const dismiss = (event) => { if (event.type === 'keydown' && event.key === 'Escape') setOpenMenu(null); if (event.type === 'pointerdown' && !navRef.current?.contains(event.target)) setOpenMenu(null); };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss);
+    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', dismiss); };
+  }, []);
   const roles = currentUser?.roles || [currentUser?.role];
   const staff = roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role));
   const canAdmin = roles.some((role) => ['admin','dev','SUPER_ADMIN'].includes(role));
@@ -74,17 +83,17 @@ function ProductNavigation({ currentKey, currentUser, onNavigate }) {
     if (key === 'documentation') return roles.some((role) => ['admin','SUPER_ADMIN'].includes(role));
     return false;
   };
-  const button = (key) => { const [label, Icon] = items[key]; return <button type="button" key={key} className={`product-nav-link ${currentKey === key ? 'active' : ''}`} aria-current={currentKey === key ? 'page' : undefined} onClick={() => onNavigate(key)}><Icon size={16}/>{label}</button>; };
-  return <>
+  const button = (key) => { const [label, Icon] = items[key]; return <button type="button" key={key} className={`product-nav-link ${currentKey === key ? 'active' : ''}`} aria-current={currentKey === key ? 'page' : undefined} onClick={() => { setOpenMenu(null); onNavigate(key); }}><Icon size={16}/>{label}</button>; };
+  return <div className="product-nav-root" ref={navRef}>
     <nav className="product-navigation desktop-product-nav" aria-label="Navegação principal">
-      {groups.map((group) => { const keys=group.keys.filter(visible); if (!keys.length) return null; return <details className="product-nav-group" key={group.title}><summary className={keys.includes(currentKey) ? 'active' : ''}>{group.title}<ChevronDown size={14}/></summary><div className="product-nav-menu">{keys.map(button)}</div></details>; })}
+      {groups.map((group) => { const keys=group.keys.filter(visible); if (!keys.length) return null; const isOpen=openMenu===group.title; return <div className="product-nav-group" key={group.title}><button type="button" className={`product-nav-trigger ${keys.includes(currentKey) ? 'active' : ''}`} aria-expanded={isOpen} onClick={()=>setOpenMenu(isOpen?null:group.title)}>{group.title}<ChevronDown size={14}/></button>{isOpen&&<div className="product-nav-menu">{keys.map(button)}</div>}</div>; })}
       {staff && <button type="button" className={`product-nav-link product-student-link ${currentKey === 'student' ? 'active' : ''}`} onClick={() => onNavigate('student')}><UserRound size={16}/>Área do aluno</button>}
     </nav>
     <nav className="mobile-product-nav" aria-label="Navegação mobile">
-      {staff && <>{button('overview')}{button('students')}{button('workouts')}<details className="mobile-more"><summary aria-label="Mais opções"><MoreHorizontal size={18}/><span>Mais</span></summary><div className="product-nav-menu">{groups.flatMap((group)=>group.keys).filter((key)=>visible(key)&&!['overview','students','workouts'].includes(key)).map(button)}{button('student')}</div></details></>}
+      {staff && <>{button('overview')}{button('students')}{button('workouts')}<div className="mobile-more"><button type="button" aria-label="Mais opções" aria-expanded={openMenu==='mobile'} onClick={()=>setOpenMenu(openMenu==='mobile'?null:'mobile')}><MoreHorizontal size={18}/><span>Mais</span></button>{openMenu==='mobile'&&<div className="product-nav-menu">{groups.flatMap((group)=>group.keys).filter((key)=>visible(key)&&!['overview','students','workouts'].includes(key)).map(button)}{button('student')}</div>}</div></>}
       {!staff && button('student')}
     </nav>
-  </>;
+  </div>;
 }
 
 function DocumentationModule() {
@@ -216,7 +225,7 @@ function UserManagement({ trainers = [] }) {
 
   return <div className="page-content user-management-page">
     <div className="page-heading"><div><p className="eyebrow">GESTÃO DE PESSOAS</p><h1>Cadastros</h1><p className="heading-copy">Uma pessoa, um login e os perfis que ela precisa.</p></div><button className="primary-button" onClick={() => { setEditingRoles(['student']); setEditingUser({}); }}><Plus size={17} /> Novo cadastro</button></div>
-    <div className="stats-row user-stats"><div className="stat-card"><span className="stat-icon brand-bg"><UsersRound size={18} /></span><span><small>Total de cadastros</small><strong>{counts.total}</strong></span></div><div className="stat-card"><span className="stat-icon green-bg"><UserRound size={18} /></span><span><small>Alunos</small><strong>{counts.students}</strong></span></div><div className="stat-card"><span className="stat-icon yellow-bg"><Settings size={18} /></span><span><small>Equipe</small><strong>{counts.team}</strong></span></div></div>
+    <section className="user-summary" aria-label="Resumo de pessoas"><div><UsersRound size={17}/><span>Cadastros</span><strong>{loading ? '—' : counts.total}</strong></div><div><UserRound size={17}/><span>Alunos</span><strong>{loading ? '—' : counts.students}</strong></div><div><Settings size={17}/><span>Equipe</span><strong>{loading ? '—' : counts.team}</strong></div><span className="user-summary-note">{loading ? 'Atualizando lista' : `${counts.active} com acesso ativo`}</span></section>
     <section className="panel module-panel user-directory"><div className="panel-header user-directory-heading"><div><h2>Pessoas e acessos</h2><p>Edite perfis, redefina senhas e altere o status de acesso.</p></div><span className="user-active-count">{counts.active} ativos</span></div>
     <div className="user-filters"><div className="search-box"><Search size={17} /><input aria-label="Buscar cadastro" placeholder="Buscar por nome ou usuário..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></div><label className="user-filter-select"><span>Perfil</span><select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value); setPage(1); }}><option value="Todos">Todos os perfis</option><option value="student">Alunos</option><option value="trainer">Professores</option><option value="admin">Administradores</option><option value="dev">Desenvolvedores</option></select></label><div className="filter-tabs">{['Todos', 'Ativos', 'Inativos', 'Excluídos'].map((item) => <button className={statusFilter === item ? 'filter active' : 'filter'} key={item} onClick={() => { setStatusFilter(item); setPage(1); }}>{item}</button>)}</div></div>
     {error && <p className="login-error" role="alert">{error}</p>}{feedback && <p className="profile-status" role="status">{feedback}</p>}
@@ -240,7 +249,7 @@ function SettingsModule() {
   return <div className="page-content settings-page"><div className="page-heading"><div><p className="eyebrow">ADMINISTRAÇÃO</p><h1>Configurações</h1><p className="heading-copy">Dados da academia que aparecem no sistema.</p></div></div>{error && <p className="login-error" role="alert">{error}</p>}{message && <p className="profile-status" role="status">{message}</p>}{!settings ? <p className="heading-copy">Carregando configurações...</p> : <form className="panel settings-form" onSubmit={save}><h2>Identificação da academia</h2><p className="heading-copy">Edite o nome e os dados de contato usados pela equipe.</p><div className="settings-fields"><label>Nome da academia<input name="academyName" required maxLength="100" defaultValue={settings.academyName} /></label><label>Unidade<input name="unitName" required maxLength="100" defaultValue={settings.unitName} /></label><label>Telefone<input name="phone" type="tel" maxLength="40" defaultValue={settings.phone} /></label><label>E-mail<input name="email" type="email" maxLength="160" defaultValue={settings.email} /></label><label>Fuso horário<select name="timezone" defaultValue={settings.timezone}><option value="America/Sao_Paulo">Brasília</option><option value="America/Manaus">Manaus</option><option value="America/Belem">Belém</option><option value="America/Fortaleza">Fortaleza</option><option value="America/Cuiaba">Cuiabá</option><option value="America/Recife">Recife</option></select></label></div><button className="primary-button" disabled={busy}>{busy ? 'Salvando...' : 'Salvar configurações'}</button></form>}</div>;
 }
 
-function AdminModule({ view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
+function AdminModule({ onStudent, view, students, workoutPlans, adminList, exerciseList, onNewStudent, onAction, onNavigate, onCreate, canManageUsers, isHydrating, currentUser }) {
   const documentationRoles = currentUser?.roles || [currentUser?.role];
   if (view === 'documentation') return documentationRoles.some((role) => ['admin', 'SUPER_ADMIN'].includes(role)) ? <DocumentationModule /> : <div className="page-content"><p className="login-error">Acesso negado.</p></div>;
   const moduleData = {
@@ -269,28 +278,9 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
   if (view === 'settings') return <SettingsModule />;
   if (view === "workouts" || view === "exercises") { const roles = currentUser?.roles || [currentUser?.role]; const isTrainerOnly = roles.includes('trainer') && !roles.some((role) => ['admin','dev','SUPER_ADMIN'].includes(role)); return <WorkoutPlanManager students={students} studentsLoading={isHydrating} onNewStudent={onNewStudent} onGoToExercises={() => onNavigate("workouts")} canEdit={['admin','dev','trainer','SUPER_ADMIN'].includes(currentUser?.role) || roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role))} requireStudentSelection={isTrainerOnly} initialTab={view === 'exercises' ? 'library' : 'plans'} />; }
   if (view === "admins") return <UserManagement trainers={adminList.filter((user) => user.role === 'trainer' || (user.roles || []).includes('trainer'))} />;
-  if (view === "overview")
-    return (
-      <div className="page-content operations-dashboard">
-        <section className="dashboard-welcome">
-          <div><p className="eyebrow">ROTINA DA ACADEMIA</p><h1>Bom trabalho, {currentUser?.name?.split(' ')[0] || 'equipe'}.</h1><p className="heading-copy">Acompanhe a rotina de {students.length ? `${students.length} alunos` : 'sua unidade'} e continue de onde parou.</p></div>
-          <div className="dashboard-actions"><button className="outline-button" onClick={() => onNavigate('workouts')}><ClipboardList size={16}/>Abrir fichas</button><button className="primary-button" onClick={onNewStudent}><Plus size={17}/>Cadastrar aluno</button></div>
-        </section>
-        <section className="dashboard-summary" aria-label="Resumo da academia">
-          <div><small>Alunos ativos no cadastro</small><strong>{isHydrating ? '—' : students.length}</strong></div>
-          <div><small>Fichas cadastradas</small><strong>{isHydrating ? '—' : workoutPlans.length}</strong></div>
-          <div><small>Exercícios disponíveis</small><strong>{isHydrating ? '—' : exerciseList.length}</strong></div>
-          <button type="button" onClick={() => onNavigate('exercises')}>Consultar biblioteca <ChevronRight size={15}/></button>
-        </section>
-        <div className="dashboard-workspace">
-          <section className="dashboard-roster">
-            <header><div><p className="eyebrow">ACOMPANHAMENTO</p><h2>Alunos da unidade</h2><p>Abra a lista para localizar cadastros e acompanhar fichas.</p></div><button className="text-button" onClick={() => onNavigate('students')}>Ver todos <ChevronRight size={15}/></button></header>
-            {isHydrating ? <p className="dashboard-empty" role="status">Carregando alunos…</p> : students.length ? <div className="dashboard-roster-list">{students.slice(0,6).map((student)=>{const plan=workoutPlans.find((item)=>item.studentId===student.id);return <button key={student.id} onClick={()=>onNavigate('students')}><span className="roster-avatar">{student.initials || student.name?.split(/\s+/).map((part)=>part[0]).slice(0,2).join('').toUpperCase()}</span><span className="roster-person"><strong>{student.name}</strong><small>{student.goal || 'Objetivo não informado'}</small></span><span className={`roster-plan ${plan?'has-plan':''}`}>{plan?.title || 'Sem ficha vinculada'}</span><ChevronRight size={16}/></button>;})}</div> : <div className="dashboard-empty"><span>Nenhum aluno cadastrado ainda.</span><button className="text-button" onClick={onNewStudent}>Cadastrar o primeiro aluno <ChevronRight size={15}/></button></div>}
-          </section>
-          <aside className="dashboard-start-here"><p className="eyebrow">PRÓXIMOS PASSOS</p><h2>Organize o treino</h2><p>Cadastre pessoas e monte fichas usando a biblioteca real de exercícios.</p><button onClick={() => onNavigate('workouts')}><ClipboardList size={17}/><span><strong>Planejar fichas</strong><small>Ver e criar planos de treino</small></span><ChevronRight size={16}/></button><button onClick={() => onNavigate('exercises')}><Dumbbell size={17}/><span><strong>Explorar exercícios</strong><small>{exerciseList.length} disponíveis na biblioteca</small></span><ChevronRight size={16}/></button>{canManageUsers&&<button onClick={()=>onCreate('admin')}><UserRound size={17}/><span><strong>Adicionar profissional</strong><small>Gerenciar acessos da equipe</small></span><ChevronRight size={16}/></button>}</aside>
-        </div>
-      </div>
-    );
+  if (view === "overview") {
+    return <TrainingDesk {...{ students, workoutPlans, exerciseList, currentUser, onNewStudent, onNavigate, onStudent, onCreate, canManageUsers, isHydrating }} />;
+  }
   return (
     <div className="page-content">
       <div className="page-heading">
@@ -729,7 +719,7 @@ export default function Home() {
   }, [students, selectedStudent, mode]);
   const isStaff = ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(currentUser?.role) || (currentUser?.roles || []).some((role) => ['dev', 'admin', 'trainer', 'SUPER_ADMIN'].includes(role));
   const [toast, setToast] = useState("");
-  const [adminView, setAdminView] = useState("admins");
+  const [adminView, setAdminView] = useState("overview");
   const [createType, setCreateType] = useState(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const selectedWorkout = workoutPlans.find((plan) => plan.studentId === selectedStudent?.id);
@@ -846,6 +836,12 @@ export default function Home() {
             onNewStudent={() => setShowModal(true)}
             onAction={showAction}
             onNavigate={setAdminView}
+            onStudent={(student) => {
+              setSelectedStudent(student);
+              setQuery("");
+              setFilter("Todos");
+              setAdminView("students");
+            }}
             onCreate={setCreateType}
             canManageUsers={['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role)}
             isHydrating={isHydrating}
