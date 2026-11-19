@@ -52,6 +52,41 @@ const navGroups = [
   { label: 'RECURSOS', keys: ['documentation'] },
 ];
 
+function ProductNavigation({ currentKey, currentUser, onNavigate }) {
+  const roles = currentUser?.roles || [currentUser?.role];
+  const staff = roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role));
+  const canAdmin = roles.some((role) => ['admin','dev','SUPER_ADMIN'].includes(role));
+  const groups = [
+    { title:'Início', keys:['overview'] }, { title:'Pessoas', keys:['students','admins'] },
+    { title:'Treinamento', keys:['workouts','exercises'] }, { title:'Gestão', keys:['finance','documentation'] },
+    { title:'Configurações', keys:['settings'] },
+  ];
+  const items = {
+    overview:['Visão geral', LayoutDashboard], students:['Alunos', UsersRound], admins:['Equipe e acessos', UserRound],
+    workouts:['Fichas de treino', ClipboardList], exercises:['Biblioteca de exercícios', Dumbbell],
+    finance:['Financeiro', BarChart3], documentation:['Documentação', ClipboardList], settings:['Configurações', Settings], student:['Área do aluno', UserRound],
+  };
+  const visible = (key) => {
+    if (key === 'overview' || key === 'students' || key === 'workouts') return staff;
+    if (key === 'admins' || key === 'settings') return canAdmin;
+    if (key === 'exercises') return roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role));
+    if (key === 'finance') return isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true;
+    if (key === 'documentation') return roles.some((role) => ['admin','SUPER_ADMIN'].includes(role));
+    return false;
+  };
+  const button = (key) => { const [label, Icon] = items[key]; return <button type="button" key={key} className={`product-nav-link ${currentKey === key ? 'active' : ''}`} aria-current={currentKey === key ? 'page' : undefined} onClick={() => onNavigate(key)}><Icon size={16}/>{label}</button>; };
+  return <>
+    <nav className="product-navigation desktop-product-nav" aria-label="Navegação principal">
+      {groups.map((group) => { const keys=group.keys.filter(visible); if (!keys.length) return null; return <details className="product-nav-group" key={group.title}><summary className={keys.includes(currentKey) ? 'active' : ''}>{group.title}<ChevronDown size={14}/></summary><div className="product-nav-menu">{keys.map(button)}</div></details>; })}
+      {staff && <button type="button" className={`product-nav-link product-student-link ${currentKey === 'student' ? 'active' : ''}`} onClick={() => onNavigate('student')}><UserRound size={16}/>Área do aluno</button>}
+    </nav>
+    <nav className="mobile-product-nav" aria-label="Navegação mobile">
+      {staff && <>{button('overview')}{button('students')}{button('workouts')}<details className="mobile-more"><summary aria-label="Mais opções"><MoreHorizontal size={18}/><span>Mais</span></summary><div className="product-nav-menu">{groups.flatMap((group)=>group.keys).filter((key)=>visible(key)&&!['overview','students','workouts'].includes(key)).map(button)}{button('student')}</div></details></>}
+      {!staff && button('student')}
+    </nav>
+  </>;
+}
+
 function DocumentationModule() {
   const [markdown, setMarkdown] = useState('');
   const [loading, setLoading] = useState(true);
@@ -236,67 +271,24 @@ function AdminModule({ view, students, workoutPlans, adminList, exerciseList, on
   if (view === "admins") return <UserManagement trainers={adminList.filter((user) => user.role === 'trainer' || (user.roles || []).includes('trainer'))} />;
   if (view === "overview")
     return (
-      <div className="page-content">
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">{moduleData.kicker}</p>
-            <h1>{moduleData.title}</h1>
-            <p className="heading-copy">{moduleData.copy}</p>
-          </div>
-        </div>
-        <div className="module-cards">
-          <button className="module-card" onClick={onNewStudent}>
-            <UsersRound size={22} />
-            <strong>{students.length}</strong>
-            <span>Alunos cadastrados</span>
-            <b>Adicionar aluno →</b>
-          </button>
-          <button className="module-card" onClick={() => onNavigate("workouts")}>
-            <ClipboardList size={22} />
-            <strong>{workoutPlans.length}</strong>
-            <span>Fichas prontas</span>
-            <b>Gerenciar fichas →</b>
-          </button>
-          <button className="module-card" onClick={() => onNavigate("exercises")}>
-            <Dumbbell size={22} />
-            <strong>{exerciseList.length}</strong>
-            <span>Exercícios na biblioteca</span>
-            <b>Ver exercícios →</b>
-          </button>
-        </div>
-        <section className="panel module-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Atalhos de gestão</h2>
-              <p>Os fluxos principais da sua operação.</p>
-            </div>
-          </div>
-          <div className="shortcut-grid">
-            <button onClick={onNewStudent}>
-              <Plus size={17} />
-              <span>
-                Novo aluno<strong>Criar acesso e objetivo</strong>
-              </span>
-              <ChevronRight size={16} />
-            </button>
-            <button onClick={() => onNavigate("workouts")}>
-              <ClipboardList size={17} />
-              <span>
-                Nova ficha<strong>Montar treino por exercícios</strong>
-              </span>
-              <ChevronRight size={16} />
-            </button>
-            {canManageUsers && <button
-              onClick={() => onCreate("admin")}
-            >
-              <UserRound size={17} />
-              <span>
-                Novo administrador<strong>Convidar profissional</strong>
-              </span>
-              <ChevronRight size={16} />
-            </button>}
-          </div>
+      <div className="page-content operations-dashboard">
+        <section className="dashboard-welcome">
+          <div><p className="eyebrow">ROTINA DA ACADEMIA</p><h1>Bom trabalho, {currentUser?.name?.split(' ')[0] || 'equipe'}.</h1><p className="heading-copy">Acompanhe a rotina de {students.length ? `${students.length} alunos` : 'sua unidade'} e continue de onde parou.</p></div>
+          <div className="dashboard-actions"><button className="outline-button" onClick={() => onNavigate('workouts')}><ClipboardList size={16}/>Abrir fichas</button><button className="primary-button" onClick={onNewStudent}><Plus size={17}/>Cadastrar aluno</button></div>
         </section>
+        <section className="dashboard-summary" aria-label="Resumo da academia">
+          <div><small>Alunos ativos no cadastro</small><strong>{isHydrating ? '—' : students.length}</strong></div>
+          <div><small>Fichas cadastradas</small><strong>{isHydrating ? '—' : workoutPlans.length}</strong></div>
+          <div><small>Exercícios disponíveis</small><strong>{isHydrating ? '—' : exerciseList.length}</strong></div>
+          <button type="button" onClick={() => onNavigate('exercises')}>Consultar biblioteca <ChevronRight size={15}/></button>
+        </section>
+        <div className="dashboard-workspace">
+          <section className="dashboard-roster">
+            <header><div><p className="eyebrow">ACOMPANHAMENTO</p><h2>Alunos da unidade</h2><p>Abra a lista para localizar cadastros e acompanhar fichas.</p></div><button className="text-button" onClick={() => onNavigate('students')}>Ver todos <ChevronRight size={15}/></button></header>
+            {isHydrating ? <p className="dashboard-empty" role="status">Carregando alunos…</p> : students.length ? <div className="dashboard-roster-list">{students.slice(0,6).map((student)=>{const plan=workoutPlans.find((item)=>item.studentId===student.id);return <button key={student.id} onClick={()=>onNavigate('students')}><span className="roster-avatar">{student.initials || student.name?.split(/\s+/).map((part)=>part[0]).slice(0,2).join('').toUpperCase()}</span><span className="roster-person"><strong>{student.name}</strong><small>{student.goal || 'Objetivo não informado'}</small></span><span className={`roster-plan ${plan?'has-plan':''}`}>{plan?.title || 'Sem ficha vinculada'}</span><ChevronRight size={16}/></button>;})}</div> : <div className="dashboard-empty"><span>Nenhum aluno cadastrado ainda.</span><button className="text-button" onClick={onNewStudent}>Cadastrar o primeiro aluno <ChevronRight size={15}/></button></div>}
+          </section>
+          <aside className="dashboard-start-here"><p className="eyebrow">PRÓXIMOS PASSOS</p><h2>Organize o treino</h2><p>Cadastre pessoas e monte fichas usando a biblioteca real de exercícios.</p><button onClick={() => onNavigate('workouts')}><ClipboardList size={17}/><span><strong>Planejar fichas</strong><small>Ver e criar planos de treino</small></span><ChevronRight size={16}/></button><button onClick={() => onNavigate('exercises')}><Dumbbell size={17}/><span><strong>Explorar exercícios</strong><small>{exerciseList.length} disponíveis na biblioteca</small></span><ChevronRight size={16}/></button>{canManageUsers&&<button onClick={()=>onCreate('admin')}><UserRound size={17}/><span><strong>Adicionar profissional</strong><small>Gerenciar acessos da equipe</small></span><ChevronRight size={16}/></button>}</aside>
+        </div>
       </div>
     );
   return (
@@ -729,21 +721,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
-  const [mobileNav, setMobileNav] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  useEffect(() => {
-    if (!mobileNav) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setMobileNav(false);
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [mobileNav]);
+  const [globalStudentSearch, setGlobalStudentSearch] = useState('');
   const [mode, setMode] = useState("admin");
   useEffect(() => {
     if (mode !== 'admin' || students.some((student) => student.id === selectedStudent?.id)) return;
@@ -832,89 +810,10 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      {mobileNav && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileNav(false)} />}
-      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""} ${sidebarCollapsed && !mobileNav ? "sidebar-collapsed" : ""}`}>
-        <div className="sidebar-header">
-          <Image className="brand-horizontal" src={atlasfitLogo} alt="AtlasFit" width={192} height={64} priority />
-          <Image className="brand-symbol" src={atlasfitSymbol} alt="AtlasFit" width={48} height={48} />
-          <button className="sidebar-collapse-button" type="button" onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'} title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}>
-            <Menu size={18} />
-          </button>
-        </div>
-        <div className="workspace-switcher">
-          <span className="workspace-avatar">AT</span>
-          <span>
-            <strong>{academySettings.academyName}</strong>
-            <small>{academySettings.unitName}</small>
-          </span>
-          <ChevronDown size={15} />
-        </div>
-        {isStaff && <nav className="main-nav" id="main-navigation" aria-label="Navegação principal">
-          {navGroups.map((group) => {
-            const items = navItems.filter(({ key }) => group.keys.includes(key)
-              && (key !== 'admins' || ['admin', 'dev', 'SUPER_ADMIN'].includes(currentUser?.role))
-              && (key !== 'documentation' || (currentUser?.roles || [currentUser?.role]).some((role) => ['admin', 'SUPER_ADMIN'].includes(role)))
-              && (key !== 'exercises' || ['admin', 'dev', 'SUPER_ADMIN', 'trainer'].includes(currentUser?.role))
-              && (key !== 'finance' || isSuperAdminAccount(currentUser) || currentUser?.financialAccessExempt === true));
-            if (!items.length) return null;
-            return <div className="nav-group" key={group.label}>
-              {!sidebarCollapsed && <p className="nav-group-label">{group.label}</p>}
-              {items.map(({ label, icon: Icon, key }) => <button className={adminView === key && mode === "admin" ? "nav-item active" : "nav-item"} key={label} onClick={() => { setMode("admin"); setAdminView(key); setMobileNav(false); }} title={sidebarCollapsed ? label : undefined}>
-                <Icon size={18} />
-                <span>{label}</span>
-                {adminView === key && mode === "admin" && <span className="nav-indicator" />}
-              </button>)}
-            </div>;
-          })}
-        </nav>}
-        {isStaff && <nav className="main-nav view-mode-nav" aria-label="Alternar visão do sistema">
-          <button className={mode === 'admin' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('admin'); setMobileNav(false); }}><LayoutDashboard size={18} /><span>Visão prof/adm</span>{mode === 'admin' && <span className="nav-indicator" />}</button>
-          <button className={mode === 'student' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('student'); setMobileNav(false); }}><UserRound size={18} /><span>Visão do aluno</span>{mode === 'student' && <span className="nav-indicator" />}</button>
-        </nav>}
-        <div className="sidebar-bottom">
-          {['admin','dev','SUPER_ADMIN'].includes(currentUser?.role) && <button
-            className="nav-item"
-            onClick={() => { setAdminView('settings'); setMode('admin'); setMobileNav(false); }}
-          >
-            <Settings size={18} />
-            <span>Configurações</span>
-          </button>}
-          {isStaff && <div className="user-card role-switcher">
-            <span className="user-avatar">{currentUser?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>
-            <span>
-                <strong>{currentUser?.name}</strong>
-              <small>{mode === 'admin' ? 'Visão prof/adm' : 'Visão do aluno'}</small>
-            </span>
-          </div>}
-          <button
-            className="logout"
-            onClick={async () => {
-              const response = await fetch('/api/auth/logout', { method: 'POST' });
-              if (!response.ok) showAction('Não foi possível sair da conta.');
-              else window.location.href = "/login";
-            }}
-          >
-            <LogOut size={16} /><span>Sair da conta</span>
-          </button>
-        </div>
-      </aside>
-
       <section className="content-area">
         <header className="topbar">
-          <button
-            className="mobile-menu"
-            onClick={() => setMobileNav(!mobileNav)}
-            aria-label={mobileNav ? "Fechar menu" : "Abrir menu"}
-            aria-expanded={mobileNav}
-            aria-controls="main-navigation"
-          >
-            {mobileNav ? <X size={21} /> : <Menu size={21} />}
-          </button>
-          <div className="breadcrumbs">
-            <span>AtlasFit</span>
-            <ChevronRight size={15} />
-            <strong>{mode === 'student' ? ownStudentView.name : adminView === 'students' ? selectedStudent.name : navItems.find((item) => item.key === adminView)?.label || 'Visão geral'}</strong>
-          </div>
+          <div className="topbar-brand"><Image src={atlasfitSymbol} alt="" width={38} height={38} /><span><strong>AtlasFit</strong><small>{academySettings.academyName} · {academySettings.unitName}</small></span></div>
+          {isStaff && <form className="global-search" onSubmit={(event) => { event.preventDefault(); setQuery(globalStudentSearch); setAdminView('students'); setMode('admin'); }}><Search size={17} /><input aria-label="Buscar aluno" placeholder="Buscar aluno por nome..." value={globalStudentSearch} onChange={(event) => setGlobalStudentSearch(event.target.value)} /><button type="submit">Buscar</button></form>}
           <div className="topbar-actions">
             <button
               className="icon-button notification"
@@ -924,13 +823,13 @@ export default function Home() {
               <Bell size={19} />
               {notifications.some((item) => !item.readAt) && <i />}
             </button>
-            <span className="topbar-divider" />
             <span className="topbar-date">
               <Clock3 size={15} /> <span suppressHydrationWarning>{new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</span>
             </span>
-            {currentUser && <div className="topbar-account"><span className="topbar-account-avatar">{currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{currentUser.name}</strong><small>{currentUser.role === 'SUPER_ADMIN' ? 'Super admin' : currentUser.role === 'trainer' ? 'Professor' : currentUser.role === 'student' ? 'Aluno' : 'Equipe AtlasFit'}</small></span></div>}
+            {currentUser && <details className="account-menu"><summary className="topbar-account"><span className="topbar-account-avatar">{currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{currentUser.name}</strong><small>{currentUser.role === 'SUPER_ADMIN' ? 'Proprietário' : currentUser.role === 'trainer' ? 'Professor' : currentUser.role === 'student' ? 'Aluno' : 'Equipe'}</small></span><ChevronDown size={14} /></summary><div className="account-menu-popover">{isStaff && <button onClick={() => setMode(mode === 'student' ? 'admin' : 'student')}>{mode === 'student' ? 'Abrir visão da equipe' : 'Abrir área do aluno'}</button>}{['admin','dev','SUPER_ADMIN'].includes(currentUser?.role) && <button onClick={() => { setMode('admin'); setAdminView('settings'); }}>Configurações</button>}<button className="account-logout" onClick={async () => { const response = await fetch('/api/auth/logout', { method: 'POST' }); if (!response.ok) showAction('Não foi possível sair da conta.'); else window.location.href = '/login'; }}><LogOut size={15} /> Sair da conta</button></div></details>}
           </div>
         </header>
+        <ProductNavigation currentKey={mode === 'student' ? 'student' : adminView} currentUser={currentUser} onNavigate={(key) => { if (key === 'student') setMode('student'); else { setMode('admin'); setAdminView(key); } }} />
         {currentUser?.financialAccess?.level && currentUser.financialAccess.level !== 'ACTIVE' && <div className={`financial-access-banner ${currentUser.financialAccess.level === 'WARNING' ? 'is-warning' : ''}`} role="status"><span>{currentUser.financialAccess.restricted ? 'Seu acesso está restrito por pendência financeira.' : 'Há uma cobrança próxima do vencimento na sua conta.'}</span><a href="/billing">Ver cobrança</a></div>}
         {mode === "student" ? (
           <StudentView
