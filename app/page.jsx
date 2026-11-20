@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import MuscleAnalytics from "../components/MuscleAnalytics";
 import TrainingDesk from "../components/TrainingDesk";
 import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
@@ -520,6 +521,7 @@ function StudentView({ student, onBack }) {
           <small>concluído</small>
         </div>
       </div>
+      <MuscleAnalytics studentId={student.id} planId={workoutPlan.id} />
       <div className="student-workout-layout">
         <section className="panel student-exercises">
           <div className="panel-header">
@@ -1014,6 +1016,7 @@ export default function Home() {
                     {selectedStudent.updated}
                   </span>
                 </div>
+                <MuscleAnalytics studentId={selectedStudent.id} />
                 <div className="exercise-heading">
                   <h3>
                     Exercícios <span>{(selectedWorkout?.exerciseList || []).length}</span>
