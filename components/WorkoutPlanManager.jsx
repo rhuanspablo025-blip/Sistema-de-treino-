@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ExerciseAnimation from './ExerciseAnimation';
+import MuscleAnalytics from './MuscleAnalytics';
 import { findAnimation, findExerciseVideo, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
 
 const WEEK_DAYS = [
@@ -516,6 +517,7 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
           </div>
         </section>
 
+        <MuscleAnalytics draftEntries={editor.days.filter(day => !day.isRestDay).flatMap(day => day.exercises || [])} catalog={catalog} />
         <section className="plans-section plans-week-section">
           <div className="plans-section-heading"><div><p className="eyebrow">ETAPA 2</p><h2>Estrutura semanal</h2></div><span>{editor.days.filter((day) => !day.isRestDay).length} treinos · {editor.days.filter((day) => day.isRestDay).length} descansos</span></div>
           <nav className="week-index" aria-label="Ir ao dia do treino">
