@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import TrainingDesk from "../components/TrainingDesk";
+import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
 import atlasfitLogo from "../public/brand/atlasfit-logo-horizontal.jpeg";
 import atlasfitSymbol from "../public/brand/atlasfit-symbol.jpeg";
@@ -805,6 +806,7 @@ export default function Home() {
           <div className="topbar-brand"><Image src={atlasfitSymbol} alt="" width={38} height={38} /><span><strong>AtlasFit</strong><small>{academySettings.academyName} · {academySettings.unitName}</small></span></div>
           {isStaff && <form className="global-search" onSubmit={(event) => { event.preventDefault(); setQuery(globalStudentSearch); setAdminView('students'); setMode('admin'); }}><Search size={17} /><input aria-label="Buscar aluno" placeholder="Buscar aluno por nome..." value={globalStudentSearch} onChange={(event) => setGlobalStudentSearch(event.target.value)} /><button type="submit">Buscar</button></form>}
           <div className="topbar-actions">
+            <ThemeToggle />
             <button
               className="icon-button notification"
               onClick={() => showAction(notifications.length ? notifications.slice(0, 3).map((item) => `${item.title}: ${item.message}`).join(' | ') : 'Você não tem novas notificações')}

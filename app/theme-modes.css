@@ -1,0 +1,103 @@
+/* The saved theme applies to every authenticated view. Login keeps its light brand composition. */
+.theme-toggle {display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:4px 9px 4px 5px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface-raised);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.theme-toggle:hover {border-color:var(--brand);color:var(--text-primary)}
+.theme-toggle-track {position:relative;display:flex;align-items:center;justify-content:space-around;gap:7px;width:51px;height:27px;padding:0 4px;border-radius:999px;background:#101114;color:#b3b6bf;font-size:15px;line-height:1}
+.theme-toggle-track i {position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:linear-gradient(135deg,#ffe18a,#e9ac18);box-shadow:0 2px 8px #0005;transition:transform .22s ease}
+.theme-toggle-track span {position:relative;z-index:1}
+.theme-toggle-track span:first-child {color:#201706}
+.theme-toggle[aria-checked=true] .theme-toggle-track i {transform:translateX(24px)}
+.theme-toggle[aria-checked=true] .theme-toggle-track span:first-child {color:#b0b1b4}
+.theme-toggle[aria-checked=true] .theme-toggle-track span:nth-child(2) {color:#201706}
+
+html[data-theme=light] {color-scheme:light;--canvas:#f5f3ef;--pine:#24262b;--jade:#a66d07;--mist:#f7ead1;--rule:#dedbd5;--rust:#aa741a;--background:#f5f3ef;--background-subtle:#f1efe9;--surface:#fff;--surface-raised:#fff;--surface-hover:#f7f2e8;--text-primary:#23252b;--text-secondary:#4b505c;--text-muted:#68707b;--border:#dedbd5;--border-strong:#c8c3b8;--brand:#a66d07;--brand-hover:#805004;--brand-active:#674105;--brand-subtle:#f8eacf;--brand-foreground:#fff;--ink:var(--text-primary);--muted:var(--text-muted);--line:var(--border);--paper:var(--background);--white:var(--surface);--relief:0 10px 30px #37302712,0 2px 6px #37302709}
+html[data-theme=light] body,html[data-theme=light] .app-shell,html[data-theme=light] .content-area,html[data-theme=light] .billing-page {background:radial-gradient(circle at 80% 0,#e7d4ac38,transparent 34%),var(--canvas);color:var(--text-primary)}
+html[data-theme=light] .topbar {background:#fff;color:var(--text-secondary);border-color:var(--border);box-shadow:0 6px 24px #3129120c}
+html[data-theme=light] .topbar .topbar-brand strong,html[data-theme=light] .topbar .topbar-account strong {color:var(--text-primary)}
+html[data-theme=light] .topbar .topbar-brand small,html[data-theme=light] .topbar .topbar-account small,html[data-theme=light] .topbar .topbar-date {color:var(--text-muted)}
+html[data-theme=light] .topbar .global-search,html[data-theme=light] .topbar .icon-button,html[data-theme=light] .topbar-account-avatar {background:#f5f3ef;color:var(--brand);border-color:var(--border)}
+html[data-theme=light] .topbar .global-search input {color:var(--text-primary)}
+html[data-theme=light] .topbar .account-menu[open] summary,html[data-theme=light] .topbar .account-menu summary:hover {background:var(--brand-subtle)}
+html[data-theme=light] .theme-toggle {background:#faf8f4;border-color:#d3c9b9;color:#4d4e52}
+html[data-theme=light] .theme-toggle-track {background:#e9e5dc;color:#74777d}
+html[data-theme=light] .product-navigation {background:#fff;border-color:var(--border);box-shadow:0 8px 20px #31291209}
+html[data-theme=light] .product-nav-trigger,html[data-theme=light] .product-nav-link,html[data-theme=light] .product-nav-group>summary {color:var(--text-secondary)}
+html[data-theme=light] .product-nav-trigger:hover,html[data-theme=light] .product-nav-trigger.active,html[data-theme=light] .product-nav-trigger[aria-expanded=true],html[data-theme=light] .product-nav-link:hover,html[data-theme=light] .product-nav-link.active,html[data-theme=light] .product-nav-group>summary:hover {background:var(--brand-subtle);color:#7a4d05}
+html[data-theme=light] .product-nav-menu,html[data-theme=light] .account-menu-popover {background:#fff;border-color:var(--border);box-shadow:0 18px 42px #30281d1b}
+html[data-theme=light] .product-nav-menu .product-nav-link {color:var(--text-secondary)}
+html[data-theme=light] .product-nav-menu .product-nav-link:hover,html[data-theme=light] .product-nav-menu .product-nav-link.active {background:var(--brand-subtle);color:#7a4d05}
+html[data-theme=light] .page-heading h1,html[data-theme=light] .student-view-header h1,html[data-theme=light] .desk-mast h1,html[data-theme=light] .billing-content h1 {color:var(--text-primary)}
+html[data-theme=light] .eyebrow,html[data-theme=light] .desk-live {color:var(--brand)}
+html[data-theme=light] .page-heading,html[data-theme=light] .student-view-header,html[data-theme=light] .desk-mast {border-color:#b77d2145}
+html[data-theme=light] .heading-copy,html[data-theme=light] .desk-mast p:last-child {color:var(--text-muted)}
+html[data-theme=light] .desk-overview {border-color:var(--border);background:var(--border)}
+html[data-theme=light] .desk-overview>div {background:linear-gradient(135deg,#fff,#faf8f3)}
+html[data-theme=light] .desk-overview>div>strong,html[data-theme=light] .desk-overview .desk-coverage strong {color:var(--text-primary)}
+html[data-theme=light] .desk-overview>div>span {color:#9d6508}
+html[data-theme=light] .desk-overview .desk-coverage {background:linear-gradient(135deg,#f9efd9,#f5f1e8)}
+html[data-theme=light] .desk-coverage-track {background:#d9cdb6}
+html[data-theme=light] .desk-lane,html[data-theme=light] .desk-lane.assigned {background:linear-gradient(150deg,#fff,#faf9f6);border-color:var(--border);border-top-color:#c38a1b;box-shadow:var(--relief)}
+html[data-theme=light] .desk-lane.assigned {border-top-color:#8b919b}
+html[data-theme=light] .desk-lane h2,html[data-theme=light] .desk-index h2,html[data-theme=light] .desk-actions h2 {color:var(--text-primary)}
+html[data-theme=light] .desk-lane header span {color:#8a5707;border-color:#d4ad62}
+html[data-theme=light] .desk-lane li button {background:#f7f6f3;color:var(--text-primary);border-color:var(--border);box-shadow:0 3px 11px #0000000a}
+html[data-theme=light] .desk-lane li button:hover {background:#fff8eb;border-color:#c39232}
+html[data-theme=light] .desk-initials {background:#f4e2ba;color:#7a4b02}
+html[data-theme=light] .desk-index {background:linear-gradient(145deg,#f8ebcf,#fffaf0);color:var(--text-secondary);border-color:#e2c991;box-shadow:var(--relief)}
+html[data-theme=light] .desk-index button {color:var(--text-secondary);border-color:#d8c8aa}
+html[data-theme=light] .desk-index button strong,html[data-theme=light] .desk-index button span {color:#8f5b05}
+html[data-theme=light] .desk-actions {background:#fff;border-color:var(--border)}
+html[data-theme=light] .desk-actions button {background:#faf6ed;color:var(--text-primary);border-color:#e2d6c1}
+html[data-theme=light] .desk-actions button:hover {background:#f8eace;border-color:#c38a1b}
+html[data-theme=light] .panel,html[data-theme=light] .module-panel,html[data-theme=light] .stat-card,html[data-theme=light] .students-panel,html[data-theme=light] .workout-panel,html[data-theme=light] .finance-panel,html[data-theme=light] .finance-metric,html[data-theme=light] .plans-list-panel,html[data-theme=light] .plans-section,html[data-theme=light] .plans-detail-panel,html[data-theme=light] .profile-grid>section,html[data-theme=light] .billing-invoice,html[data-theme=light] .billing-history,html[data-theme=light] .student-side-card,html[data-theme=light] .student-exercises,html[data-theme=light] .settings-form,html[data-theme=light] .documentation-content,html[data-theme=light] .user-directory {background:#fff;color:var(--text-primary);border-color:var(--border);box-shadow:var(--relief)}
+html[data-theme=light] .stat-card strong,html[data-theme=light] .user-summary>div strong,html[data-theme=light] .finance-metric>strong {color:var(--text-primary)}
+html[data-theme=light] .brand-bg,html[data-theme=light] .user-role-badge,html[data-theme=light] .plans-status,html[data-theme=light] .student-avatar.brand {background:var(--brand-subtle);color:#8a5908;border-color:#d9b76c}
+html[data-theme=light] .dashboard-roster,html[data-theme=light] .dashboard-start-here {background:#fff;border-color:var(--border);box-shadow:var(--relief)}
+html[data-theme=light] .dashboard-roster h2,html[data-theme=light] .dashboard-start-here h2,html[data-theme=light] .panel h2,html[data-theme=light] .workout-top h2 {color:var(--text-primary)}
+html[data-theme=light] .dashboard-roster-list>button {color:var(--text-secondary);border-color:var(--border)}
+html[data-theme=light] .dashboard-start-here {background:linear-gradient(145deg,#fff8e7,#fff)}
+html[data-theme=light] .dashboard-start-here>button {color:#8a5908;border-color:var(--border)}
+html[data-theme=light] .dashboard-start-here>button strong {color:var(--text-primary)}
+html[data-theme=light] .user-summary,html[data-theme=light] .dashboard-summary,html[data-theme=light] .stats-row:not(.user-stats),html[data-theme=light] .finance-metrics {background:#fff;border-color:var(--border);box-shadow:var(--relief)}
+html[data-theme=light] .user-summary>div {color:var(--text-secondary);border-color:var(--border)}
+html[data-theme=light] .user-directory-heading,html[data-theme=light] .user-directory-list .user-directory-row,html[data-theme=light] .user-directory-footer {border-color:var(--border)}
+html[data-theme=light] .user-directory-heading h2,html[data-theme=light] .plans-card-header h2,html[data-theme=light] .finance-table th {color:var(--text-primary)}
+html[data-theme=light] .user-filters,html[data-theme=light] .plans-toolbar,html[data-theme=light] .finance-table th,html[data-theme=light] .filter-tabs {background:#f7f5f0}
+html[data-theme=light] .filter.active,html[data-theme=light] .plans-section-tabs button.active,html[data-theme=light] .finance-tabs button.active {background:var(--brand-subtle);color:#7a4d05;border-color:#d7b878}
+html[data-theme=light] .plans-grid .plans-card,html[data-theme=light] .plans-day,html[data-theme=light] .plans-day.is-rest,html[data-theme=light] .plans-exercise,html[data-theme=light] .exercise-admin-card {background:#fff;color:var(--text-primary);border-color:var(--border);box-shadow:var(--relief)}
+html[data-theme=light] .plans-day.is-rest {background:#f7f5f0;border-top-color:#aeb1b6}
+html[data-theme=light] .week-index button {background:#fff;color:var(--text-secondary);border-color:var(--border)}
+html[data-theme=light] .week-index button:hover {background:var(--brand-subtle);color:#7a4d05}
+html[data-theme=light] .search-box,html[data-theme=light] .user-filter-select select,html[data-theme=light] .finance-field input,html[data-theme=light] .finance-field select,html[data-theme=light] .finance-field textarea,html[data-theme=light] .finance-inline-form input,html[data-theme=light] .finance-inline-form select,html[data-theme=light] .settings-fields input,html[data-theme=light] .settings-fields select {background:#faf9f6;color:var(--text-primary);border-color:var(--border)}
+html[data-theme=light] .finance-table {color:var(--text-secondary)}
+html[data-theme=light] .finance-table th {background:#f7f5f0}
+html[data-theme=light] .finance-table td,html[data-theme=light] .finance-table-wrap {border-color:var(--border)}
+html[data-theme=light] .finance-provider-card,html[data-theme=light] .finance-empty {background:#faf9f6;border-color:var(--border)}
+html[data-theme=light] .student-view {color:var(--text-primary)}
+html[data-theme=light] .student-hero,html[data-theme=light] .billing-topbar {background:linear-gradient(120deg,#fcf0d6,#fff);color:var(--text-primary);border-color:#e4c98e}
+html[data-theme=light] .student-hero h2,html[data-theme=light] .student-hero p,html[data-theme=light] .student-hero .eyebrow {color:var(--text-primary)}
+html[data-theme=light] .modal {background:#fff;color:var(--text-primary);border-color:var(--border);box-shadow:0 26px 70px #20180b22}
+html[data-theme=light] .outline-button,html[data-theme=light] .sidebar-collapse-button,html[data-theme=light] .mobile-menu {background:#fff;color:var(--text-secondary);border-color:var(--border)}
+html[data-theme=light] .privacy-page,html[data-theme=light] .not-found-page {background:#fff;color:var(--text-secondary);border-color:var(--brand)}
+html[data-theme=light] button.primary-button {color:#211605}
+@media(max-width:760px) {
+  .topbar {gap:8px;padding-inline:12px}
+  .topbar-brand {flex:0 0 32px;width:32px;min-width:32px;gap:0}
+  .topbar-brand img {width:32px;height:32px;flex-shrink:0}
+  .topbar-brand span {display:none}
+  .topbar .global-search {flex:1 1 0;min-width:0;max-width:none;margin:0}
+  .topbar-actions {display:flex;flex:0 0 auto;gap:6px;margin-left:0}
+  .topbar .topbar-account>span:nth-child(2),.topbar .topbar-account>svg {display:none}
+  .theme-toggle {padding:4px;width:39px;justify-content:center}
+  .theme-toggle-track {width:29px;gap:0}
+  .theme-toggle-track span {display:none}
+  .theme-toggle-track i {left:3px}
+  .theme-toggle-track i::after {content:'☾';display:grid;place-items:center;width:100%;height:100%;color:#261905;font-size:15px;font-style:normal}
+  .theme-toggle[aria-checked=true] .theme-toggle-track i::after {content:'☀'}
+  .theme-toggle[aria-checked=true] .theme-toggle-track i {transform:none}
+  .theme-toggle-label {display:none}
+  html[data-theme=light] .mobile-product-nav {background:#fffdf9f5;border-color:#dbcba8;box-shadow:0 -10px 26px #261e0f16}
+  html[data-theme=light] .mobile-product-nav>.product-nav-link,html[data-theme=light] .mobile-more>button {color:var(--text-secondary)}
+  html[data-theme=light] .mobile-product-nav>.product-nav-link.active,html[data-theme=light] .mobile-more>button.active {background:var(--brand-subtle);color:#7a4d05}
+  html[data-theme=light] .mobile-product-nav .product-nav-menu {background:#fff}
+}
+@media(prefers-reduced-motion:reduce) {.theme-toggle-track i {transition:none}}
