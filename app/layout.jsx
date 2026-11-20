@@ -5,6 +5,7 @@ import './atlasfit-theme.css';
 import './studio.css';
 import './brand-refinement.css';
 import './theme-modes.css';
+import './muscle-anatomy.css';
 
 export const metadata = {
   title: 'Atlas Training | Gestão de treinos',
