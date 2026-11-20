@@ -12,12 +12,13 @@ Branch: `feat/identity-management-v2`. No merge to `main` or production deployme
 - Resend-compatible e-mail delivery and Twilio SMS delivery adapters are implemented. CPF verification calls the configured provider and stores only keyed hashes and proof metadata; provider absence/failure never fabricates success. CPF verification has a shared per-CPF attempt limit.
 - Seven-step `/register` experience handles Personal/Aluno selection, identity/CPF check, e-mail and SMS challenges, password strength, profile configuration, terms/device consent, and safe session-only draft persistence. CPF, contact, code, and password values are not persisted in browser storage.
 - The existing login/session lookup accepts active Identity V2 users while retaining legacy account lookup. Identity V2 logins persist token hashes in SQL; logout revokes the matching SQL session.
+- The legacy public `/api/auth/register` endpoint now returns HTTP 410 for GET and POST. New registrations must use the verified Identity V2 flow.
 
 ## Evidence from this checkout
 
 - Local `file::memory:` migration applied successfully through `npm run migrate:identity-v2`; a non-`file:` URL was rejected before connecting.
 - `npm test`: 30/30 passed, including migration idempotence, unique constraints, foreign-key enforcement, CPF proof binding/replay rejection, password policy, verification expiry/single use, and shared resend limits.
-- `npm run build`: passed after the required retry. Next.js 16.4.3 displays its built-in security upgrade advisory; the build then completes with all routes compiled.
+- Next.js was updated from 16.4.3 to patched 16.4.5 in the isolated `fix/nextjs-security-hardening` worktree and integrated into this branch. `npm audit` reported zero vulnerabilities; 30 tests and the production build passed on both branches. HTTP requests against the running production build returned 410 for both GET and POST on the legacy registration endpoint.
 - The enabled providers still need deployment environment values (`RESEND_API_KEY`, `IDENTITY_EMAIL_FROM`, Twilio credentials, CPF provider URL/token, and 32-byte identity/HMAC keys). Signup correctly remains unavailable without required verification services and keys.
 
 ## Remaining work
