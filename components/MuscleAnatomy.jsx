@@ -37,7 +37,7 @@ function regionGroup(id) {
 }
 
 function formatVolume(kilograms) {
-  if (!kilograms) return "sem carga registrada";
+  if (!kilograms) return "sem carga calculável";
   if (kilograms >= 1000) return `${(kilograms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} t`;
   return `${Math.round(kilograms).toLocaleString("pt-BR")} kg`;
 }
@@ -57,9 +57,21 @@ function Figure({ view, muscles, activeGroups, selectedGroup, onSelect }) {
   </figure>;
 }
 
-export default function MuscleAnatomy({ exercises = [], history = [] }) {
+export default function MuscleAnatomy({ exercises = [], history = [], groups = null, mode = "planned", days = 30 }) {
   const [selected, setSelected] = useState(null);
   const rows = useMemo(() => {
+    if (groups) {
+      const byGroup = new Map();
+      for (const item of groups) {
+        const group = muscleGroup(item.muscle);
+        if (!group) continue;
+        const current = byGroup.get(group) || { name: group, sets: 0, volume: 0 };
+        current.sets += Math.max(0, Number(item.primarySets) || 0) + .5 * Math.max(0, Number(item.secondarySets) || 0);
+        current.volume += Math.max(0, Number(item.attributedVolume) || 0);
+        byGroup.set(group, current);
+      }
+      return GROUPS.map((group) => byGroup.get(group)).filter(Boolean).sort((a, b) => b.sets - a.sets);
+    }
     const byGroup = new Map();
     const exerciseGroups = new Map();
     for (const item of exercises) {
@@ -79,7 +91,7 @@ export default function MuscleAnatomy({ exercises = [], history = [] }) {
       current.volume += (record.sets || []).reduce((sum, set) => sum + Math.max(0, Number(set.repetitions) || 0) * Math.max(0, Number(set.load) || 0), 0);
     }
     return GROUPS.map((group) => byGroup.get(group)).filter(Boolean).sort((a, b) => b.sets - a.sets);
-  }, [exercises, history]);
+  }, [exercises, history, groups]);
   const activeGroups = useMemo(() => new Set(rows.map((row) => row.name)), [rows]);
   const selectedGroup = selected && activeGroups.has(selected) ? selected : rows[0]?.name;
   const maxSets = Math.max(1, ...rows.map((row) => row.sets));
@@ -94,9 +106,9 @@ export default function MuscleAnatomy({ exercises = [], history = [] }) {
       <Figure view="back" muscles={BACK_MUSCLES} activeGroups={activeGroups} selectedGroup={selectedGroup} onSelect={setSelected} />
     </div>
     <div className="muscle-anatomy__volume">
-      <div className="muscle-anatomy__volume-heading"><strong>Volume por grupo muscular</strong><span>Séries da ficha · carga dos últimos 30 dias</span></div>
+      <div className="muscle-anatomy__volume-heading"><strong>Volume por grupo muscular</strong><span>{groups ? mode === "performed" ? `Séries e carga registradas em ${days} dias` : "Séries e carga estimadas da ficha" : "Séries da ficha · carga dos últimos 30 dias"}</span></div>
       {rows.length ? rows.map((row) => <button type="button" className={`muscle-anatomy__row${selectedGroup === row.name ? " is-selected" : ""}`} onClick={() => setSelected(row.name)} key={row.name} aria-pressed={selectedGroup === row.name}>
-        <span className="muscle-anatomy__row-label"><strong>{row.name}</strong><span>{row.sets} {row.sets === 1 ? "série" : "séries"} · {formatVolume(row.volume)}</span></span>
+        <span className="muscle-anatomy__row-label"><strong>{row.name}</strong><span>{row.sets.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} {groups ? "séries eq." : row.sets === 1 ? "série" : "séries"} · {formatVolume(row.volume)}</span></span>
         <span className="muscle-anatomy__track"><span style={{ width: `${Math.max(4, row.sets / maxSets * 100)}%` }} /></span>
       </button>) : <p className="muscle-anatomy__empty">Adicione exercícios à ficha para visualizar os músculos trabalhados.</p>}
     </div>

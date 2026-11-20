@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import MuscleMap from "./MuscleMap";
+import MuscleAnatomy from "./MuscleAnatomy";
 import { aggregateMuscles } from "../lib/muscle-analytics.mjs";
 const loadLabel = n => n >= 1000 ? fmt(n/1000)+" t" : fmt(n)+" kg";
 const fmt = n => Number(n).toLocaleString("pt-BR",{maximumFractionDigits:1});
@@ -33,7 +34,8 @@ export default function MuscleAnalytics({studentId,planId,draftEntries,catalog=[
   </div>
   {!draftEntries&&state.loading&&<p role="status">Carregando análise…</p>}
   {!draftEntries&&state.error&&<p role="alert">{state.error}</p>}
-  <MuscleMap groups={data?.groups||[]} restrictions={data?.restrictions||[]} onSelect={setSelected}/>
+  <MuscleAnatomy groups={data?.groups||[]} mode={mode} days={days} />
+  <details style={{marginBlock:16}}><summary style={{cursor:"pointer",color:"#f6ce50",fontWeight:600}}>Explorar mapa anatômico detalhado</summary><MuscleMap groups={data?.groups||[]} restrictions={data?.restrictions||[]} onSelect={setSelected}/></details>
   {data&&<><div style={{display:"flex",gap:24,flexWrap:"wrap"}}><div><small>Séries</small><h3>{fmt(data.totals.sets)}</h3></div><div><small>Volume registrado</small><h3>{fmt(data.totals.volume)} kg</h3></div></div>
 
   {!data.groups.length&&<p>Nenhum grupo muscular classificado neste recorte.</p>}
