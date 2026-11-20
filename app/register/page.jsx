@@ -154,7 +154,7 @@ export default function RegisterPage() {
         <footer className="identity-actions">{step > 1 && <button type="button" className="identity-back" onClick={() => { setError(''); setNotice(''); setStep((current) => current - 1); }}>Voltar</button>}{step < 7 ? <button type="button" className="identity-next" onClick={next}>Continuar <span>→</span></button> : <button type="button" className="identity-next" disabled={busy} onClick={finish}>{busy ? 'Criando conta…' : 'Criar minha conta'} <span>→</span></button>}</footer>
       </div>
     </>}
-    {complete && <div className="identity-panel identity-success"><span className="identity-success-mark">✓</span><p>{notice}</p><a className="identity-next identity-login-link" href="/login">Ir para o login <span>→</span></a></div>}
+    {complete && <div className="identity-panel identity-success"><span className="identity-success-mark">✓</span><p>{notice}</p><a className="identity-next identity-login-link" href={typeof window !== 'undefined' ? `/login${window.location.search}` : '/login'}>Ir para o login <span>→</span></a></div>}
     <div className="identity-login-foot">Já tem uma conta? <a href="/login">Entrar</a></div>
   </section></AuthShell>;
 }
