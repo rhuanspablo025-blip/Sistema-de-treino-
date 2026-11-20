@@ -16,7 +16,7 @@ export async function GET(request) {
     const db = await getDatabase();
     const student = await db.collection('students').findOne({userId:studentId,active:true});
     const user = access.user;
-    if (!student || !(isAdminUser(user) || (hasAnyRole(user,['student']) && user.id === studentId) || (hasAnyRole(user,['trainer']) && student.trainerId === user.id))) return NextResponse.json({error:'Acesso negado.'},{status:403});
+    if (!student || !((isAdminUser(user) && user.tenantId && user.tenantId === student.tenantId) || (hasAnyRole(user,['student']) && user.id === studentId) || (hasAnyRole(user,['trainer']) && student.trainerId === user.id))) return NextResponse.json({error:'Acesso negado.'},{status:403});
     let entries = [];
     if (mode === 'planned') {
       const planId = p.get('planId');
@@ -34,7 +34,8 @@ export async function GET(request) {
     }
     const ids = [...new Set(entries.map(e=>e.exerciseId).filter(Boolean))];
     const catalog = ids.length ? await db.collection('exercises').find({id:{$in:ids}}).toArray() : [];
-    return NextResponse.json({mode,days:mode==='performed'?days:null,...aggregateMuscles(entries,catalog,{mode})},{headers:{'Cache-Control':'private, no-store'}});
+    const restrictions = await db.collection('muscle_restrictions').find({studentId,active:true}).toArray();
+    return NextResponse.json({restrictions:restrictions.map(({muscle,status,reason})=>({muscle,status,reason})),mode,days:mode==='performed'?days:null,...aggregateMuscles(entries,catalog,{mode})},{headers:{'Cache-Control':'private, no-store'}});
   } catch {
     return NextResponse.json({error:'Não foi possível calcular a análise muscular.'},{status:500});
   }
