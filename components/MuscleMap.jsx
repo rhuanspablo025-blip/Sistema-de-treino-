@@ -1,4 +1,5 @@
 "use client";
+import {useState} from "react";
 const regions = {
  front:[
  ["deltoides","M74 79 C63 73 49 78 44 90 C38 101 42 116 53 119 C61 120 66 109 69 100 Q76 88 74 79Z"],
@@ -23,15 +24,38 @@ const regions = {
 };
 const normalize = value => String(value).normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
 const aliases={peito:/peito|pector|chest/,costas:/costas|dors|latiss|back/,deltoides:/delto|ombro|shoulder/,biceps:/bicep/,triceps:/tricep/,antebracos:/antebr|forearm/,abdomen:/abdom|abs|core/,obliquos:/obliq/,quadriceps:/quadr|anterior de coxa/,adutores:/adut|adduct/,panturrilhas:/panturr|calf|calves|gastrocn/,trapezio:/trape|traps/,lombar:/lomb|erector|lower back/,gluteos:/glute|buttock/,"posterior de coxa":/posterior de coxa|hamstring|isquiotib/};
+const parts = {
+ front:{deltoides:["Deltoide anterior"],peito:["Peitoral maior"],biceps:["Bíceps braquial","Braquial"],antebracos:["Flexores do antebraço","Braquiorradial"],abdomen:["Reto abdominal superior","Reto abdominal médio","Reto abdominal inferior","Reto abdominal distal"],obliquos:["Oblíquo externo"],quadriceps:["Vasto lateral","Reto femoral","Vasto medial"],adutores:["Adutores da coxa"],panturrilhas:["Região tibial anterior","Região lateral da perna"]},
+ back:{trapezio:["Trapézio"],deltoides:["Deltoide posterior"],costas:["Latíssimo do dorso"],triceps:["Tríceps lateral","Tríceps medial/longa"],antebracos:["Extensores do antebraço","Região radial"],lombar:["Eretores da coluna"],gluteos:["Glúteo médio (região)","Glúteo máximo"],"posterior de coxa":["Bíceps femoral","Semitendíneo","Semimembranáceo (região)"],panturrilhas:["Gastrocnêmio lateral","Gastrocnêmio medial","Região distal lateral","Região distal medial"]}
+};
+const legend=[["Sem séries","#28282a","#777"],["Baixa","#332326","#ff929f"],["Moderada","#a97b29","#c79a44"],["Alta","#ebad35","#f4c353"],["Muito alta","#ffe064","#ffe99c"]];
+const score=g=>g.primarySets+g.secondarySets*.5;
+const level=(n,max)=>n<=0?0:n/max<=.25?1:n/max<=.5?2:n/max<=.75?3:4;
 export default function MuscleMap({groups=[],onSelect}) {
- const max=Math.max(1,...groups.map(g=>g.primarySets+g.secondarySets*.5));
- const support = ["M95 29 Q105 19 115 22 L115 56 Q104 66 96 50Z","M100 58 L113 66 L113 76 L98 70Z","M66 135 L82 134 L91 155 L80 161 L65 151Z","M67 155 L80 165 L89 185 L79 194 L65 177Z","M79 312 Q94 315 103 327 L94 342 L82 338Z","M79 402 L91 409 L100 418 L95 432 L72 430Z","M12 248 Q22 241 30 250 L29 265 L23 269 L20 284 L16 282 L17 268 L10 282 L7 279 L12 264 L4 275 L1 271Z"];
+ const [selected,setSelected]=useState(null);
+ const [metric,setMetric]=useState("sets");
+ const [view,setView]=useState("both");
+ const value=g=>metric==="sets"?score(g):g.attributedVolume;
+ const max=Math.max(0,...groups.map(value));
+ const support=["M95 29 Q105 19 115 22 L115 56 Q104 66 96 50Z","M100 58 L113 66 L113 76 L98 70Z","M66 135 L82 134 L91 155 L80 161 L65 151Z","M67 155 L80 165 L89 185 L79 194 L65 177Z","M79 312 Q94 315 103 327 L94 342 L82 338Z","M79 402 L91 409 L100 418 L95 432 L72 430Z","M12 248 Q22 241 30 250 L29 265 L23 269 L20 284 L16 282 L17 268 L10 282 L7 279 L12 264 L4 275 L1 271Z"];
  const outline="M116 15 C96 12 87 28 90 48 L98 67 L76 78 Q42 70 32 119 L23 176 L8 242 L12 265 L21 267 L30 246 L48 200 L62 153 L65 190 L69 240 L64 278 L75 327 L72 365 L79 414 L70 430 L93 435 L103 414 L109 370 L116 308";
- return <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,maxWidth:560,margin:"16px auto"}}>
- {Object.entries(regions).map(([side,paths])=><div key={side}><svg viewBox="0 0 232 445" role="group" aria-label={side==="front"?"Musculatura anterior":"Musculatura posterior"} style={{width:"100%",maxHeight:480}}>
+ const fmt=n=>Number(n).toLocaleString("pt-BR",{maximumFractionDigits:1});
+ const choose=(part,group,best,id)=>{setSelected({part,group,key:best?.muscle,id});if(best)onSelect?.(best.muscle);};
+ const current=groups.find(g=>g.muscle===selected?.key);
+ return <div style={{margin:"16px 0"}}>
+ <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"space-between"}}>
+ <div aria-label="Métrica do mapa">{[["sets","Séries"],["volume","Carga externa"]].map(([k,l])=><button key={k} type="button" className="outline-button" aria-pressed={metric===k} onClick={()=>setMetric(k)}>{l}</button>)}</div>
+ <div aria-label="Vista anatômica">{[["both","Ambas"],["front","Frente"],["back","Costas"]].map(([k,l])=><button key={k} type="button" className="outline-button" aria-pressed={view===k} onClick={()=>setView(k)}>{l}</button>)}</div>
+ </div>
+ <div style={{display:"grid",gridTemplateColumns:view==="both"?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:12,maxWidth:650,margin:"20px auto"}}>
+ {Object.entries(regions).filter(([side])=>view==="both"||view===side).map(([side,paths])=><div key={side}><svg viewBox="0 0 232 445" role="group" aria-label={side==="front"?"Musculatura anterior":"Musculatura posterior"} style={{width:"100%",height:"auto",maxHeight:510}}>
  <g fill="#202020" stroke="#494744" strokeWidth="1.2"><path d={outline+" L116 15Z"}/><path d={outline+" L116 15Z"} transform="translate(232 0) scale(-1 1)"/></g>
  {support.map((d,i)=><g key={i} fill="#292929" stroke="#62605e" strokeWidth=".8"><path d={d}/><path d={d} transform="translate(232 0) scale(-1 1)"/></g>)}
- {paths.map(([name,d])=>{const matches=groups.filter(g=>aliases[name].test(normalize(g.muscle)));const best=matches.sort((a,b)=>(b.primarySets+b.secondarySets*.5)-(a.primarySets+a.secondarySets*.5))[0];const value=best?(best.primarySets+best.secondarySets*.5)/max:0;const fill=value>=.15?"hsl(44 96% "+(34+value*26)+"%)":"#28282a";return <g key={name} role="button" tabIndex={0} aria-label={name+(best?" "+best.primarySets+" séries primárias":" sem dados")} onClick={()=>best&&onSelect?.(best.muscle)} onKeyDown={e=>{if(best&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onSelect(best.muscle)}}} style={{cursor:best?"pointer":"default"}}><title>{name}</title><path d={d} fill={fill} stroke={value>=.15?"#9b7937":best?"#ff939d":"#63605e"} strokeWidth={best&&value<.15?1.8:1}/><path d={d} transform="translate(232 0) scale(-1 1)" fill={fill} stroke={value>=.15?"#9b7937":best?"#ff939d":"#63605e"} strokeWidth={best&&value<.15?1.8:1}/></g>})}
- </svg><p style={{textAlign:"center",fontSize:12}}>{side==="front"?"Frente":"Costas"}</p></div>)}
+ {paths.flatMap(([name,d])=>d.match(/M[^M]+/g).map((shape,i)=>{const part=parts[side][name][i]||name;const best=groups.filter(g=>aliases[name].test(normalize(g.muscle))).sort((a,b)=>value(b)-value(a))[0];const [,fill,stroke]=legend[level(best?value(best):0,max)];const id=side+name+i;const active=selected?.id===id;return <g key={id} role="button" tabIndex={0} aria-pressed={active} aria-label={part+"; "+(best?fmt(value(best))+" no grupo":"sem dados")} onClick={()=>choose(part,name,best,id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose(part,name,best,id);}}} style={{cursor:"pointer",outlineOffset:2}}><title>{part} · {best?"Dados do grupo "+name:"Sem dados"}</title>{[false,true].map(mirror=><path key={String(mirror)} d={shape} transform={mirror?"translate(232 0) scale(-1 1)":undefined} fill={fill} stroke={active?"#ffffff":stroke} strokeWidth={active?2:1.2} strokeLinejoin="round" style={{transition:"fill .2s, stroke .2s"}}/>)}</g>}))}
+ </svg><p style={{textAlign:"center",fontWeight:600}}>{side==="front"?"Frente":"Costas"}</p></div>)}
+ </div>
+ <div aria-label="Legenda de intensidade relativa" style={{display:"flex",flexWrap:"wrap",gap:12,justifyContent:"center",padding:"12px 0"}}>{legend.map(([label,fill,stroke],i)=><span key={label} style={{display:"inline-flex",gap:6,alignItems:"center",fontSize:12}}><span style={{width:12,height:12,background:fill,border:"1px solid "+stroke,borderRadius:3}}/>{label}{i>0?" ("+["","≤25%","≤50%","≤75%",">75%"][i]+")":""}</span>)}</div>
+ <p style={{fontSize:12,color:"#aaa",textAlign:"center"}}>Escala relativa ao maior valor registrado no recorte. Não representa ativação fisiológica. As subdivisões usam dados do grupo quando não há medição específica.</p>
+ {selected&&<div aria-live="polite" style={{border:"1px solid #454545",borderRadius:12,padding:16,marginTop:12}}><button type="button" className="outline-button" onClick={()=>setSelected(null)} style={{float:"right"}}>Fechar</button><strong>{selected.part}</strong><p>Grupo: {selected.group}</p>{current?<><p>{fmt(current.primarySets)} séries primárias · {fmt(current.secondarySets)} secundárias</p><p>{fmt(current.attributedVolume)} kg de volume atribuído ao grupo</p></>:<p>Sem dados classificados para este grupo no recorte.</p>}</div>}
  </div>;
 }
