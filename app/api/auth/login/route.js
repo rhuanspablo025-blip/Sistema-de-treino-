@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createSession, SESSION_COOKIE, SESSION_DURATION, TEMP_SESSION_DURATION } from '../../../../lib/session';
 import { getFinancialAccess } from '../../../../lib/finance-access';
-import { getDatabase } from '../../../../lib/mongodb';
+import { getDatabase, getTursoClient } from '../../../../lib/mongodb';
 import { normalizeUsername } from '../../../../lib/usernames';
 import { clearLoginFailures, checkLoginRateLimit, recordLoginFailure } from '../../../../lib/login-rate-limit';
 import { writeAuditLog } from '../../../../lib/audit';
+import { verifyPassword } from '../../../../lib/identity-service.mjs';
+import { createHash, randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
 
@@ -26,8 +28,18 @@ export async function POST(request) {
     const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rate = await checkLoginRateLimit(normalizedUsername, ipAddress);
     if (rate.limited) return NextResponse.json({ error: 'Muitas tentativas. Aguarde antes de tentar novamente.' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } });
-    const user = await database.collection('users').findOne({ username: normalizedUsername });
-    if (!user || user.active === false || !(await bcrypt.compare(String(password), user.passwordHash || ''))) {
+    let user = await database.collection('users').findOne({ username: normalizedUsername });
+    let validPassword = user && user.active !== false && await bcrypt.compare(String(password), user.passwordHash || '');
+    if (!user) {
+      const client = await getTursoClient();
+      const identity = await client.execute({ sql: `SELECT u.id,u.full_name,u.username,u.role,u.status,c.password_hash FROM identity_users u JOIN identity_credentials c ON c.user_id=u.id WHERE u.username=? COLLATE NOCASE LIMIT 1`, args: [normalizedUsername] });
+      const row = identity.rows[0];
+      if (row) {
+        user = { id: row.id, name: row.full_name, username: row.username, role: row.role === 'PERSONAL' ? 'trainer' : 'student', active: row.status === 'ACTIVE', sessionVersion: 0, identityV2: true };
+        validPassword = user.active && Buffer.byteLength(password, 'utf8') <= 256 && await verifyPassword(password, row.password_hash);
+      }
+    }
+    if (!user || user.active === false || !validPassword) {
       await recordLoginFailure(rate.key);
       if (user?.role === 'SUPER_ADMIN') await writeAuditLog(database, { userId: user.id, action: 'super_admin_login_failed', resource: 'auth', resourceId: user.id, metadata: { ipAddress } });
       return NextResponse.json({ error: 'Usuário ou senha inválidos.' }, { status: 401 });
@@ -40,6 +52,11 @@ export async function POST(request) {
     const rememberMe = payload.rememberMe !== false;
     const maxAge = rememberMe ? SESSION_DURATION : TEMP_SESSION_DURATION;
     const token = await createSession(user, maxAge);
+    if (user.identityV2) {
+      const client = await getTursoClient();
+      const now = new Date();
+      await client.execute({ sql: 'INSERT INTO identity_sessions(id,user_id,token_hash,expires_at,created_at) VALUES(?,?,?,?,?)', args: [randomUUID(), user.id, createHash('sha256').update(token).digest('hex'), new Date(now.getTime() + maxAge * 1000).toISOString(), now.toISOString()] });
+    }
     const response = NextResponse.json({ user: { id: user.id, name: user.name, username: user.username, role: user.role } });
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,

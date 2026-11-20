@@ -13,6 +13,7 @@
     "admin:create": "node scripts/create-admin-user.js",
     "super-admin:setup": "node scripts/setup-super-admin.js",
     "dev:create": "node scripts/create-dev-user.js",
+    "migrate:identity-v2": "node scripts/migrate-identity-v2.mjs",
     "migrate:mongodb-to-turso": "node scripts/migrate-mongodb-to-turso.js"
   },
   "dependencies": {
