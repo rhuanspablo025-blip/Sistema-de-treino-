@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CardioPerformance from "../components/CardioPerformance";
 import MuscleAnalytics from "../components/MuscleAnalytics";
 import TrainingDesk from "../components/TrainingDesk";
 import ThemeToggle from "../components/ThemeToggle";
@@ -69,15 +70,16 @@ function ProductNavigation({ currentKey, currentUser, onNavigate }) {
   const canAdmin = roles.some((role) => ['admin','dev','SUPER_ADMIN'].includes(role));
   const groups = [
     { title:'Início', keys:['overview'] }, { title:'Pessoas', keys:['students','admins'] },
-    { title:'Treinamento', keys:['workouts','exercises'] }, { title:'Gestão', keys:['finance','documentation'] },
+    { title:'Treinamento', keys:['workouts','exercises','cardio'] }, { title:'Gestão', keys:['finance','documentation'] },
     { title:'Configurações', keys:['settings'] },
   ];
   const items = {
-    overview:['Visão geral', LayoutDashboard], students:['Alunos', UsersRound], admins:['Equipe e acessos', UserRound],
+    cardio:['Cardio Performance', Activity], overview:['Visão geral', LayoutDashboard], students:['Alunos', UsersRound], admins:['Equipe e acessos', UserRound],
     workouts:['Fichas de treino', ClipboardList], exercises:['Biblioteca de exercícios', Dumbbell],
     finance:['Financeiro', BarChart3], documentation:['Documentação', ClipboardList], settings:['Configurações', Settings], student:['Área do aluno', UserRound],
   };
   const visible = (key) => {
+    if (key === 'cardio') return Boolean(currentUser);
     if (key === 'overview' || key === 'students' || key === 'workouts') return staff;
     if (key === 'admins' || key === 'settings') return canAdmin;
     if (key === 'exercises') return roles.some((role) => ['admin','dev','trainer','SUPER_ADMIN'].includes(role));
@@ -93,7 +95,7 @@ function ProductNavigation({ currentKey, currentUser, onNavigate }) {
     </nav>
     <nav className="mobile-product-nav" aria-label="Navegação mobile">
       {staff && <>{button('overview')}{button('students')}{button('workouts')}<div className="mobile-more"><button type="button" aria-label="Mais opções" aria-expanded={openMenu==='mobile'} onClick={()=>setOpenMenu(openMenu==='mobile'?null:'mobile')}><MoreHorizontal size={18}/><span>Mais</span></button>{openMenu==='mobile'&&<div className="product-nav-menu">{groups.flatMap((group)=>group.keys).filter((key)=>visible(key)&&!['overview','students','workouts'].includes(key)).map(button)}{button('student')}</div>}</div></>}
-      {!staff && button('student')}
+      {!staff && <>{button('student')}{button('cardio')}</>}
     </nav>
   </div>;
 }
@@ -823,9 +825,9 @@ export default function Home() {
             {currentUser && <details className="account-menu"><summary className="topbar-account"><span className="topbar-account-avatar">{currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{currentUser.name}</strong><small>{currentUser.role === 'SUPER_ADMIN' ? 'Proprietário' : currentUser.role === 'trainer' ? 'Professor' : currentUser.role === 'student' ? 'Aluno' : 'Equipe'}</small></span><ChevronDown size={14} /></summary><div className="account-menu-popover">{isStaff && <button onClick={() => setMode(mode === 'student' ? 'admin' : 'student')}>{mode === 'student' ? 'Abrir visão da equipe' : 'Abrir área do aluno'}</button>}{['admin','dev','SUPER_ADMIN'].includes(currentUser?.role) && <button onClick={() => { setMode('admin'); setAdminView('settings'); }}>Configurações</button>}<button className="account-logout" onClick={async () => { const response = await fetch('/api/auth/logout', { method: 'POST' }); if (!response.ok) showAction('Não foi possível sair da conta.'); else window.location.href = '/login'; }}><LogOut size={15} /> Sair da conta</button></div></details>}
           </div>
         </header>
-        <ProductNavigation currentKey={mode === 'student' ? 'student' : adminView} currentUser={currentUser} onNavigate={(key) => { if (key === 'student') setMode('student'); else { setMode('admin'); setAdminView(key); } }} />
+        <ProductNavigation currentKey={mode === 'cardio' ? 'cardio' : mode === 'student' ? 'student' : adminView} currentUser={currentUser} onNavigate={(key) => { if (key === 'cardio') setMode('cardio'); else if (key === 'student') setMode('student'); else { setMode('admin'); setAdminView(key); } }} />
         {currentUser?.financialAccess?.level && currentUser.financialAccess.level !== 'ACTIVE' && <div className={`financial-access-banner ${currentUser.financialAccess.level === 'WARNING' ? 'is-warning' : ''}`} role="status"><span>{currentUser.financialAccess.restricted ? 'Seu acesso está restrito por pendência financeira.' : 'Há uma cobrança próxima do vencimento na sua conta.'}</span><a href="/billing">Ver cobrança</a></div>}
-        {mode === "student" ? (
+        {mode === "cardio" && currentUser ? <CardioPerformance key={currentUser.id || currentUser.username} userId={currentUser.id || currentUser.username} /> : mode === "student" ? (
           <StudentView
             student={ownStudentView}
             onBack={isStaff ? () => setMode("admin") : undefined}
