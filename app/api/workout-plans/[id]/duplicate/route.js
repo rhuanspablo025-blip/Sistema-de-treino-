@@ -18,7 +18,8 @@ export async function POST(request, { params }) {
     const filter = { id, deletedAt: { $exists: false } };
     const originalPlan = await database.collection('workout_plans').findOne(filter);
     if (!originalPlan) return NextResponse.json({ error: 'Ficha não encontrada.' }, { status: 404 });
-    await assertWorkoutPlanEditor(access.user, id, payload.confirmPassword);
+    const payload = await request.json().catch(() => null);
+    await assertWorkoutPlanEditor(access.user, id, payload?.confirmPassword);
 
     const now = new Date();
     const newPlanId = randomUUID();
@@ -41,7 +42,7 @@ export async function POST(request, { params }) {
       await session.endSession();
     }
     return NextResponse.json({ plan: newPlan, message: 'Ficha duplicada com sucesso.' }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Não foi possível duplicar a ficha.' }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error.status && error.status < 500 ? error.message : 'Não foi possível duplicar a ficha.' }, { status: error.status || 500 });
   }
 }

@@ -13,12 +13,14 @@ Branch: `feat/identity-management-v2`. No merge to `main` or production deployme
 - Seven-step `/register` experience handles Personal/Aluno selection, identity/CPF check, e-mail and SMS challenges, password strength, profile configuration, terms/device consent, and safe session-only draft persistence. CPF, contact, code, and password values are not persisted in browser storage.
 - The existing login/session lookup accepts active Identity V2 users while retaining legacy account lookup. Identity V2 logins persist token hashes in SQL; logout revokes the matching SQL session.
 - The legacy public `/api/auth/register` endpoint now returns HTTP 410 for GET and POST. New registrations must use the verified Identity V2 flow.
+- Sprint 03 authorization: SQL identity checks now gate V2 access in workout plan reads/writes, workout reads, exercise reads/writes, and history routes. A Personal needs an ACTIVE relationship and a plan prescribed by that Personal; an independent student can edit only personal plans. An ended relationship immediately revokes Personal access. DEV access remains denied until immutable owner identification and session MFA are implemented.
 
 ## Evidence from this checkout
 
 - Local `file::memory:` migration applied successfully through `npm run migrate:identity-v2`; a non-`file:` URL was rejected before connecting.
 - `npm test`: 30/30 passed, including migration idempotence, unique constraints, foreign-key enforcement, CPF proof binding/replay rejection, password policy, verification expiry/single use, and shared resend limits.
 - Next.js was updated from 16.4.3 to patched 16.4.5 in the isolated `fix/nextjs-security-hardening` worktree and integrated into this branch. `npm audit` reported zero vulnerabilities; 30 tests and the production build passed on both branches. HTTP requests against the running production build returned 410 for both GET and POST on the legacy registration endpoint.
+- Sprint 03 authorization tests: 31/31 passed; Next.js 16.4.5 production build passed. SQL tests cover cross-Personal denial, protected professional prescriptions, independent-student ownership, immediate relationship revocation, and DEV without MFA denial.
 - The enabled providers still need deployment environment values (`RESEND_API_KEY`, `IDENTITY_EMAIL_FROM`, Twilio credentials, CPF provider URL/token, and 32-byte identity/HMAC keys). Signup correctly remains unavailable without required verification services and keys.
 
 ## Remaining work

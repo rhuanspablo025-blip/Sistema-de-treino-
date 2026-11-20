@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { requireUser } from '../../../lib/api-auth';
 import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
-import { getDatabase } from '../../../lib/mongodb';
+import { getDatabase, getTursoClient } from '../../../lib/mongodb';
+import { resolveAuthenticatedIdentity, canReadWorkout } from '../../../lib/identity-authorization.mjs';
 import { writeAuditLog } from '../../../lib/audit';
 import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
 
@@ -14,6 +15,10 @@ async function canAccessWorkout(database, user, workout) {
   if (!workout || workout.archived === true) return false;
   const plan = await database.collection('workout_plans').findOne({ id: workout.workoutPlanId });
   if (!plan) return false;
+  if (user.identityV2) {
+    const client = await getTursoClient();
+    return !plan.deletedAt && await canReadWorkout(client, await resolveAuthenticatedIdentity(client, user), plan);
+  }
   if (isAdminUser(user)) return true;
   const ownStudentPlan = hasAnyRole(user, ['student']) && plan.studentId === user.id && plan.active !== false && !plan.deletedAt && await database.collection('students').findOne({ userId: user.id, active: true });
   if (ownStudentPlan) return true;
