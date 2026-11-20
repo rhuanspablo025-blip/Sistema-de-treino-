@@ -36,3 +36,9 @@ Completed and executed locally:
 Validation: identity tests 4/4; full suite 27/27; production build passed on retry after Next.js security advisory prompt. No production database was touched. No real provider credentials were used.
 
 Still pending: migration wiring through an explicit safe rollout, registration API/UI integration, live verification providers, relationship lifecycle APIs, session/device/MFA flows and owner ID configuration. No owner was promoted to DEV.
+
+## Verification challenge lifecycle
+
+Implemented `lib/identity-challenges.mjs`: cryptographic six-digit codes; purpose-bound HMAC storage; email/SMS-specific expiry; single-use consumption; attempt cap; one-minute resend cooldown; five-per-hour destination/purpose limit; replay and expiry rejection; delivery failure invalidation. Delivery is adapter-injected; test-only code capture is rejected in production. Test coverage now includes invalid code, successful consume, replay, expiry, and database migration constraints.
+
+Validation: `npm test` 28/28 passed. Production build passed for the preceding identity foundation; challenge lifecycle is Node-only and full suite passes. External provider delivery remains unconfigured and no success is fabricated.
