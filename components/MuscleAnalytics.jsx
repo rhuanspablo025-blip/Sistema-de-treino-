@@ -33,8 +33,9 @@ export default function MuscleAnalytics({studentId,planId,draftEntries,catalog=[
   </div>
   {!draftEntries&&state.loading&&<p role="status">Carregando análise…</p>}
   {!draftEntries&&state.error&&<p role="alert">{state.error}</p>}
+  <MuscleMap groups={data?.groups||[]} restrictions={data?.restrictions||[]} onSelect={setSelected}/>
   {data&&<><div style={{display:"flex",gap:24,flexWrap:"wrap"}}><div><small>Séries</small><h3>{fmt(data.totals.sets)}</h3></div><div><small>Volume registrado</small><h3>{fmt(data.totals.volume)} kg</h3></div></div>
-  <MuscleMap groups={data.groups} restrictions={data.restrictions||[]} onSelect={setSelected}/>
+
   {!data.groups.length&&<p>Nenhum grupo muscular classificado neste recorte.</p>}
   {[...data.groups].sort((a,b)=>(b.primarySets+b.secondarySets*.5)-(a.primarySets+a.secondarySets*.5)).map(g=><button type="button" key={g.muscle} aria-pressed={selected===g.muscle} onClick={()=>setSelected(g.muscle)} style={{display:"block",width:"100%",textAlign:"left",background:"transparent",color:"inherit",border:0,padding:"10px 0",cursor:"pointer"}}>
    <span style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><strong style={{textTransform:"capitalize"}}>{g.muscle}</strong><span>{fmt(g.primarySets+g.secondarySets*.5)} séries eq. · {loadLabel(g.attributedVolume)}</span></span>
