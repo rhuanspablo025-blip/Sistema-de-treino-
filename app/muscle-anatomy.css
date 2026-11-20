@@ -13,8 +13,8 @@
 .muscle-anatomy__toolbar,.muscle-anatomy__options,.muscle-anatomy__filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .muscle-anatomy__toolbar{margin-top:24px;padding:10px;border:1px solid #4d463b;border-radius:13px;background:#111214b8}
 .muscle-anatomy__segmented{display:inline-flex;flex-wrap:wrap;gap:3px;padding:3px;border:1px solid #3d3b36;border-radius:9px;background:#1a1b1d}
-.muscle-anatomy__segmented button,.muscle-anatomy__tool,.muscle-anatomy__appearance button,.muscle-anatomy__detail button{min-height:32px;padding:6px 11px;border:1px solid transparent;border-radius:7px;background:transparent;color:#d8d3c8;font-size:11px;font-weight:700;transition:background .2s,border-color .2s,color .2s,transform .2s}
-.muscle-anatomy__segmented button:hover,.muscle-anatomy__tool:hover,.muscle-anatomy__appearance button:hover,.muscle-anatomy__detail button:hover{border-color:#9e7628;color:#ffe2a2}
+.muscle-anatomy__segmented button,.muscle-anatomy__tool,.muscle-anatomy__detail button{min-height:32px;padding:6px 11px;border:1px solid transparent;border-radius:7px;background:transparent;color:#d8d3c8;font-size:11px;font-weight:700;transition:background .2s,border-color .2s,color .2s,transform .2s}
+.muscle-anatomy__segmented button:hover,.muscle-anatomy__tool:hover,.muscle-anatomy__detail button:hover{border-color:#9e7628;color:#ffe2a2}
 .muscle-anatomy__segmented button[aria-pressed=true],.muscle-anatomy__tool[aria-pressed=true]{border-color:#b17b20;background:#6d470d;color:#fff0c9;box-shadow:inset 0 1px 0 #ffd56945}
 .muscle-anatomy__tool{border-color:#4d463b;background:#202124}
 .muscle-anatomy button:focus-visible,.muscle-anatomy summary:focus-visible,.anatomy-muscle:focus-visible{outline:2px solid #ffd264;outline-offset:3px}
@@ -25,27 +25,20 @@
 .muscle-anatomy--zoom .muscle-anatomy__figures{max-width:1040px}
 .muscle-anatomy--zoom .muscle-anatomy__figures[data-view=front],.muscle-anatomy--zoom .muscle-anatomy__figures[data-view=back]{max-width:590px}
 .anatomy-figure{display:flex;align-items:center;flex-direction:column;gap:9px;min-width:0;margin:0}
-.anatomy-figure svg{display:block;width:100%;height:clamp(320px,43vw,545px);overflow:visible;filter:drop-shadow(0 14px 15px #0009)}
+.anatomy-figure svg{display:block;width:100%;height:clamp(320px,43vw,545px);overflow:visible}
 .muscle-anatomy--zoom .anatomy-figure svg{height:clamp(380px,51vw,700px)}
 .anatomy-figure figcaption{color:#f4f1e9;font-size:12px;font-weight:700}
 .anatomy-muscle{cursor:pointer;transition:opacity .25s ease;outline:none}
 .anatomy-muscle.is-dimmed{opacity:.12}
-.anatomy-muscle__base,.anatomy-muscle__fill,.anatomy-muscle>path{transform-box:fill-box;transform-origin:center;transition:transform .3s ease,fill-opacity .3s ease,stroke .3s ease,opacity .3s ease}
-.anatomy-muscle:hover .anatomy-muscle__base,.anatomy-muscle:focus-visible .anatomy-muscle__base{stroke:#fff0bb;stroke-width:.34}
-.anatomy-muscle.is-focused .anatomy-muscle__base{filter:drop-shadow(0 0 .38px #e8a62c)}
+.anatomy-muscle__base,.anatomy-muscle__fill,.anatomy-muscle>path{transition:fill-opacity .25s ease,stroke .25s ease,opacity .25s ease}
+.anatomy-muscle:hover .anatomy-muscle__base,.anatomy-muscle:focus-visible .anatomy-muscle__base{stroke:#ffe0a0;stroke-width:.25}
+.anatomy-muscle.is-focused .anatomy-muscle__base{stroke-width:.3}
 .muscle-anatomy__filters{justify-content:center;margin:8px 0 15px}
 .muscle-anatomy__filters button{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:5px 9px;border:1px solid #44413a;border-radius:999px;background:#1b1c1e;color:#c4c0b8;font-size:10px}
 .muscle-anatomy__filters button[aria-pressed=true]{border-color:#e9ab32;color:#ffe3a1;background:#61400e}
 .muscle-anatomy__filters i{width:9px;height:9px;border-radius:3px;background:#efba53}
-.muscle-anatomy__filters i[data-level="0"]{background:#6a6c70}.muscle-anatomy__filters i[data-level="1"]{background:#744d19}.muscle-anatomy__filters i[data-level="2"]{background:#a97024}.muscle-anatomy__filters i[data-level="3"]{background:#df9e30}.muscle-anatomy__filters i[data-level="4"]{background:#ffe084}.muscle-anatomy__filters i[data-level="5"]{background:#f55c6d}
+.muscle-anatomy__filters i[data-level="0"]{background:#85858b}.muscle-anatomy__filters i[data-level="1"]{background:#ff829c}.muscle-anatomy__filters i[data-level="2"]{background:#399dff}.muscle-anatomy__filters i[data-level="3"]{background:#26ce95}.muscle-anatomy__filters i[data-level="4"]{background:#ffdc45}.muscle-anatomy__filters i[data-level="5"]{background:#ff4055}
 .muscle-anatomy__options{justify-content:center;margin-bottom:14px}
-.muscle-anatomy__appearance{max-width:800px;margin:0 auto 17px;padding:12px 15px;border:1px solid #403d36;border-radius:11px;background:#171719}
-.muscle-anatomy__appearance summary{cursor:pointer;color:#e9bd63;font-size:12px;font-weight:700}
-.muscle-anatomy__appearance>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:end;gap:16px;margin-top:16px}
-.muscle-anatomy__appearance label{display:grid;gap:8px;color:#c5c0b8;font-size:11px}
-.muscle-anatomy__appearance input{width:100%;accent-color:#efb637}
-.muscle-anatomy__appearance button{border-color:#655337;background:#29251d}
-.muscle-anatomy__appearance small{display:block;margin-top:10px;color:#a6a096;font-size:10px}
 .muscle-anatomy__index{max-width:800px;margin:0 auto 18px;padding:16px;border:1px solid #403d36;border-radius:11px;background:#151617}
 .muscle-anatomy__index strong{font-size:13px}
 .muscle-anatomy__index>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:5px;margin-top:12px;max-height:180px;overflow:auto}
@@ -73,15 +66,14 @@
 html[data-theme=light] .muscle-anatomy{border-color:#cfad73;background:radial-gradient(ellipse at 50% 27%,#fbf3e5,#f3eee5 57%,#eae5dc);color:#27231e;box-shadow:0 16px 42px #654b221a}
 html[data-theme=light] .muscle-anatomy h2,html[data-theme=light] .anatomy-figure figcaption,html[data-theme=light] .muscle-anatomy__detail h3{color:#211b15}
 html[data-theme=light] .muscle-anatomy__heading p,html[data-theme=light] .muscle-anatomy__legend,html[data-theme=light] .muscle-anatomy__volume-heading span,html[data-theme=light] .muscle-anatomy__row-label>span{color:#605b53}
-html[data-theme=light] .muscle-anatomy__toolbar,html[data-theme=light] .muscle-anatomy__appearance,html[data-theme=light] .muscle-anatomy__index{border-color:#d8c7a9;background:#fff9ee}
+html[data-theme=light] .muscle-anatomy__toolbar,html[data-theme=light] .muscle-anatomy__index{border-color:#d8c7a9;background:#fff9ee}
 html[data-theme=light] .muscle-anatomy__segmented,html[data-theme=light] .muscle-anatomy__tool,html[data-theme=light] .muscle-anatomy__filters button{border-color:#d8c7a9;background:#f4ede1;color:#4e4538}
 html[data-theme=light] .muscle-anatomy__segmented button{color:#4e4538}
 html[data-theme=light] .muscle-anatomy__segmented button[aria-pressed=true],html[data-theme=light] .muscle-anatomy__tool[aria-pressed=true],html[data-theme=light] .muscle-anatomy__filters button[aria-pressed=true]{background:#f8d785;border-color:#bc8328;color:#30210b}
-html[data-theme=light] .muscle-anatomy__appearance summary,html[data-theme=light] .muscle-anatomy__appearance label,html[data-theme=light] .muscle-anatomy__index button{color:#51412e}
+html[data-theme=light] .muscle-anatomy__index button{color:#51412e}
 html[data-theme=light] .muscle-anatomy__detail{border-color:#d5b779;background:linear-gradient(120deg,#fff0d0,#f8f2e7)}
 html[data-theme=light] .muscle-anatomy__detail p,html[data-theme=light] .muscle-anatomy__detail small{color:#5f5547}
 html[data-theme=light] .muscle-anatomy__volume{border-color:#7255222b}
 html[data-theme=light] .muscle-anatomy__track{background:#d6cdc0}
-@media(max-width:800px){.muscle-anatomy__appearance>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.muscle-anatomy__heading,.muscle-anatomy__volume-heading{flex-direction:column;gap:8px}.muscle-anatomy__toolbar{padding:8px}.muscle-anatomy__segmented{width:100%}.muscle-anatomy__segmented button{flex:1}.muscle-anatomy__figures{gap:8px;margin-top:20px}.anatomy-figure svg{height:clamp(245px,76vw,390px)}.muscle-anatomy--zoom .anatomy-figure svg{height:clamp(300px,90vw,480px)}.muscle-anatomy__legend{white-space:normal}.muscle-anatomy__row-label{font-size:11px}.muscle-anatomy__appearance>div{grid-template-columns:1fr}.muscle-anatomy__detail{flex-direction:column}}
+@media(max-width:700px){.muscle-anatomy__heading,.muscle-anatomy__volume-heading{flex-direction:column;gap:8px}.muscle-anatomy__toolbar{padding:8px}.muscle-anatomy__segmented{width:100%}.muscle-anatomy__segmented button{flex:1}.muscle-anatomy__figures{gap:8px;margin-top:20px}.anatomy-figure svg{height:clamp(245px,76vw,390px)}.muscle-anatomy--zoom .anatomy-figure svg{height:clamp(300px,90vw,480px)}.muscle-anatomy__legend{white-space:normal}.muscle-anatomy__row-label{font-size:11px}.muscle-anatomy__detail{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.muscle-anatomy *, .muscle-anatomy *:before, .muscle-anatomy *:after{transition:none!important;animation:none!important}}
