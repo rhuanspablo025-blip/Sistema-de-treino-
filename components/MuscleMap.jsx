@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useState,useId} from "react";
 const regions = {
  front:[
  ["deltoides","M74 79 C63 73 49 78 44 90 C38 101 42 116 53 119 C61 120 66 109 69 100 Q76 88 74 79Z"],
@@ -40,6 +40,8 @@ const sublevel=(n,max,tier,restriction)=>{
 const opacityFor=[0,.32,1];
 const sublabels=["Contorno","Preenchimento suave","Preenchimento completo"];
 export default function MuscleMap({groups=[],onSelect,restrictions=[]}) {
+ const uid=useId().replace(/[^a-zA-Z0-9_-]/g,"");
+ const [zoom,setZoom]=useState(false);
  const [selected,setSelected]=useState(null);
  const [metric,setMetric]=useState("sets");
  const [view,setView]=useState("both");
@@ -58,13 +60,18 @@ export default function MuscleMap({groups=[],onSelect,restrictions=[]}) {
  <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"space-between"}}>
  <div aria-label="Métrica do mapa">{[["sets","Séries"],["volume","Carga externa"]].map(([k,l])=><button key={k} type="button" className="outline-button" aria-pressed={metric===k} onClick={()=>setMetric(k)}>{l}</button>)}</div>
  <button type="button" className="outline-button" aria-pressed={labels} onClick={()=>setLabels(v=>!v)}>{labels?"Ocultar índice muscular":"Índice muscular"}</button>
- <div aria-label="Vista anatômica">{[["both","Ambas"],["front","Frente"],["back","Costas"]].map(([k,l])=><button key={k} type="button" className="outline-button" aria-pressed={view===k} onClick={()=>setView(k)}>{l}</button>)}</div>
+ <button type="button" className="outline-button" aria-pressed={zoom} onClick={()=>setZoom(v=>!v)}>{zoom?"Reduzir":"Ampliar detalhes"}</button><div aria-label="Vista anatômica">{[["both","Ambas"],["front","Frente"],["back","Costas"]].map(([k,l])=><button key={k} type="button" className="outline-button" aria-pressed={view===k} onClick={()=>setView(k)}>{l}</button>)}</div>
  </div>
- <div style={{display:"grid",gridTemplateColumns:view==="both"?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:12,maxWidth:650,margin:"20px auto"}}>
- {Object.entries(regions).filter(([side])=>view==="both"||view===side).map(([side,paths])=><div key={side}><svg viewBox="-3 0 238 445" role="group" aria-label={side==="front"?"Musculatura anterior":"Musculatura posterior"} style={{width:"100%",height:"auto",maxHeight:510}}>
- <g fill="#202020" stroke="#494744" strokeWidth="1.2"><path d={outline+" L116 15Z"}/><path d={outline+" L116 15Z"} transform="translate(232 0) scale(-1 1)"/></g>
- {support.map((d,i)=><g key={i} fill="#292929" stroke="#62605e" strokeWidth=".8"><path d={d}/><path d={d} transform="translate(232 0) scale(-1 1)"/></g>)}
- {paths.flatMap(([name,d])=>d.match(/M[^M]+/g).map((shape,i)=>{const part=parts[side][name][i]||name;const best=groups.filter(g=>aliases[name].test(normalize(g.muscle))).sort((a,b)=>value(b)-value(a))[0];const restriction=restrictionFor(name,part);const n=best?value(best):0;const tier=restriction?5:level(n,max);const sub=sublevel(n,max,tier,restriction);const [,fill,stroke]=legend[tier];const id=side+name+i;const active=selected?.id===id;return <g key={id} role="button" tabIndex={0} aria-pressed={active} aria-label={part+"; "+(best?fmt(value(best))+" no grupo":"sem dados")} onClick={()=>choose(part,name,best,id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose(part,name,best,id);}}} style={{cursor:"pointer",outlineOffset:2,opacity:active||((!restrictedOnly||restriction)&&(filter===null||filter===tier))?1:.16,transition:"opacity .2s"}}><title>{part} · {restriction?"Restrição registrada":best?"Dados do grupo "+name:"Sem dados"}</title>{[false,true].map(mirror=><path key={String(mirror)} d={shape} transform={mirror?"translate(232 0) scale(-1 1)":undefined} fill={fill} fillOpacity={opacityFor[sub]} stroke={active?"#ffffff":stroke} strokeWidth={active?2:1.1} strokeLinejoin="round" strokeDasharray={restriction?"3 2":undefined} style={{transition:"fill .2s, stroke .2s"}}/>)}</g>}))}
+ <div style={{display:"grid",gridTemplateColumns:view==="both"?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:12,maxWidth:zoom?1050:760,margin:"20px auto",background:"radial-gradient(ellipse at 50% 42%,#22232a 0%,#121316 57%,#101010 85%)",borderRadius:16,padding:"14px 4px"}}>
+ {Object.entries(regions).filter(([side])=>view==="both"||view===side).map(([side,paths])=><div key={side}><svg viewBox="-3 0 238 445" role="group" aria-label={side==="front"?"Musculatura anterior":"Musculatura posterior"} style={{width:"100%",height:"auto",maxHeight:zoom?800:600}}>
+ <defs>
+ <linearGradient id={uid+side+"body"} x1="0" x2="1" y1="0" y2=".8"><stop stopColor="#141518"/><stop offset=".48" stopColor="#383a40"/><stop offset="1" stopColor="#1a1b20"/></linearGradient>
+ <linearGradient id={uid+side+"shine"} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff" stopOpacity=".24"/><stop offset=".34" stopColor="#fff" stopOpacity=".04"/><stop offset=".7" stopColor="#000" stopOpacity=".08"/><stop offset="1" stopColor="#000" stopOpacity=".42"/></linearGradient>
+ <pattern id={uid+side+"fibers"} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(18)"><path d="M1 0V5" stroke="#fff" strokeOpacity=".09" strokeWidth=".42"/></pattern>
+ </defs>
+ <g fill={"url(#"+uid+side+"body)"} stroke="#55565d" strokeWidth=".85"><path d={outline+" L116 15Z"}/><path d={outline+" L116 15Z"} transform="translate(232 0) scale(-1 1)"/></g>
+ {support.map((d,i)=><g key={i} fill={"url(#"+uid+side+"body)"} stroke="#64656a" strokeWidth=".65"><path d={d}/><path d={d} transform="translate(232 0) scale(-1 1)"/></g>)}
+ {paths.flatMap(([name,d])=>d.match(/M[^M]+/g).map((shape,i)=>{const part=parts[side][name][i]||name;const best=groups.filter(g=>aliases[name].test(normalize(g.muscle))).sort((a,b)=>value(b)-value(a))[0];const restriction=restrictionFor(name,part);const n=best?value(best):0;const tier=restriction?5:level(n,max);const sub=sublevel(n,max,tier,restriction);const [,fill,stroke]=legend[tier];const id=side+name+i;const active=selected?.id===id;return <g key={id} role="button" tabIndex={0} aria-pressed={active} aria-label={part+"; "+(best?fmt(value(best))+" no grupo":"sem dados")} onClick={()=>choose(part,name,best,id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose(part,name,best,id);}}} style={{cursor:"pointer",outlineOffset:2,opacity:active||((!restrictedOnly||restriction)&&(filter===null||filter===tier))?1:.16,transition:"opacity .2s"}}><title>{part} · {restriction?"Restrição registrada":best?"Dados do grupo "+name:"Sem dados"}</title>{[false,true].map(mirror=><g key={String(mirror)} transform={mirror?"translate(232 0) scale(-1 1)":undefined}><path d={shape} fill="#202126" stroke="#0b0c0e" strokeWidth="2.4" strokeLinejoin="round"/><path d={shape} fill={fill} fillOpacity={opacityFor[sub]} stroke="none"/><path d={shape} fill={"url(#"+uid+side+"shine)"} pointerEvents="none"/><path d={shape} fill={"url(#"+uid+side+"fibers)"} pointerEvents="none"/><path d={shape} fill="none" stroke={active?"#ffffff":stroke} strokeOpacity={tier===0?.72:1} strokeWidth={active?1.8:.95} strokeLinejoin="round" strokeDasharray={restriction?"3 2":undefined} style={{transition:"stroke .2s"}}/></g>)}</g>}))}
  </svg><p style={{textAlign:"center",fontWeight:600}}>{side==="front"?"Frente":"Costas"}</p></div>)}
  </div>
  <div aria-label="Legenda de intensidade relativa" style={{display:"flex",flexWrap:"wrap",gap:12,justifyContent:"center",padding:"12px 0"}}>{legend.map(([label,fill,stroke],i)=><button type="button" key={label} aria-pressed={filter===i} onClick={()=>setFilter(v=>v===i?null:i)} style={{display:"inline-flex",gap:6,alignItems:"center",fontSize:12,color:"#eee",background:filter===i?"#383838":"transparent",border:"1px solid "+(filter===i?stroke:"#333"),borderRadius:8,padding:"6px 9px",cursor:"pointer"}}><span style={{width:12,height:12,background:fill,border:"1px solid "+stroke,borderRadius:3}}/>{label}{i>0&&i<5?" ("+["","≤25%","≤50%","≤75%",">75%"][i]+")":""}</button>)}</div>
