@@ -21,14 +21,17 @@ export async function GET(request) {
       if (status && ['ACTIVE','SUSPENDED','TERMINATED'].includes(status)) { terms.push('r.status=?'); args.push(status); }
       if (id) { terms.push('u.id=?'); args.push(id); }
       const where = terms.join(' AND ');
-      const [result, count, metrics, capacity] = await Promise.all([
-        client.execute({ sql: `SELECT r.id,r.status,r.created_at,r.accepted_at,u.id AS student_id,u.full_name,u.username,u.status AS account_status FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where} ORDER BY r.created_at DESC LIMIT 25 OFFSET ?`, args: [...args, (page - 1) * 25] }),
+      const order = { name: 'u.full_name COLLATE NOCASE ASC', oldest: 'r.created_at ASC', newest: 'r.created_at DESC' }[params.get('sort')] || 'r.created_at DESC';
+      const [result, count, metrics, capacity, training] = await Promise.all([
+        client.execute({ sql: `SELECT r.id,r.status,r.created_at,r.accepted_at,u.id AS student_id,u.full_name,u.username,u.status AS account_status FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where} ORDER BY ${order} LIMIT 25 OFFSET ?`, args: [...args, (page - 1) * 25] }),
         client.execute({ sql: `SELECT COUNT(*) AS total FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where}`, args }),
         client.execute({ sql: `SELECT SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active,SUM(CASE WHEN status IN ('ACTIVE','SUSPENDED') THEN 1 ELSE 0 END) AS occupied FROM identity_relationships WHERE personal_id=?`, args: [actor.id] }),
         contractedCapacity(client, actor.id),
+        client.execute({ sql: `SELECT COUNT(*) AS plans,COUNT(DISTINCT json_extract(p.document,'$.studentId')) AS covered FROM turso_documents p JOIN identity_relationships r ON r.student_id=json_extract(p.document,'$.studentId') WHERE p.collection='workout_plans' AND r.personal_id=? AND r.status='ACTIVE' AND json_extract(p.document,'$.trainerId')=? AND json_extract(p.document,'$.active')=1 AND json_extract(p.document,'$.deletedAt') IS NULL`, args: [actor.id, actor.id] }),
       ]);
       if (id && !result.rows.length) return NextResponse.json({ error: 'Aluno indisponível.' }, { status: 404 });
-      return NextResponse.json({ relationships: result.rows, page, total: Number(count.rows[0].total), active: Number(metrics.rows[0].active || 0), occupied: Number(metrics.rows[0].occupied || 0), capacity });
+      const active = Number(metrics.rows[0].active || 0);
+      return NextResponse.json({ relationships: result.rows, page, total: Number(count.rows[0].total), active, occupied: Number(metrics.rows[0].occupied || 0), capacity, activePlans: Number(training.rows[0].plans || 0), withoutPlan: Math.max(0, active - Number(training.rows[0].covered || 0)) });
     }
     if (actor.role === 'ALUNO') {
       const result = await client.execute({ sql: `SELECT r.id,r.status,r.created_at,p.id AS personal_id,p.full_name AS personal_name FROM identity_relationships r JOIN identity_users p ON p.id=r.personal_id WHERE r.student_id=? ORDER BY r.created_at DESC LIMIT 25 OFFSET ?`, args: [actor.id, (page - 1) * 25] });
