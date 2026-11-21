@@ -2,19 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@libsql/client';
 import { migrateIdentitySchema } from '../lib/identity-schema.mjs';
-import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema, migrateIdentityInviteResendSchema, migrateIdentityRelationshipAuditSchema } from '../lib/identity-relationships-schema.mjs';
+import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema, migrateIdentityInviteResendSchema, migrateIdentityRelationshipAuditSchema, migrateIdentityReactivationConsentSchema } from '../lib/identity-relationships-schema.mjs';
 import { createRelationshipInvite, acceptRelationshipInvite, changeRelationship, getRelationshipInvite, rejectRelationshipInvite, resendRelationshipInvite } from '../lib/identity-relationships.mjs';
 import { canManageStudent } from '../lib/identity-authorization.mjs';
+import { listStudentRelationships } from '../lib/identity-relationship-list.mjs';
 
-async function createAuditFixture() {
+async function createAuditFixture(databaseUrl = 'file::memory:') {
   process.env.OTP_HMAC_KEY = Buffer.alloc(32, 9).toString('hex');
-  const db = createClient({ url: 'file::memory:' });
+  const db = createClient({ url: databaseUrl });
   await db.execute('PRAGMA busy_timeout=3000');
   await migrateIdentitySchema(db);
   await migrateIdentityRelationshipsSchema(db);
   await migrateIdentityInviteDeliverySchema(db);
   await migrateIdentityInviteResendSchema(db);
   await migrateIdentityRelationshipAuditSchema(db);
+  await migrateIdentityReactivationConsentSchema(db);
   await db.execute('CREATE TABLE turso_documents(collection TEXT,id TEXT,document TEXT,PRIMARY KEY(collection,id))');
   await db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: ['billing_plans', 'plan-audit', JSON.stringify({ id: 'plan-audit', includedStudents: 1, active: true })] });
   await db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: ['subscriptions', 'subscription-audit', JSON.stringify({ id: 'subscription-audit', accountUserId: 'personal-audit', planId: 'plan-audit', status: 'ACTIVE', createdAt: '2026-01-01' })] });
@@ -56,6 +58,7 @@ test('invites activate once, enforce contracted capacity, and termination revoke
     assert.equal((await migrateIdentityInviteDeliverySchema(db)).applied, true);
     assert.equal((await migrateIdentityInviteResendSchema(db)).applied, true);
     assert.equal((await migrateIdentityRelationshipAuditSchema(db)).applied, true);
+    assert.equal((await migrateIdentityReactivationConsentSchema(db)).applied, true);
     await db.execute(`CREATE TABLE turso_documents(collection TEXT,id TEXT,document TEXT,PRIMARY KEY(collection,id))`);
     const insert = (collection, id, data) => db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: [collection, id, JSON.stringify(data)] });
     await insert('billing_plans', 'plan1', { id: 'plan1', includedStudents: 1, active: true });
@@ -144,6 +147,7 @@ test('accepting an invite persists exactly one relationship audit event', async 
     await migrateIdentityInviteDeliverySchema(db);
     await migrateIdentityInviteResendSchema(db);
     await migrateIdentityRelationshipAuditSchema(db);
+    await migrateIdentityReactivationConsentSchema(db);
     await db.execute('CREATE TABLE turso_documents(collection TEXT,id TEXT,document TEXT,PRIMARY KEY(collection,id))');
     await db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: ['billing_plans', 'plan-audit', JSON.stringify({ id: 'plan-audit', includedStudents: 1, active: true })] });
     await db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: ['subscriptions', 'subscription-audit', JSON.stringify({ id: 'subscription-audit', accountUserId: 'personal-audit', planId: 'plan-audit', status: 'ACTIVE', createdAt: '2026-01-01' })] });
@@ -273,4 +277,134 @@ test('terminating an active relationship persists one ACTIVE to TERMINATED event
   } finally {
     await db.close();
   }
+});
+
+test('student relationship listing returns only the authenticated student relationships', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    const own = await listStudentRelationships(db, student);
+    const other = await listStudentRelationships(db, { id: 'student-third-party', role: 'ALUNO' });
+    assert.equal(own.total, 1);
+    assert.equal(own.relationships[0].id, relationship.id);
+    assert.equal(own.relationships[0].personal_name, personal.id);
+    assert.equal(other.total, 0);
+    assert.deepEqual(other.relationships, []);
+  } finally { await db.close(); }
+});
+
+test('student suspends their active relationship and access is revoked', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    const result = await changeRelationship(db, student, relationship.id, 'SUSPEND');
+    assert.equal(result.status, 'SUSPENDED');
+    assert.equal(await canManageStudent(db, personal, student.id), false);
+  } finally { await db.close(); }
+});
+
+test('student can terminate their relationship while preserving identity and relationship data', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'TERMINATE');
+    const row = (await db.execute({ sql: 'SELECT * FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0];
+    const user = (await db.execute({ sql: 'SELECT id,status,student_mode FROM identity_users WHERE id=?', args: [student.id] })).rows[0];
+    assert.equal(row.status, 'TERMINATED'); assert.equal(row.student_id, student.id);
+    assert.equal(user.id, student.id); assert.equal(user.status, 'ACTIVE'); assert.equal(user.student_mode, 'INDEPENDENT');
+  } finally { await db.close(); }
+});
+
+test('personal requests reactivation after student initiated suspension without changing status', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND');
+    const result = await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    assert.equal(result.requiresConsent, true); assert.ok(result.requestId); assert.equal(result.status, 'SUSPENDED');
+    assert.equal((await db.execute({ sql: 'SELECT status FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0].status, 'SUSPENDED');
+    assert.equal((await db.execute({ sql: "SELECT COUNT(*) AS n FROM identity_relationship_reactivation_requests WHERE relationship_id=? AND status='PENDING'", args: [relationship.id] })).rows[0].n, 1);
+  } finally { await db.close(); }
+});
+
+test('student approval reactivates a requested relationship after revalidating capacity', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND');
+    await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    const result = await changeRelationship(db, student, relationship.id, 'APPROVE_REACTIVATION');
+    assert.equal(result.status, 'ACTIVE'); assert.equal(await canManageStudent(db, personal, student.id), true);
+    assert.equal((await db.execute({ sql: "SELECT status FROM identity_relationship_reactivation_requests WHERE relationship_id=?", args: [relationship.id] })).rows[0].status, 'ACCEPTED');
+  } finally { await db.close(); }
+});
+
+test('student rejection keeps the relationship suspended and closes the request', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND'); await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    const result = await changeRelationship(db, student, relationship.id, 'REJECT_REACTIVATION');
+    assert.equal(result.status, 'SUSPENDED');
+    assert.equal((await db.execute({ sql: 'SELECT status FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0].status, 'SUSPENDED');
+    assert.equal((await db.execute({ sql: "SELECT status FROM identity_relationship_reactivation_requests WHERE relationship_id=?", args: [relationship.id] })).rows[0].status, 'REJECTED');
+  } finally { await db.close(); }
+});
+
+test('personal cannot unilaterally reactivate a student suspended relationship', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND');
+    const result = await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    assert.equal(result.requiresConsent, true);
+    assert.equal((await db.execute({ sql: 'SELECT status FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0].status, 'SUSPENDED');
+  } finally { await db.close(); }
+});
+
+test('concurrent student approval and rejection permit only one response', async () => {
+  const url = `file:student-reactivation-race-${Date.now()}-${Math.random()}.db`;
+  const { db, personal, student } = await createAuditFixture(url); const otherDb = createClient({ url });
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND'); await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    const outcomes = await Promise.allSettled([changeRelationship(db, student, relationship.id, 'APPROVE_REACTIVATION'), changeRelationship(otherDb, student, relationship.id, 'REJECT_REACTIVATION')]);
+    assert.equal(outcomes.filter((x) => x.status === 'fulfilled').length, 1);
+    const state = (await db.execute({ sql: 'SELECT status FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0].status;
+    assert.ok(['ACTIVE','SUSPENDED'].includes(state));
+    const requests = (await db.execute({ sql: 'SELECT status FROM identity_relationship_reactivation_requests WHERE relationship_id=?', args: [relationship.id] })).rows;
+    assert.equal(requests.length, 1); assert.ok(['ACCEPTED','REJECTED'].includes(requests[0].status));
+    assert.equal(state, requests[0].status === 'ACCEPTED' ? 'ACTIVE' : 'SUSPENDED');
+  } finally { await db.close(); await otherDb.close(); }
+});
+
+test('only the participating student may respond to a reactivation request', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND'); await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    await assert.rejects(changeRelationship(db, { id: 'third-party', role: 'ALUNO' }, relationship.id, 'APPROVE_REACTIVATION'), (error) => error.status === 403);
+    assert.equal((await db.execute({ sql: "SELECT status FROM identity_relationship_reactivation_requests WHERE relationship_id=?", args: [relationship.id] })).rows[0].status, 'PENDING');
+  } finally { await db.close(); }
+});
+
+test('approval preserves the pending request and suspension when plan capacity is no longer sufficient', async () => {
+  const { db, personal, student } = await createAuditFixture();
+  try {
+    const relationship = await createActiveAuditRelationship(db, personal, student);
+    await changeRelationship(db, student, relationship.id, 'SUSPEND'); await changeRelationship(db, personal, relationship.id, 'REACTIVATE');
+    await db.execute({ sql: "UPDATE turso_documents SET document=? WHERE collection='billing_plans' AND id='plan-audit'", args: [JSON.stringify({ id: 'plan-audit', includedStudents: 0, active: true })] });
+    await assert.rejects(changeRelationship(db, student, relationship.id, 'APPROVE_REACTIVATION'), (error) => error.status === 409);
+    assert.equal((await db.execute({ sql: 'SELECT status FROM identity_relationships WHERE id=?', args: [relationship.id] })).rows[0].status, 'SUSPENDED');
+    assert.equal((await db.execute({ sql: "SELECT status FROM identity_relationship_reactivation_requests WHERE relationship_id=?", args: [relationship.id] })).rows[0].status, 'PENDING');
+  } finally { await db.close(); }
+});
+
+test('student without a relationship remains independent and can use their own area', async () => {
+  const { db, student } = await createAuditFixture();
+  try {
+    const result = await listStudentRelationships(db, student);
+    assert.equal(result.total, 0); assert.deepEqual(result.relationships, []);
+    assert.equal((await db.execute({ sql: 'SELECT student_mode FROM identity_users WHERE id=?', args: [student.id] })).rows[0].student_mode, 'INDEPENDENT');
+  } finally { await db.close(); }
 });

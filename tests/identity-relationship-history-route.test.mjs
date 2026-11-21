@@ -7,6 +7,7 @@ import {
   migrateIdentityInviteDeliverySchema,
   migrateIdentityInviteResendSchema,
   migrateIdentityRelationshipAuditSchema,
+  migrateIdentityReactivationConsentSchema,
 } from '../lib/identity-relationships-schema.mjs';
 import { createHistoryGetHandler } from '../lib/identity-relationship-history-handler.mjs';
 
@@ -22,6 +23,7 @@ async function createHistoryFixture(eventRows = [
   await migrateIdentityInviteDeliverySchema(db);
   await migrateIdentityInviteResendSchema(db);
   await migrateIdentityRelationshipAuditSchema(db);
+  await migrateIdentityReactivationConsentSchema(db);
 
   const identities = [
     ['personal-a', 'PERSONAL', null],

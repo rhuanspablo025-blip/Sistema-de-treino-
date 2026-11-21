@@ -3,6 +3,7 @@ import { requireUser } from '../../../../lib/api-auth';
 import { getTursoClient } from '../../../../lib/mongodb';
 import { resolveAuthenticatedIdentity } from '../../../../lib/identity-authorization.mjs';
 import { changeRelationship, contractedCapacity } from '../../../../lib/identity-relationships.mjs';
+import { listStudentRelationships } from '../../../../lib/identity-relationship-list.mjs';
 
 export const runtime = 'nodejs';
 export async function GET(request) {
@@ -23,7 +24,7 @@ export async function GET(request) {
       const where = terms.join(' AND ');
       const order = { name: 'u.full_name COLLATE NOCASE ASC', oldest: 'r.created_at ASC', newest: 'r.created_at DESC' }[params.get('sort')] || 'r.created_at DESC';
       const [result, count, metrics, capacity, training] = await Promise.all([
-        client.execute({ sql: `SELECT r.id,r.status,r.created_at,r.accepted_at,u.id AS student_id,u.full_name,u.username,u.status AS account_status FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where} ORDER BY ${order} LIMIT 25 OFFSET ?`, args: [...args, (page - 1) * 25] }),
+        client.execute({ sql: `SELECT r.id,r.status,r.created_at,r.updated_at,r.accepted_at,u.id AS student_id,u.full_name,u.username,u.status AS account_status,(SELECT rr.id FROM identity_relationship_reactivation_requests rr WHERE rr.relationship_id=r.id AND rr.status='PENDING' LIMIT 1) AS reactivation_request_id FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where} ORDER BY ${order} LIMIT 25 OFFSET ?`, args: [...args, (page - 1) * 25] }),
         client.execute({ sql: `SELECT COUNT(*) AS total FROM identity_relationships r JOIN identity_users u ON u.id=r.student_id WHERE ${where}`, args }),
         client.execute({ sql: `SELECT SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active,SUM(CASE WHEN status IN ('ACTIVE','SUSPENDED') THEN 1 ELSE 0 END) AS occupied FROM identity_relationships WHERE personal_id=?`, args: [actor.id] }),
         contractedCapacity(client, actor.id),
@@ -34,8 +35,7 @@ export async function GET(request) {
       return NextResponse.json({ relationships: result.rows, page, total: Number(count.rows[0].total), active, occupied: Number(metrics.rows[0].occupied || 0), capacity, activePlans: Number(training.rows[0].plans || 0), withoutPlan: Math.max(0, active - Number(training.rows[0].covered || 0)) });
     }
     if (actor.role === 'ALUNO') {
-      const result = await client.execute({ sql: `SELECT r.id,r.status,r.created_at,p.id AS personal_id,p.full_name AS personal_name FROM identity_relationships r JOIN identity_users p ON p.id=r.personal_id WHERE r.student_id=? ORDER BY r.created_at DESC LIMIT 25 OFFSET ?`, args: [actor.id, (page - 1) * 25] });
-      return NextResponse.json({ relationships: result.rows, page });
+      return NextResponse.json(await listStudentRelationships(client, actor, params.get('page') || '1'));
     }
     return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
   } catch (error) { return NextResponse.json({ error: error.status ? error.message : 'Nao foi possivel consultar vinculos.' }, { status: error.status || 500 }); }

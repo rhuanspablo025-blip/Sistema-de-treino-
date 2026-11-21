@@ -92,7 +92,7 @@ export default function PersonalPage() {
       });
       await refreshRelationshipHistory(selected.id);
       setPendingRelationshipAction(null);
-      setMessage(`Vínculo ${labelStatus(updated.status).toLowerCase()}.`);
+      setMessage(updated.requiresConsent ? 'Solicitação enviada ao aluno. O vínculo continua suspenso até o consentimento.' : `Vínculo ${labelStatus(updated.status).toLowerCase()}.`);
     } catch (failure) {
       setError(failure.message);
     }
