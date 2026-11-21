@@ -3,6 +3,12 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
+if (process.env.VERCEL_ENV === 'production') {
+  const consentMigration = spawnSync(process.execPath, [path.join(__dirname, 'migrate-reactivation-consent.mjs')], { stdio: 'inherit', env: process.env });
+  if (consentMigration.error) throw consentMigration.error;
+  if (consentMigration.status !== 0) process.exit(consentMigration.status ?? 1);
+}
+
 if (process.env.TURSO_MIGRATE_FROM_MONGO !== 'true') {
   console.log('Migração MongoDB → Turso desativada neste build.');
   process.exit(0);
