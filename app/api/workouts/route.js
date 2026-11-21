@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { requireUser } from '../../../lib/api-auth';
 import { assertWorkoutPlanEditor } from '../../../lib/workout-permissions';
-import { getDatabase } from '../../../lib/mongodb';
+import { getDatabase, getTursoClient } from '../../../lib/mongodb';
+import { resolveAuthenticatedIdentity, canReadWorkout } from '../../../lib/identity-authorization.mjs';
 import { writeAuditLog } from '../../../lib/audit';
 import validation from '../../../lib/workout-plan-validation.cjs';
 import { isAdminUser, rolesFor } from '../../../lib/user-roles';
@@ -16,6 +17,10 @@ async function ownedPlanFilter(database, user, planId) {
   const plan = await database.collection('workout_plans').findOne({ id: planId });
   if (!plan) return null;
   if (plan.deletedAt) return null;
+  if (user.identityV2) {
+    const client = await getTursoClient();
+    return await canReadWorkout(client, await resolveAuthenticatedIdentity(client, user), plan) ? plan : null;
+  }
   if (isAdminUser(user)) return plan;
   const roles = rolesFor(user);
   const ownStudentPlan = roles.has('student') && plan.studentId === user.id && plan.active !== false && await database.collection('students').findOne({ userId: user.id, active: true });

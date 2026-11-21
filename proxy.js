@@ -11,7 +11,7 @@ export async function proxy(request) {
   }
 
   const pathname = request.nextUrl.pathname;
-  if (['/login', '/register', '/forgot-password', '/privacy', '/icon.jpeg', '/robots.txt', '/sitemap.xml'].includes(pathname) || pathname.startsWith('/api/') || /^\/google[a-zA-Z0-9_-]+\.html$/.test(pathname)) return NextResponse.next();
+  if (['/login', '/register', '/convite', '/forgot-password', '/privacy', '/icon.jpeg', '/robots.txt', '/sitemap.xml'].includes(pathname) || pathname.startsWith('/api/') || /^\/google[a-zA-Z0-9_-]+\.html$/.test(pathname)) return NextResponse.next();
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
   if (session?.sub) return NextResponse.next();
   return NextResponse.redirect(new URL('/login', request.url));

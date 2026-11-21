@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { requireUser } from '../../../lib/api-auth';
-import { getDatabase } from '../../../lib/mongodb';
+import { getDatabase, getTursoClient } from '../../../lib/mongodb';
+import { resolveAuthenticatedIdentity, canManageStudent } from '../../../lib/identity-authorization.mjs';
 import { writeAuditLog } from '../../../lib/audit';
 import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
 
@@ -10,6 +11,11 @@ const idPattern = /^[0-9a-f-]{36}$/i;
 const text = (value, limit = 1000) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 
 async function mayAccessStudent(database, user, studentId) {
+  if (user.identityV2) {
+    const client = await getTursoClient();
+    const actor = await resolveAuthenticatedIdentity(client, user);
+    return actor.role === 'ALUNO' ? actor.id === studentId : await canManageStudent(client, actor, studentId);
+  }
   if (hasAnyRole(user, ['student']) && user.id === studentId) return Boolean(await database.collection('students').findOne({ userId: studentId, active: true }));
   if (isAdminUser(user)) return true;
   return hasAnyRole(user, ['trainer']) && Boolean(await database.collection('students').findOne({ userId: studentId, trainerId: user.id, active: true }));

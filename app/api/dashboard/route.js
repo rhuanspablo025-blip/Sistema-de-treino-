@@ -58,7 +58,7 @@ export async function GET() {
     ]);
     const notifications = await database.collection('notifications').find({ userId: access.user.id }).sort({ createdAt: -1 }).limit(10).toArray();
     return NextResponse.json({
-      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, roles: access.user.roles || [access.user.role], financialAccessExempt: access.user.financialAccessExempt === true, financialAccess: access.financialAccess },
+      currentUser: { id: access.user.id, name: access.user.name, username: access.user.username, role: access.user.role, roles: access.user.roles || [access.user.role], identityV2: access.user.identityV2 === true, financialAccessExempt: access.user.financialAccessExempt === true, financialAccess: access.financialAccess },
       notifications: notifications.map(({ _id, id, title, message, readAt, createdAt }) => ({ id, title, message, readAt, createdAt })),
       students, workouts: workoutViews, settings: academySettings || { academyName: 'Atlas Training', unitName: 'Unidade Centro' },
       admins: adminUsers.map((user) => ({ id: user.id, name: user.name, username: user.username, role: user.role, roles: user.roles || [user.role], initials: user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() })),

@@ -91,11 +91,13 @@ function ProductNavigation({ currentKey, currentUser, onNavigate }) {
   return <div className="product-nav-root" ref={navRef}>
     <nav className="product-navigation desktop-product-nav" aria-label="Navegação principal">
       {groups.map((group) => { const keys=group.keys.filter(visible); if (!keys.length) return null; const isOpen=openMenu===group.title; return <div className="product-nav-group" key={group.title}><button type="button" className={`product-nav-trigger ${keys.includes(currentKey) ? 'active' : ''}`} aria-expanded={isOpen} onClick={()=>setOpenMenu(isOpen?null:group.title)}>{group.title}<ChevronDown size={14}/></button>{isOpen&&<div className="product-nav-menu">{keys.map(button)}</div>}</div>; })}
+      {currentUser?.identityV2 && currentUser?.role === 'trainer' && <a className="product-nav-link" href="/personal"><UsersRound size={16}/>Central Personal</a>}
+      {currentUser?.identityV2 && currentUser?.role === 'student' && <a className="product-nav-link" href="/aluno/fichas"><ClipboardList size={16}/>Minhas fichas</a>}
       {staff && <button type="button" className={`product-nav-link product-student-link ${currentKey === 'student' ? 'active' : ''}`} onClick={() => onNavigate('student')}><UserRound size={16}/>Área do aluno</button>}
     </nav>
     <nav className="mobile-product-nav" aria-label="Navegação mobile">
       {staff && <>{button('overview')}{button('students')}{button('workouts')}<div className="mobile-more"><button type="button" aria-label="Mais opções" aria-expanded={openMenu==='mobile'} onClick={()=>setOpenMenu(openMenu==='mobile'?null:'mobile')}><MoreHorizontal size={18}/><span>Mais</span></button>{openMenu==='mobile'&&<div className="product-nav-menu">{groups.flatMap((group)=>group.keys).filter((key)=>visible(key)&&!['overview','students','workouts'].includes(key)).map(button)}{button('student')}</div>}</div></>}
-      {!staff && <>{button('student')}{button('cardio')}</>}
+      {!staff && <>{currentUser?.identityV2 ? <a className="product-nav-link" href="/aluno/fichas">Minhas fichas</a> : button('student')}{button('cardio')}</>}
     </nav>
   </div>;
 }

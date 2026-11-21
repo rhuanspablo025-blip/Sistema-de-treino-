@@ -13,6 +13,7 @@
     "admin:create": "node scripts/create-admin-user.js",
     "super-admin:setup": "node scripts/setup-super-admin.js",
     "dev:create": "node scripts/create-dev-user.js",
+    "migrate:identity-v2": "node scripts/migrate-identity-v2.mjs",
     "migrate:mongodb-to-turso": "node scripts/migrate-mongodb-to-turso.js"
   },
   "dependencies": {
@@ -22,7 +23,8 @@
     "dotenv": "^17.4.2",
     "jose": "^6.1.0",
     "mongodb": "^6.18.0",
-    "next": "^16.4.3",
+    "next": "16.4.5",
+    "qrcode": "^1.5.4",
     "react": "latest",
     "react-dom": "latest"
   }

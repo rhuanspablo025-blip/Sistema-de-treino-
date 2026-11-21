@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 import AuthShell from '../../components/AuthShell';
 
+function safeDestination() {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next?.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
+}
+
 const Icon = ({ children }) => <span className="simple-icon">{children}</span>;
 const Activity = () => <Icon>⌁</Icon>;
 const ArrowRight = () => <Icon>›</Icon>;
@@ -18,7 +23,7 @@ export default function LoginPage() {
     fetch('/api/dashboard').then(async (response) => {
       if (!response.ok) return;
       const data = await response.json();
-      if (active) window.location.replace(data.currentUser?.financialAccess?.blocked || data.currentUser?.financialAccess?.restricted ? '/billing' : '/');
+      if (active) window.location.replace(data.currentUser?.financialAccess?.blocked || data.currentUser?.financialAccess?.restricted ? '/billing' : safeDestination());
     }).catch(() => {});
     return () => { active = false; };
   }, []);
@@ -37,7 +42,7 @@ export default function LoginPage() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Não foi possível entrar.');
-      window.location.href = '/';
+      window.location.href = safeDestination();
     } catch (loginError) {
       setError(loginError.message);
       setLoading(false);
