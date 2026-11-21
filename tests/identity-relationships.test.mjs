@@ -2,17 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@libsql/client';
 import { migrateIdentitySchema } from '../lib/identity-schema.mjs';
-import { migrateIdentityRelationshipsSchema } from '../lib/identity-relationships-schema.mjs';
-import { createRelationshipInvite, acceptRelationshipInvite, changeRelationship, getRelationshipInvite } from '../lib/identity-relationships.mjs';
+import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema } from '../lib/identity-relationships-schema.mjs';
+import { createRelationshipInvite, acceptRelationshipInvite, changeRelationship, getRelationshipInvite, rejectRelationshipInvite } from '../lib/identity-relationships.mjs';
 import { canManageStudent } from '../lib/identity-authorization.mjs';
 
 test('invites activate once, enforce contracted capacity, and termination revokes access', async () => {
   process.env.OTP_HMAC_KEY = Buffer.alloc(32, 9).toString('hex');
-  const db = createClient({ url: 'file::memory:' });
+  const databaseUrl = `file:identity-relationships-${Date.now()}.db`;
+  const db = createClient({ url: databaseUrl });
+  const concurrentDb = createClient({ url: databaseUrl });
   try {
+    await db.execute('PRAGMA journal_mode=WAL');
+    await db.execute('PRAGMA busy_timeout=3000');
+    await concurrentDb.execute('PRAGMA busy_timeout=3000');
     await migrateIdentitySchema(db);
     assert.equal((await migrateIdentityRelationshipsSchema(db)).applied, true);
     assert.equal((await migrateIdentityRelationshipsSchema(db)).applied, false);
+    assert.equal((await migrateIdentityInviteDeliverySchema(db)).applied, true);
     await db.execute(`CREATE TABLE turso_documents(collection TEXT,id TEXT,document TEXT,PRIMARY KEY(collection,id))`);
     const insert = (collection, id, data) => db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: [collection, id, JSON.stringify(data)] });
     await insert('billing_plans', 'plan1', { id: 'plan1', includedStudents: 1, active: true });
@@ -21,6 +27,14 @@ test('invites activate once, enforce contracted capacity, and termination revoke
       await db.execute({ sql: `INSERT INTO identity_users(id,role,student_mode,username,full_name,email_normalized,phone_e164,cpf_ciphertext,cpf_nonce,cpf_tag,cpf_lookup_hmac,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id,role,mode,id,id,`${id}@example.com`,`+551198765432${id === 'personal1' ? '1' : id === 'student1' ? '2' : '3'}`,'x','x','x',id,'ACTIVE','2026-01-01','2026-01-01'] });
     }
     const personal = { id: 'personal1', role: 'PERSONAL' }, student1 = { id: 'student1', role: 'ALUNO' }, student2 = { id: 'student2', role: 'ALUNO' };
+    const targeted = await createRelationshipInvite(db, personal, { studentId: student2.id });
+    await assert.rejects(rejectRelationshipInvite(db, student1, targeted.code), (error) => error.status === 403);
+    const rejects = await Promise.allSettled([rejectRelationshipInvite(db, student2, targeted.code), rejectRelationshipInvite(concurrentDb, student2, targeted.code)]);
+    assert.ok(rejects.every((item) => item.status === 'fulfilled' || item.reason.status === 409));
+    assert.equal(rejects.filter((item) => item.status === 'fulfilled').length, 2);
+    assert.equal(rejects.filter((item) => item.status === 'fulfilled' && !item.value.repeated).length, 1);
+    assert.deepEqual(await rejectRelationshipInvite(db, student2, targeted.code), { status: 'REJECTED', repeated: true });
+    await assert.rejects(acceptRelationshipInvite(db, student2, targeted.token), /indisponivel/);
     const invite = await createRelationshipInvite(db, personal);
     assert.equal((await getRelationshipInvite(db, invite.code)).status, 'PENDING');
     const attempts = await Promise.allSettled([acceptRelationshipInvite(db, student1, invite.token), acceptRelationshipInvite(db, student1, invite.token)]);
@@ -45,8 +59,17 @@ test('invites activate once, enforce contracted capacity, and termination revoke
     assert.equal(await canManageStudent(db, personal, student1.id), false);
     const acceptedSecond = await acceptRelationshipInvite(db, student2, second.code);
     assert.equal(acceptedSecond.status, 'ACTIVE');
+    const student2Relationship=await db.execute({sql:"SELECT id FROM identity_relationships WHERE student_id=? AND status='ACTIVE'",args:[student2.id]});
+    await changeRelationship(db, personal, student2Relationship.rows[0].id, 'TERMINATE');
+    const raceInvite = await createRelationshipInvite(db, personal, { studentId: student2.id });
+    const race = await Promise.allSettled([acceptRelationshipInvite(db, student2, raceInvite.token), rejectRelationshipInvite(concurrentDb, student2, raceInvite.token)]);
+    assert.ok(race.every((item) => item.status === 'fulfilled' || item.reason.status === 409));
+    assert.equal(race.filter((item) => item.status === 'fulfilled').length, 1);
+    const finalInviteState=(await getRelationshipInvite(db, raceInvite.token)).status;
+    assert.ok(['ACCEPTED', 'REJECTED'].includes(finalInviteState));
+    assert.equal((await db.execute({sql:"SELECT COUNT(*) AS total FROM identity_relationships WHERE student_id=? AND status='ACTIVE'",args:[student2.id]})).rows[0].total,finalInviteState==='ACCEPTED'?1:0);
     const expired = await createRelationshipInvite(db, personal);
     await db.execute({ sql: 'UPDATE identity_invites SET expires_at=? WHERE id=?', args: ['2000-01-01', expired.id] });
     await assert.rejects(acceptRelationshipInvite(db, student1, expired.token), /expirado/);
-  } finally { await db.close(); }
+  } finally { await db.close(); await concurrentDb.close(); }
 });

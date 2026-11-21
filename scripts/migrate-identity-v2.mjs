@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { createClient } from '@libsql/client';
 import { migrateIdentitySchema } from '../lib/identity-schema.mjs';
-import { migrateIdentityRelationshipsSchema } from '../lib/identity-relationships-schema.mjs';
+import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema } from '../lib/identity-relationships-schema.mjs';
 
 const url = process.env.TURSO_DATABASE_URL?.trim();
 if (!url?.startsWith('file:')) {
@@ -13,6 +13,8 @@ if (!url?.startsWith('file:')) {
     const result = await migrateIdentitySchema(client);
     console.log(`${result.applied ? 'Aplicada' : 'Já aplicada'}: ${result.migration} (${url})`);
     const relationships = await migrateIdentityRelationshipsSchema(client);
+    const inviteDelivery = await migrateIdentityInviteDeliverySchema(client);
+    console.log(inviteDelivery);
     console.log(`${relationships.applied ? 'Aplicada' : 'Já aplicada'}: ${relationships.migration} (${url})`);
   } finally {
     await client.close();
