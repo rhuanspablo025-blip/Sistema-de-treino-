@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@libsql/client';
 import { migrateIdentitySchema } from '../lib/identity-schema.mjs';
-import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema } from '../lib/identity-relationships-schema.mjs';
-import { createRelationshipInvite, acceptRelationshipInvite, changeRelationship, getRelationshipInvite, rejectRelationshipInvite } from '../lib/identity-relationships.mjs';
+import { migrateIdentityRelationshipsSchema, migrateIdentityInviteDeliverySchema, migrateIdentityInviteResendSchema } from '../lib/identity-relationships-schema.mjs';
+import { createRelationshipInvite, acceptRelationshipInvite, changeRelationship, getRelationshipInvite, rejectRelationshipInvite, resendRelationshipInvite } from '../lib/identity-relationships.mjs';
 import { canManageStudent } from '../lib/identity-authorization.mjs';
 
 test('invites activate once, enforce contracted capacity, and termination revokes access', async () => {
@@ -19,6 +19,7 @@ test('invites activate once, enforce contracted capacity, and termination revoke
     assert.equal((await migrateIdentityRelationshipsSchema(db)).applied, true);
     assert.equal((await migrateIdentityRelationshipsSchema(db)).applied, false);
     assert.equal((await migrateIdentityInviteDeliverySchema(db)).applied, true);
+    assert.equal((await migrateIdentityInviteResendSchema(db)).applied, true);
     await db.execute(`CREATE TABLE turso_documents(collection TEXT,id TEXT,document TEXT,PRIMARY KEY(collection,id))`);
     const insert = (collection, id, data) => db.execute({ sql: 'INSERT INTO turso_documents(collection,id,document) VALUES(?,?,?)', args: [collection, id, JSON.stringify(data)] });
     await insert('billing_plans', 'plan1', { id: 'plan1', includedStudents: 1, active: true });
@@ -35,6 +36,26 @@ test('invites activate once, enforce contracted capacity, and termination revoke
     assert.equal(rejects.filter((item) => item.status === 'fulfilled' && !item.value.repeated).length, 1);
     assert.deepEqual(await rejectRelationshipInvite(db, student2, targeted.code), { status: 'REJECTED', repeated: true });
     await assert.rejects(acceptRelationshipInvite(db, student2, targeted.token), /indisponivel/);
+    const resendable=await createRelationshipInvite(db,personal,{email:'student2@example.com'});
+    let delivered;
+    assert.deepEqual(await resendRelationshipInvite(db,personal,resendable.id,async (payload)=>{delivered=payload;return {status:'SENT'};}),{status:'SENT'});
+    assert.equal(delivered.destination,'student2@example.com');
+    assert.equal((await db.execute({sql:'SELECT last_sent_at FROM identity_invites WHERE id=?',args:[resendable.id]})).rows[0].last_sent_at!=null,true);
+    await assert.rejects(resendRelationshipInvite(db,personal,resendable.id,async()=>({status:'SENT'})),(e)=>e.status===429);
+    await assert.rejects(resendRelationshipInvite(db,{id:'other',role:'PERSONAL'},resendable.id,async()=>({status:'SENT'})),(e)=>e.status===404);
+    const failedSend=await createRelationshipInvite(db,personal,{email:'other@example.com'});
+    await assert.rejects(resendRelationshipInvite(db,personal,failedSend.id,async()=>({status:'FAILED'})),(e)=>e.status===503);
+    const failedState=await db.execute({sql:'SELECT last_sent_at,resend_claimed_at FROM identity_invites WHERE id=?',args:[failedSend.id]});
+    assert.equal(failedState.rows[0].last_sent_at,null);assert.equal(failedState.rows[0].resend_claimed_at,null);
+    const expiredResend=await createRelationshipInvite(db,personal,{email:'expired@example.com'});await db.execute({sql:'UPDATE identity_invites SET expires_at=? WHERE id=?',args:['2000-01-01',expiredResend.id]});
+    await assert.rejects(resendRelationshipInvite(db,personal,expiredResend.id,async()=>({status:'SENT'})),(e)=>e.status===410);
+    const rejectedForResend=await createRelationshipInvite(db,personal,{studentId:student2.id});await rejectRelationshipInvite(db,student2,rejectedForResend.token);
+    await assert.rejects(resendRelationshipInvite(db,personal,rejectedForResend.id,async()=>({status:'SENT'})),(e)=>e.status===409);
+    let finishDelivery;const gate=new Promise(resolve=>{finishDelivery=resolve;});const concurrentInvite=await createRelationshipInvite(db,personal,{email:'concurrent@example.com'});
+    const sendPromise=resendRelationshipInvite(db,personal,concurrentInvite.id,async()=>{await gate;return {status:'SENT'};});
+    for(let tries=0;tries<20;tries++){const row=await db.execute({sql:'SELECT resend_claimed_at FROM identity_invites WHERE id=?',args:[concurrentInvite.id]});if(row.rows[0].resend_claimed_at)break;await new Promise(resolve=>setTimeout(resolve,5));}
+    await assert.rejects(resendRelationshipInvite(concurrentDb,personal,concurrentInvite.id,async()=>({status:'SENT'})),(e)=>e.status===429);
+    finishDelivery();await sendPromise;
     const invite = await createRelationshipInvite(db, personal);
     assert.equal((await getRelationshipInvite(db, invite.code)).status, 'PENDING');
     const attempts = await Promise.allSettled([acceptRelationshipInvite(db, student1, invite.token), acceptRelationshipInvite(db, student1, invite.token)]);
@@ -59,6 +80,7 @@ test('invites activate once, enforce contracted capacity, and termination revoke
     assert.equal(await canManageStudent(db, personal, student1.id), false);
     const acceptedSecond = await acceptRelationshipInvite(db, student2, second.code);
     assert.equal(acceptedSecond.status, 'ACTIVE');
+    await assert.rejects(resendRelationshipInvite(db,personal,second.id,async()=>({status:'SENT'})),(e)=>e.status===409);
     const student2Relationship=await db.execute({sql:"SELECT id FROM identity_relationships WHERE student_id=? AND status='ACTIVE'",args:[student2.id]});
     await changeRelationship(db, personal, student2Relationship.rows[0].id, 'TERMINATE');
     const raceInvite = await createRelationshipInvite(db, personal, { studentId: student2.id });
