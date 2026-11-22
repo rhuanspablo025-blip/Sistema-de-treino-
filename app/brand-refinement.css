@@ -116,8 +116,8 @@ button.primary-button:hover:not(:disabled),.login-card button.primary-button:hov
 
 /* Login: full bleed image beside the clear card, with no exposed divider. */
 .auth-layout {color-scheme:light;grid-template-columns:minmax(0,1.85fr) minmax(380px,1fr);gap:0;background:#f2f4f9}
-.auth-showcase {height:auto;min-height:100dvh;margin:0;border-radius:0;background:#050506}
-.auth-showcase-image {object-fit:cover;object-position:center center}
+.auth-showcase {height:auto;min-height:100dvh;margin:0;border-radius:0;background:radial-gradient(ellipse at center,#231a11 0%,#050506 75%)}
+.auth-showcase-image {object-fit:contain;object-position:center center}
 .auth-showcase-vignette {background:linear-gradient(0deg,#05050680,transparent 26%)}
 .auth-content {width:100%;max-width:none;min-width:0;min-height:100dvh;margin:0;padding:clamp(24px,4vw,70px);background:radial-gradient(ellipse at 50% 48%,#fff 0,#f5f7fc 64%,#edf1f8 100%);color:#172033}
 .auth-content::before,.auth-content::after {display:block}
@@ -160,10 +160,10 @@ button.primary-button:hover:not(:disabled),.login-card button.primary-button:hov
   .mobile-product-nav>.product-nav-link.active,.mobile-more>button.active {color:var(--brand);background:var(--brand-subtle)}
   .mobile-product-nav .product-nav-menu {background:#202126}
   .auth-layout {display:block;background:#f2f4f9}
-  .auth-showcase {height:clamp(145px,31vw,225px);min-height:0;margin:0;border-radius:0}
-  .auth-showcase-image {object-position:center 26%}
-  .auth-showcase-vignette {background:linear-gradient(0deg,#f2f4f900,transparent)}
-  .auth-content {min-height:calc(100dvh - 180px);max-width:none;padding:24px 18px 36px}
+  .auth-showcase {height:min(100vw,480px);min-height:0;margin:0;border-radius:0}
+  .auth-showcase-image {object-position:center center}
+  .auth-showcase-vignette {background:linear-gradient(0deg,#05050640,transparent 18%)}
+  .auth-content {min-height:0;max-width:none;padding:24px 18px 36px}
 }
 @media(max-width:480px) {
   .desk-overview>div {min-height:105px;padding:16px}
