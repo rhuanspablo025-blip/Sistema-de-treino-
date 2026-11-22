@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/migrate-on-build.js && node scripts/copy-anatomy-models.mjs && next build",
+    "build": "node --test tests/anatomy-model-access.test.mjs && node scripts/migrate-on-build.js && node scripts/copy-anatomy-models.mjs && next build",
     "start": "next start",
     "test": "node --test",
     "admin:create": "node scripts/create-admin-user.js",
