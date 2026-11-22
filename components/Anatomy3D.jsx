@@ -12,14 +12,14 @@ const COLORS = ["#85858b", "#ff829c", "#399dff", "#26ce95", "#ffdc45", "#ff4055"
 
 const MUSCLE_MATCH = [
   ["Glúteos", /glute|piriform/i],
-  ["Costas", /latiss|trapez|rhomboid|erector|teres_major|infraspin|supraspin/i],
-  ["Peito", /pector|chest/i],
-  ["Ombros", /deltoid/i],
-  ["Quadríceps", /quadricep|rectus_femor|vastus|adductor|sartorius/i],
-  ["Posterior de coxa", /hamstring|biceps_femor|semitendin|semimembran/i],
-  ["Braços", /biceps_brach|triceps_brach|brachialis|brachioradial|forearm|flexor|extensor/i],
-  ["Abdômen", /abdomin|oblique|serratus/i],
-  ["Panturrilhas", /gastrocnem|soleus|tibialis/i],
+  ["Costas", /back_muscles|trapez|rhomboid|erector|latiss|rotator_cuff/i],
+  ["Peito", /pector|chest|intercostal/i],
+  ["Ombros", /deltoid|shoulder_muscles/i],
+  ["Quadríceps", /quadricep|adductor|iliopsoas/i],
+  ["Posterior de coxa", /hamstring/i],
+  ["Braços", /upper_arm|forearm|hand_muscles/i],
+  ["Abdômen", /abdomin|pelvic_floor/i],
+  ["Panturrilhas", /calf|shin_muscles/i],
 ];
 
 function muscleCategory(name) {
@@ -48,7 +48,7 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
 
   useEffect(() => {
     let disposed = false;
-    let renderer, scene, camera, controls, model, animation, resizeObserver, lastSelected;
+    let renderer, scene, camera, controls, model, animation, resizeObserver;
     const materials = [];
     const originals = new Map();
     const meshes = [];
@@ -86,8 +86,8 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         controls.enableDamping = true;
         controls.dampingFactor = 0.075;
         controls.enablePan = false;
-        controls.minDistance = 1.25;
-        controls.maxDistance = 7;
+        controls.minDistance = 0.65;
+        controls.maxDistance = 6;
         controls.target.set(0, 0.9, 0);
         const loader = new GLTFLoader();
         loader.setMeshoptDecoder(MeshoptDecoder);
@@ -97,10 +97,15 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         scene.add(model);
         model.traverse((object) => {
           // A camada muscular fica visível; pele, órgãos, vasos e ossos não obstruem a seleção.
-          if (/^(skin|skeleton|organs|vessels|nerves)$/i.test(object.name)) object.visible = false;
+          if (object.parent === model && /^(skin|skeleton|organs|vessels|nerves)$/i.test(object.name)) object.visible = false;
           if (object.isMesh) {
-            object.userData.anatomyCategory = muscleCategory(object.name);
-            meshes.push(object);
+            // GLB primitives are often unnamed: resolve the nearest named muscle ancestor.
+            let owner = object;
+            while (owner && owner !== model && !muscleCategory(owner.name)) owner = owner.parent;
+            object.userData.anatomyCategory = owner ? muscleCategory(owner.name) : null;
+            // Omit invisible non-muscle layers when picking; preserve native geometry and groups.
+            object.userData.isMuscle = Boolean(object.userData.anatomyCategory);
+            if (object.userData.isMuscle) meshes.push(object);
             const source = object.material;
             const material = Array.isArray(source) ? source.map((m) => m.clone()) : source.clone();
             object.material = material;
