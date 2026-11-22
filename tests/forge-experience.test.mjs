@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canPlayIntro,
+  filmTime,
   FORGE_DURATION,
   introPhase,
   INTRO_VERSION,
@@ -35,4 +36,9 @@ test('slow and stalled requests have separate states and actual errors take prio
   assert.equal(waitingState(7000, ''), 'slow');
   assert.equal(waitingState(30000, ''), 'timeout');
   assert.equal(waitingState(30001, 'Falha'), 'error');
+});
+
+test('cinematic playback extends the opening without slowing route loading', () => {
+  assert.equal(filmTime(8), 6);
+  assert.equal(filmTime(FORGE_DURATION / 0.75), FORGE_DURATION);
 });

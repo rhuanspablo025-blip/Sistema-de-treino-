@@ -8,7 +8,7 @@ import jacket from '../../public/forge/jacket.webp';
 import normal from '../../public/forge/casting-normal.webp';
 import rough from '../../public/forge/casting-roughness.webp';
 import { createEquipment } from './equipment';
-import { FORGE_DURATION } from '../../lib/forge-experience.mjs';
+import { filmTime, FORGE_DURATION } from '../../lib/forge-experience.mjs';
 
 function smooth(t) {
   t = THREE.MathUtils.clamp(t, 0, 1);
@@ -199,7 +199,7 @@ export function mountStudio(host, { intro, onReady, onTime, onFailure }) {
       if (closed || document.hidden) return;
       if (last !== null) elapsed += (now - last) / 1000;
       last = now;
-      const t = elapsed;
+      const t = intro ? filmTime(elapsed) : elapsed;
       const portrait = camera.aspect < 1;
       wide
         .set(portrait ? -2.65 : -5.2, portrait ? 1.3 : 1.75, portrait ? 8.55 : 7.4)
