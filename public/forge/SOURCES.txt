@@ -1,0 +1,10 @@
+AtlasFit and WebPlus decals are proportional crops of the official artwork in public/brand.
+The still images are renders of the same local Three.js equipment used in the animation.
+
+Environment and material source photography from Poly Haven (CC0):
+https://polyhaven.com/a/crossfit_gym — tone-mapped, warm-graded panorama
+https://polyhaven.com/a/rusty_metal_02 — wear mask, surface normal and roughness
+https://polyhaven.com/a/rubber_tiles — surface grain in the rubber jacket
+https://polyhaven.com/license
+
+The application serves all maps locally.
