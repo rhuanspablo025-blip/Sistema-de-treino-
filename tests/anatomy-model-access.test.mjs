@@ -54,3 +54,12 @@ test("models get copied and GLB signature is checked before parsing", () => {
   assert.match(viewer, /parseAsync\(bytes, asset\)/);
   assert.match(viewer, /"glTF"/);
 });
+
+
+test("anatomy WebAssembly decoder permitted by CSP without JavaScript unsafe-eval", () => {
+  const config = readFileSync(new URL("../next.config.js", import.meta.url), "utf8");
+  const match = config.match(/script-src ([^;]+);/);
+  assert.ok(match, "script-src directive must exist");
+  assert.match(match[1], /'wasm-unsafe-eval'/);
+  assert.doesNotMatch(match[1], /(?:^|\s)'unsafe-eval'(?:\s|$)/);
+});
