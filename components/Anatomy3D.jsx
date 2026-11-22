@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
  * Assets CC BY 4.0. Crédito obrigatório no rodapé do mapa.
  * Three.js é carregado somente quando o usuário seleciona o modo 3D.
  */
-const MODEL_BASE = "https://cdn.jsdelivr.net/npm/open-anatomy-3d@0.1.0/models/";
+const MODEL_BASE = "/models/open-anatomy-3d/";
 const COLORS = ["#85858b", "#ff829c", "#399dff", "#26ce95", "#ffdc45", "#ff4055"];
 
 const MUSCLE_MATCH = [
@@ -53,6 +53,8 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
     const originals = new Map();
     const meshes = [];
     const root = canvas.current;
+    setProblem(false);
+    setStatus("Carregando modelo muscular 3D…");
     if (!root) return undefined;
 
     async function boot() {
@@ -91,7 +93,10 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         controls.target.set(0, 0.9, 0);
         const loader = new GLTFLoader();
         loader.setMeshoptDecoder(MeshoptDecoder);
-        const gltf = await loader.loadAsync(MODEL_BASE + (sex === "male" ? "anatomy-male.glb" : "anatomy-female.glb"));
+        const asset = MODEL_BASE + (sex === "male" ? "anatomy-male.glb" : "anatomy-female.glb");
+        const response = await fetch(asset, { method: "HEAD", cache: "no-cache" });
+        if (!response.ok) throw new Error("Asset 3D não disponível: " + response.status + " " + asset);
+        const gltf = await loader.loadAsync(asset);
         if (disposed) return;
         model = gltf.scene;
         scene.add(model);
