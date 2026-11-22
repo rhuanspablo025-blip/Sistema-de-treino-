@@ -1,0 +1,24 @@
+/* Unified data-ready state for route transitions and critical API hydration. */
+.atlas-loading{position:relative;isolation:isolate;display:grid;place-items:center;width:100%;min-height:100vh;min-height:100dvh;overflow:hidden;padding:clamp(30px,6vw,72px) 22px;background:radial-gradient(ellipse at 50% 36%,#282016 0%,#111316 43%,#080a0d 90%);color:#f6f2e9;text-align:center}
+.atlas-loading__light{position:absolute;z-index:-1;width:min(560px,95vw);aspect-ratio:1;top:50%;left:50%;transform:translate(-50%,-58%);background:radial-gradient(circle,#d5a63b1b 0%,#dfab1710 31%,transparent 65%);pointer-events:none}
+.atlas-loading__content{display:flex;flex-direction:column;align-items:center;width:min(100%,520px);gap:0}
+.atlas-loading__emblem{position:relative;display:grid;place-items:center;width:108px;height:108px;margin-bottom:27px;border:1px solid #f0c15b48;border-radius:27px;background:linear-gradient(145deg,#242326,#101113);box-shadow:0 16px 48px #0008,inset 0 1px #ffffff19}
+.atlas-loading__emblem img{display:block;width:76px;height:76px;object-fit:contain;border-radius:14px}
+.atlas-loading__orbit{position:absolute;inset:-8px;border:1px solid transparent;border-top-color:#f3bd41a8;border-right-color:#f3bd4133;border-radius:33px;animation:atlas-loader-orbit 2.9s linear infinite}
+.atlas-loading__kicker{margin:0 0 13px;color:#f0bf56;font-size:10px;font-weight:800;letter-spacing:.23em}
+.atlas-loading__title{margin:0;max-width:100%;color:#fffaf0;font:700 clamp(23px,4vw,34px)/1.15 'Space Grotesk','DM Sans',sans-serif;letter-spacing:-.045em}
+.atlas-loading__detail{min-height:38px;max-width:410px;margin:14px 0 25px;color:#abb0b1;font-size:13px;line-height:1.6}
+.atlas-loading__track{width:min(100%,290px);height:3px;overflow:hidden;border-radius:999px;background:#ffffff20}
+.atlas-loading__track span{display:block;width:40%;height:100%;border-radius:999px;background:linear-gradient(90deg,transparent,#efbd48,#ffe3a0);animation:atlas-loader-flow 1.65s ease-in-out infinite}
+.atlas-loading__signature{margin:30px 0 0;color:#848589;font-size:9px;font-weight:750;letter-spacing:.24em}
+.atlas-loading__signature span{color:#dca737}
+.atlas-loading__retry{min-height:44px;padding:0 23px;border:1px solid #efc55e;border-radius:10px;background:linear-gradient(135deg,#ffdb78,#dba328);color:#181409;font-size:13px;font-weight:750;cursor:pointer}
+.atlas-loading__retry:hover{filter:brightness(1.09)}
+.atlas-loading__retry:focus-visible{outline:3px solid white;outline-offset:3px}
+.atlas-loading--inline{min-height:clamp(320px,55vh,590px);border:1px solid #d5a83b2a;border-radius:16px}
+.atlas-loading--inline .atlas-loading__emblem{width:84px;height:84px;margin-bottom:18px}
+.atlas-loading--inline .atlas-loading__emblem img{width:62px;height:62px}
+@keyframes atlas-loader-orbit{to{transform:rotate(360deg)}}
+@keyframes atlas-loader-flow{from{transform:translateX(-130%)}to{transform:translateX(350%)}}
+@media(max-width:600px){.atlas-loading{padding:36px 20px}.atlas-loading__emblem{width:92px;height:92px;margin-bottom:23px}.atlas-loading__emblem img{width:68px;height:68px}.atlas-loading__kicker{font-size:9px;letter-spacing:.16em}.atlas-loading__detail{font-size:12px}.atlas-loading__signature{letter-spacing:.15em}}
+@media(prefers-reduced-motion:reduce){.atlas-loading__orbit,.atlas-loading__track span{animation:none}.atlas-loading__track span{width:100%;background:#efbd48}}

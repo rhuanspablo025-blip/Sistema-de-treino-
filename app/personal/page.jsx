@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import AtlasLoading from '../../components/AtlasLoading';
 import { getRelationshipActions, runRelationshipAction } from '../../lib/relationship-action-flow.mjs';
 import { createRelationshipHistoryClient, presentRelationshipHistoryEvent } from '../../lib/relationship-history-client.mjs';
 import './personal.css';
@@ -25,12 +26,21 @@ export default function PersonalPage() {
   const [pendingRelationshipAction, setPendingRelationshipAction] = useState(null);
   const [history, setHistory] = useState({ events: [], page: 0, pageSize: 20, total: 0, hasMore: false, loaded: false });
   const [historyLoading, setHistoryLoading] = useState(false), [historyLoadingMore, setHistoryLoadingMore] = useState(false), [historyError, setHistoryError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const latestRequest = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    setLoading(true);
     try {
       const [relationships, pending] = await Promise.all([api(`/api/identity/relationships?page=${page}&q=${encodeURIComponent(query)}&scope=${view === 'historico' ? 'all' : 'current'}&status=${statusFilter}&sort=${sort}`), api('/api/identity/invites')]);
+      if (requestId !== latestRequest.current) return;
       setData(relationships); setInvites(pending.invites || []); setPendingCount(pending.pending || 0); setError('');
-    } catch (failure) { setError(failure.message); }
+    } catch (failure) {
+      if (requestId === latestRequest.current) setError(failure.message);
+    } finally {
+      if (requestId === latestRequest.current) setLoading(false);
+    }
   }, [page, query, view, statusFilter, sort]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const onEscape = (event) => { if (event.key === 'Escape' && !busy) { setPendingRelationshipAction(null); setSelected(null); setShowInvite(false); } }; window.addEventListener('keydown', onEscape); return () => window.removeEventListener('keydown', onEscape); }, [busy]);
@@ -106,10 +116,12 @@ export default function PersonalPage() {
   const rows = data?.relationships || [];
   const capacity = data?.capacity;
 
+  if (!data) return <AtlasLoading label="Abrindo a central do personal" detail="Buscando alunos, convites e vínculos autorizados." error={error} onRetry={load} />;
+
   return <main className="personal-shell">
     <header className="personal-top"><a href="/" className="personal-brand"><span className="personal-mark">A</span><span>AtlasFit <small>PROFESSIONAL</small></span></a><nav aria-label="Navegação da central"><button className={view === 'alunos' ? 'active' : ''} onClick={() => { setPage(1); setStatusFilter(''); setView('alunos'); }}>Alunos</button><button className={view === 'convites' ? 'active' : ''} onClick={() => { setPage(1); setStatusFilter(''); setView('convites'); }}>Convites</button><button className={view === 'historico' ? 'active' : ''} onClick={() => { setPage(1); setStatusFilter(''); setView('historico'); }}>Histórico</button><a href="/">Fichas de treino ↗</a></nav><span className="personal-top-meta">CENTRAL DO PERSONAL</span></header>
     <div className="personal-main"><div className="personal-heading"><div><p className="personal-kicker">OPERAÇÃO / RELACIONAMENTOS</p><h1>Seu time, em movimento.</h1><p>Gerencie vínculos e convites com precisão. Cada aluno confirma o acesso à própria conta.</p></div><button className="personal-primary" onClick={() => { setIssued(null); setQr(''); setShowInvite(true); }}>+ Adicionar aluno</button></div>
-      {error && <p className="personal-alert" role="alert">{error}</p>}{message && <p className="personal-success" role="status">{message}</p>}
+      {error && <p className="personal-alert" role="alert">{error}</p>}{loading && <p className="personal-success" role="status">Atualizando dados do servidor...</p>}{message && <p className="personal-success" role="status">{message}</p>}
       <div className="personal-metrics"><div><small>ALUNOS ATIVOS</small><strong>{data?.active ?? '—'}</strong><span>Vínculos em operação</span></div><div><small>SEM FICHA</small><strong>{data?.withoutPlan ?? '—'}</strong><span>Próximos à prescrição</span></div><div><small>FICHAS ATIVAS</small><strong>{data?.activePlans ?? '—'}</strong><span>Treinos em acompanhamento</span></div><div><small>CONVITES ABERTOS</small><strong>{pendingCount}</strong><span>Aguardando confirmação</span></div><div><small>CAPACIDADE</small><strong>{capacity == null ? '—' : `${data?.occupied ?? 0} / ${capacity}`}</strong><span>{capacity == null ? 'Plano ativo necessário' : `${Math.max(0, capacity - (data?.occupied || 0))} vagas disponíveis`}</span></div></div>
       <section className="personal-ledger"><div className="personal-ledger-head"><div><p className="personal-kicker">CENTRAL OPERACIONAL</p><h2>{view === 'convites' ? 'Convites emitidos' : view === 'historico' ? 'Histórico de vínculos' : 'Alunos vinculados'}</h2></div>{view !== 'convites' && <div className="personal-tools"><label className="personal-search"><span>⌕</span><input value={query} onChange={(event) => { setPage(1); setQuery(event.target.value); }} placeholder="Buscar alunos..." aria-label="Buscar alunos" /></label><select aria-label="Filtrar vínculo" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}><option value="">Todos os vínculos</option><option value="ACTIVE">Ativos</option><option value="SUSPENDED">Suspensos</option>{view === 'historico' && <option value="TERMINATED">Encerrados</option>}</select><select aria-label="Ordenar alunos" value={sort} onChange={(event) => { setPage(1); setSort(event.target.value); }}><option value="newest">Mais recentes</option><option value="oldest">Mais antigos</option><option value="name">Nome A–Z</option></select><div className="personal-layout"><button aria-label="Visualização em tabela" aria-pressed={layout === 'table'} onClick={() => setLayout('table')}>☷</button><button aria-label="Visualização em grade" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}>▦</button></div></div>}</div>
         {view !== 'convites' ? <><div className={layout === 'table' ? 'personal-table-head' : 'personal-table-head is-hidden'}><span>ALUNO</span><span>CONTA</span><span>VÍNCULO</span><span>DATA</span><span></span></div>{!data ? <div className="personal-empty">Carregando vínculos…</div> : rows.length ? <div className={layout === 'grid' ? 'personal-grid' : 'personal-list'}>{rows.map((row) => <button className={layout === 'grid' ? 'personal-row is-grid' : 'personal-row'} key={row.id} onClick={() => setSelected(row)}><span className="personal-person"><b>{row.full_name?.slice(0, 2).toUpperCase()}</b><span><strong>{row.full_name}</strong><small>@{row.username}</small></span></span><span>{labelStatus(row.account_status)}</span><span><i className={row.status === 'ACTIVE' ? 'live' : ''} />{labelStatus(row.status)}</span><span>{new Date(row.created_at).toLocaleDateString('pt-BR')}</span><span className="personal-arrow">↗</span></button>)}</div> : <div className="personal-empty">Nenhum aluno nesta página. Crie um convite para começar.</div>}<footer className="personal-pagination"><span>{data?.total || 0} vínculo(s)</span><div><button disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button><span>{page}</span><button disabled={rows.length < 25} onClick={() => setPage(page + 1)}>Próxima</button></div></footer></> : <><div className="personal-table-head"><span>CONVITE</span><span>ESTADO</span><span>CRIADO</span><span>EXPIRA</span><span></span></div>{invites.length ? invites.map((item) => <div className="personal-row" key={item.id}><span className="personal-person"><b>↗</b><span><strong>{item.id.slice(0, 8)}</strong><small>Uso único</small></span></span><span>{labelStatus(item.status)}</span><span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span><span>{new Date(item.expiresAt).toLocaleDateString('pt-BR')}</span>{item.status === 'PENDING' && <><button disabled={busy} onClick={() => resend(item.id)}>{busy ? 'Enviando…' : 'Reenviar convite'}</button><button disabled={busy} onClick={() => cancel(item.id)}>Cancelar</button></>}</div>) : <div className="personal-empty">Nenhum convite emitido.</div>}</>}
