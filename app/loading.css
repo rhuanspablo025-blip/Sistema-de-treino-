@@ -177,7 +177,7 @@
 .atlas-barbell__weight-label--left{left:14%}
 .atlas-barbell__weight-label--right{right:14%}
 .atlas-barbell__webplus-logo{
-  position:absolute;z-index:4;left:56%;top:72%;width:33%;height:auto;aspect-ratio:1.55/1;
+  position:absolute;z-index:4;left:56%;top:72%;width:33%;height:auto;aspect-ratio:2.4/1;
   overflow:hidden;
   transform:rotate(-7deg);
   filter:drop-shadow(0 1px 2px #000a);
@@ -260,7 +260,7 @@
 .atlas-loading--inline .atlas-barbell{max-width:640px;height:clamp(230px,39vw,360px)}
 .atlas-loading--inline .atlas-loading__readout{max-width:460px}
 .atlas-loading--error .atlas-loading__readout{padding-bottom:10px}
-@keyframes atlas-barbell-hover{0%,100%{transform:translateY(3px)}50%{transform:translateY(-10px)}}
+@keyframes atlas-barbell-hover{0%,100%{transform:translateY(3px) rotateY(-4deg) rotateZ(-.7deg)}50%{transform:translateY(-10px) rotateY(4deg) rotateZ(.7deg)}}
 @keyframes atlas-plate-spin{to{transform:rotate(360deg)}}
 @media(max-width:700px){
  .atlas-loading{padding:25px 10px 30px}

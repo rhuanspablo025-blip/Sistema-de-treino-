@@ -5,6 +5,7 @@ import Image from 'next/image';
 import atlasfitLogo from '../public/brand/atlasfit-logo-horizontal.jpeg';
 import atlasfitSymbol from '../public/brand/atlasfit-symbol.jpeg';
 import webplusLogo from '../public/brand/webplus-logo.jpeg';
+import { getVisualLoadingProgress } from '../lib/loading-progress.mjs';
 
 const LOADING_TICK_MS = 420;
 const SLOW_CONNECTION_MS = 7000;
@@ -84,7 +85,7 @@ export default function AtlasLoading({
   }, [failed, label]);
 
   // Only a visual waiting indicator, never an invented completion percentage.
-  const visualProgress = Math.min(92, 6 + 86 * (1 - Math.exp(-elapsed / 10000)));
+  const visualProgress = getVisualLoadingProgress(elapsed);
   const slow = elapsed >= SLOW_CONNECTION_MS;
   const rootClasses = [
     'atlas-loading',
