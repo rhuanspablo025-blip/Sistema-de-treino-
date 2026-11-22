@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AuthShell from '../../components/AuthShell';
+import AtlasGorilla3D from '../../components/auth/AtlasGorilla3D';
 
 function safeDestination() {
   const next = new URLSearchParams(window.location.search).get('next');
@@ -49,7 +50,7 @@ export default function LoginPage() {
     }
   }
 
-  return <AuthShell>
+  return <AuthShell showcase={<AtlasGorilla3D />}>
     <section className="login-card">
       <p className="eyebrow">ÁREA RESTRITA</p>
       <h1>Bem-vindo de volta</h1>

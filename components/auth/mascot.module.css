@@ -1,0 +1,41 @@
+.stage {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s ease;
+  background: #100f0e;
+}
+.stage[data-ready='true'] {
+  opacity: 1;
+}
+.canvas,
+.canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, #070706dd, transparent 25%),
+    radial-gradient(ellipse at 50% 42%, transparent 48%, #08070655);
+  pointer-events: none;
+}
+.mark {
+  position: absolute;
+  z-index: 1;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(48%, 370px);
+  height: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    transition: none;
+  }
+}
