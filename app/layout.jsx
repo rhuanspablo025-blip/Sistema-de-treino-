@@ -6,6 +6,7 @@ import './studio.css';
 import './brand-refinement.css';
 import './theme-modes.css';
 import './muscle-anatomy.css';
+import './loading.css';
 
 const title = 'AtlasFit | Sistema de Gestão de Academias e Treinos';
 const description = 'Plataforma para academias e personal trainers. Gerencie alunos, fichas de treino, exercícios e acompanhamento físico em um único sistema.';

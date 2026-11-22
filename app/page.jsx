@@ -5,6 +5,7 @@ import CardioPerformance from "../components/CardioPerformance";
 import MuscleAnalytics from "../components/MuscleAnalytics";
 import TrainingDesk from "../components/TrainingDesk";
 import ThemeToggle from "../components/ThemeToggle";
+import AtlasLoading from "../components/AtlasLoading";
 import Image from "next/image";
 import atlasfitLogo from "../public/brand/atlasfit-logo-horizontal.jpeg";
 import atlasfitSymbol from "../public/brand/atlasfit-symbol.jpeg";
@@ -729,6 +730,8 @@ export default function Home() {
   const [adminView, setAdminView] = useState("overview");
   const [createType, setCreateType] = useState(null);
   const [isHydrating, setIsHydrating] = useState(true);
+  const [startupError, setStartupError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   const selectedWorkout = workoutPlans.find((plan) => plan.studentId === selectedStudent?.id);
   const ownStudent = students.find((student) => student.id === currentUser?.id);
   const ownStudentView = ownStudent || (currentUser ? { ...emptyStudent, id: currentUser.id, name: currentUser.name, profileMissing: true } : emptyStudent);
@@ -750,14 +753,14 @@ export default function Home() {
         setExerciseList(data.exercises);
         setSelectedStudent(data.students[0] || emptyStudent);
       } catch (error) {
-        showAction(`Não foi possível carregar os dados: ${error.message}`);
+        if (active) setStartupError(error.message || "Não foi possível conectar ao servidor.");
       } finally {
         if (active) setIsHydrating(false);
       }
     }
     hydrate();
     return () => { active = false; };
-  }, []);
+  }, [retryKey]);
 
   const filteredStudents = students.filter((student) => {
     const matchesQuery = student.name
@@ -804,6 +807,8 @@ export default function Home() {
       showAction(error.message);
     }
   }
+
+  if (isHydrating || startupError) return <AtlasLoading label="Preparando seu painel" detail="Sincronizando alunos, fichas e informações da sua conta." error={startupError} onRetry={() => { setStartupError(""); setIsHydrating(true); setRetryKey((key) => key + 1); }} />;
 
   return (
     <main className="app-shell">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ExerciseAnimation from './ExerciseAnimation';
+import AtlasLoading from './AtlasLoading';
 import MuscleAnalytics from './MuscleAnalytics';
 import { findAnimation, findExerciseVideo, loadExerciseAnimationDataset } from '../lib/exercise-animation-matching.mjs';
 
@@ -581,6 +582,9 @@ export default function WorkoutPlanManager({ students, studentsLoading = false, 
       </form>
     </div>;
   }
+
+  if (loading || studentsLoading) return <AtlasLoading variant="inline" label="Organizando suas fichas" detail="Carregando treinos, modelos e biblioteca de exercícios." />;
+  if (loadError) return <AtlasLoading variant="inline" error={loadError} onRetry={() => loadData(true)} />;
 
   return <div className="page-content plans-page">
     <div className="page-heading plans-heading"><div><p className="eyebrow">GESTÃO DE TREINOS</p><h1>{section === 'library' ? 'Biblioteca de exercícios' : section === 'templates' ? 'Modelos de treino' : 'Fichas de treino'}</h1><p className="heading-copy">Fichas, modelos reutilizáveis e exercícios organizados em um só lugar.</p></div>{canEdit && <button className="primary-button" disabled={section === 'plans' && (!students.length || studentsLoading || (requireStudentSelection && !studentFilter))} onClick={() => section === 'library' ? setExerciseEditor({}) : section === 'plans' ? openEditor() : openTemplateEditor()}>{section === 'library' ? '+ Novo exercício' : section === 'plans' ? '+ Nova ficha' : '+ Criar modelo'}</button>}</div>

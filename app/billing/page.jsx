@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import AtlasLoading from '../../components/AtlasLoading';
 import atlasfitLogo from '../../public/brand/atlasfit-logo-horizontal.jpeg';
 import './billing.css';
 
@@ -19,6 +20,7 @@ export default function BillingPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -30,7 +32,9 @@ export default function BillingPage() {
       if (active) setError(loadError.message);
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [retryKey]);
+
+  if (loading || (error && !data)) return <AtlasLoading label="Consultando seus pagamentos" detail="Sincronizando cobranças e situação da conta." error={error} onRetry={() => { setError(''); setLoading(true); setRetryKey((key) => key + 1); }} />;
 
   const invoices = data?.invoices || [];
   const accessBlocked = data?.access?.blocked || data?.access?.restricted;
