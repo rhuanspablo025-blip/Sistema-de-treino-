@@ -96,6 +96,7 @@
   box-shadow:-11px 10px 0 #040506, -19px 17px 0 #99702a30, 8px 17px 26px #000a,
     inset 0 0 0 6px #99702a7d, inset 0 0 0 13px #080a0b, inset 0 0 38px #d28b2f30;
   transform:rotateY(-34deg) rotateX(6deg);
+  animation:atlas-stack-spin 26s linear infinite;
   filter:brightness(.69);
   overflow:hidden;
 }
@@ -225,6 +226,13 @@
   overflow:hidden;
 }
 .atlas-barbell__cap img{width:85%;height:85%;object-fit:contain;mix-blend-mode:screen}
+.atlas-barbell__shaft-back,.atlas-barbell__shaft-front { overflow:hidden; }
+.atlas-barbell__shaft-back::after,.atlas-barbell__shaft-front::after {
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  background:linear-gradient(0deg,transparent 8%,#f7ebd125 33%,#ffffff38 50%,transparent 79%);
+  animation:atlas-shaft-shine 13s linear infinite;
+  pointer-events:none;
+}
 .atlas-barbell__glow-ring{
   position:absolute;z-index:0;left:34%;top:4%;width:61%;aspect-ratio:1;border-radius:50%;
   border:2px solid #dc992a7a;box-shadow:0 0 27px #e3a73150;transform:rotateY(-45deg);
@@ -262,6 +270,14 @@
 .atlas-loading--error .atlas-loading__readout{padding-bottom:10px}
 @keyframes atlas-barbell-hover{0%,100%{transform:translateY(3px) rotateY(-4deg) rotateZ(-.7deg)}50%{transform:translateY(-10px) rotateY(4deg) rotateZ(.7deg)}}
 @keyframes atlas-plate-spin{to{transform:rotate(360deg)}}
+@keyframes atlas-stack-spin{
+  from{transform:rotateY(-34deg) rotateX(6deg) rotateZ(0)}
+  to{transform:rotateY(-34deg) rotateX(6deg) rotateZ(360deg)}
+}
+@keyframes atlas-shaft-shine{
+  from{transform:translateY(-115%)}
+  to{transform:translateY(115%)}
+}
 @media(max-width:700px){
  .atlas-loading{padding:25px 10px 30px}
  .atlas-loading__content{width:100%}
@@ -292,6 +308,6 @@
  .atlas-loading__beam--c{opacity:.25}
 }
 @media(prefers-reduced-motion:reduce){
- .atlas-barbell,.atlas-barbell__rotor{animation:none}
+ .atlas-barbell,.atlas-barbell__rotor,.atlas-barbell__stack-plate,.atlas-barbell__shaft-back::after,.atlas-barbell__shaft-front::after{animation:none}
  .atlas-loading__track span{transition:none;will-change:auto}
 }
