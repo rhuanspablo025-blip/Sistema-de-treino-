@@ -104,7 +104,7 @@ function Figure({ side, muscles, groups, restrictions, metric, max, selected, on
 export default function MuscleAnatomy({ groups = [], restrictions = [], totals, mode = "planned", onModeChange, days = 7, onDaysChange, isDraft = false, loading = false, error = "" }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [metric, setMetric] = useState("sets");
-  const [renderMode, setRenderMode] = useState("2d");
+  const [renderMode, setRenderMode] = useState("3d");
   const [view, setView] = useState("both");
   const [zoom, setZoom] = useState(false);
   const [selected, setSelected] = useState("auto");
@@ -143,7 +143,7 @@ export default function MuscleAnatomy({ groups = [], restrictions = [], totals, 
     <div className="muscle-anatomy__toolbar" aria-label="Controles do mapa muscular">
       <div className="muscle-anatomy__segmented" aria-label="Período">{(isDraft ? [["planned", "Prévia da ficha"]] : [["planned", "Planejado"], ["performed", "Realizado"]]).map(([value, label]) => <button type="button" key={value} aria-pressed={mode === value} onClick={() => onModeChange?.(value)}>{label}</button>)}{mode === "performed" && [7, 30].map((value) => <button type="button" key={value} aria-pressed={days === value} onClick={() => onDaysChange?.(value)}>{value} dias</button>)}</div>
       <div className="muscle-anatomy__segmented" aria-label="Métrica">{[["sets", "Séries"], ["volume", "Carga externa"]].map(([value, label]) => <button type="button" key={value} aria-pressed={metric === value} onClick={() => setMetric(value)}>{label}</button>)}</div>
-      <div className="muscle-anatomy__segmented" aria-label="Visualização">{[["2d", "Mapa 2D"], ["3d", "Corpo 3D"]].map(([value, label]) => <button key={value} type="button" aria-pressed={renderMode === value} onClick={() => setRenderMode(value)}>{label}</button>)}</div>
+      <div className="muscle-anatomy__segmented" aria-label="Visualização">{[["3d", "Corpo 3D"], ["2d", "Mapa 2D"]].map(([value, label]) => <button key={value} type="button" aria-pressed={renderMode === value} onClick={() => setRenderMode(value)}>{label}</button>)}</div>
       {renderMode === "2d" && <div className="muscle-anatomy__segmented" aria-label="Vista">{[["both", "Ambas"], ["front", "Frente"], ["back", "Costas"]].map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</div>}
       {renderMode === "2d" && <button type="button" className="muscle-anatomy__tool" aria-pressed={zoom} onClick={() => setZoom((value) => !value)}>{zoom ? "Reduzir" : "Ampliar"}</button>}
       <button type="button" className="muscle-anatomy__tool" aria-pressed={showIndex} onClick={() => setShowIndex((value) => !value)}>Índice muscular</button>
