@@ -94,9 +94,15 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         const loader = new GLTFLoader();
         loader.setMeshoptDecoder(MeshoptDecoder);
         const asset = MODEL_BASE + (sex === "male" ? "anatomy-male.glb" : "anatomy-female.glb");
-        const response = await fetch(asset, { method: "HEAD", cache: "no-cache" });
-        if (!response.ok) throw new Error("Asset 3D não disponível: " + response.status + " " + asset);
-        const gltf = await loader.loadAsync(asset);
+        // Validate the actual binary response: auth redirects may otherwise return HTTP 200 HTML.
+        const response = await fetch(asset, { cache: "force-cache", redirect: "error" });
+        if (!response.ok) throw new Error("Arquivo GLB indisponível (HTTP " + response.status + ")");
+        const bytes = await response.arrayBuffer();
+        const signature = new Uint8Array(bytes, 0, Math.min(4, bytes.byteLength));
+        if (signature.length !== 4 || String.fromCharCode(...signature) !== "glTF") {
+          throw new Error("Resposta inválida para " + asset + ": esperado GLB, não HTML/JSON.");
+        }
+        const gltf = await loader.parseAsync(bytes, asset);
         if (disposed) return;
         model = gltf.scene;
         scene.add(model);
@@ -197,7 +203,7 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         setStatus("");
         setProblem(false);
       } catch (error) {
-        if (!disposed) { setProblem(true); setStatus("Não foi possível carregar o modelo 3D. Utilize a visualização 2D."); }
+        if (!disposed) { setProblem(true); setStatus(`Falha no modelo 3D: ${error?.message || "erro desconhecido"}. O mapa 2D continua disponível.`); }
         console.error("Atlas Fit: erro ao carregar Open Anatomy 3D", error);
       }
     }
