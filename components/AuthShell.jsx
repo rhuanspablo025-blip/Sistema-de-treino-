@@ -9,7 +9,7 @@ export default function AuthShell({ children, showcase }) {
   return (
     <main className="login-page auth-layout">
       <aside className={`auth-showcase ${styles.showcase}`} aria-label="AtlasFit">
-        <Image src={mascot} alt="Gorila mascote do AtlasFit sorrindo e acenando" fill priority sizes="(max-width: 760px) 100vw, 58vw" className={`auth-showcase-image ${styles.poster}`} />
+        <Image src={mascot} alt="Gorila mascote do AtlasFit com olhar tranquilo e regata preta e dourada" fill priority sizes="(max-width: 760px) 100vw, 58vw" className={`auth-showcase-image ${styles.poster}`} />
         <span className="auth-showcase-vignette" aria-hidden="true" />
         {showcase}
         <img className={styles.mark} src={wordmark.src} alt="" />
