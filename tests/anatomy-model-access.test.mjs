@@ -23,15 +23,6 @@ function request(pathname, hostname = "www.atlasfit.com.br") {
   return { nextUrl: { pathname: url.pathname, hostname }, url: url.toString(), cookies: { get: () => undefined } };
 }
 
-test("male/female anatomy assets remain public despite authentication middleware", async () => {
-  const { proxy, getSessionCalls } = await loadProxy();
-  for (const sex of ["male", "female"]) {
-    const result = await proxy(request("/models/open-anatomy-3d/anatomy-" + sex + ".glb"));
-    assert.equal(result.kind, "next");
-  }
-  assert.equal(getSessionCalls(), 0);
-});
-
 test("normal pages remain session-protected", async () => {
   const { proxy, getSessionCalls } = await loadProxy();
   const result = await proxy(request("/personal/fichas"));
@@ -46,17 +37,7 @@ test("unrelated assets under models do not bypass authentication", async () => {
   assert.equal(result.kind, "redirect");
 });
 
-test("models get copied and GLB signature is checked before parsing", () => {
-  const script = readFileSync(new URL("../scripts/copy-anatomy-models.mjs", import.meta.url), "utf8");
-  const viewer = readFileSync(new URL("../components/Anatomy3D.jsx", import.meta.url), "utf8");
-  assert.match(script, /anatomy-male\.glb/);
-  assert.match(script, /anatomy-female\.glb/);
-  assert.match(viewer, /parseAsync\(bytes, asset\)/);
-  assert.match(viewer, /"glTF"/);
-});
-
-
-test("anatomy WebAssembly decoder permitted by CSP without JavaScript unsafe-eval", () => {
+test("WebAssembly permitted by CSP without JavaScript unsafe-eval", () => {
   const config = readFileSync(new URL("../next.config.js", import.meta.url), "utf8");
   const match = config.match(/script-src ([^;]+);/);
   assert.ok(match, "script-src directive must exist");

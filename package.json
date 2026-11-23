@@ -6,9 +6,8 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "predev": "node scripts/copy-anatomy-models.mjs",
     "dev": "next dev",
-    "build": "node --test tests/anatomy-model-access.test.mjs && node scripts/migrate-on-build.js && node scripts/copy-anatomy-models.mjs && next build",
+    "build": "node --test tests/anatomy-model-access.test.mjs && node scripts/migrate-on-build.js && next build",
     "start": "next start",
     "test": "node --test",
     "admin:create": "node scripts/create-admin-user.js",
@@ -28,7 +27,6 @@
     "qrcode": "^1.5.4",
     "react": "latest",
     "react-dom": "latest",
-    "three": "0.187.0",
-    "open-anatomy-3d": "0.1.0"
+    "three": "0.187.0"
   }
 }

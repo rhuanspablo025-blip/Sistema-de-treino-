@@ -62,6 +62,6 @@ export default function MeasuredAnatomy({ studentId, onMeasurementSaved, ...anal
       </fieldset></form>}
       {notice && <p role="status">{notice}</p>}
     </section>}
-    <MuscleAnatomy {...analytics} measurements={draft ?? saved ?? undefined} />
+    <MuscleAnatomy {...analytics} />
   </>;
 }
