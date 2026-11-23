@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import WorkoutPlanManager from '../../../components/WorkoutPlanManager';
+import MuscleAnalytics from '../../../components/MuscleAnalytics';
 import AtlasLoading from '../../../components/AtlasLoading';
 import '../personal.css';
 
@@ -15,5 +16,5 @@ export default function PersonalFichasPage() {
       .catch((failure) => setError(failure.message));
   }, []);
   if (!student && !error) return <AtlasLoading label="Preparando ficha do aluno" detail="Verificando o vínculo e a autorização de acesso." />;
-  return <main className="personal-shell"><header className="personal-top"><a className="personal-brand" href="/personal"><span className="personal-mark">A</span><span>AtlasFit <small>FICHAS DE TREINO</small></span></a><nav><a href="/personal">← Voltar aos alunos</a></nav></header><section className="personal-main">{error ? <p className="personal-alert" role="alert">{error}</p> : student ? <WorkoutPlanManager students={[student]} canEdit onNewStudent={() => { window.location.href = '/personal'; }} onGoToExercises={() => {}} /> : <div className="personal-empty">Carregando ficha autorizada…</div>}</section></main>;
+  return <main className="personal-shell"><header className="personal-top"><a className="personal-brand" href="/personal"><span className="personal-mark">A</span><span>AtlasFit <small>FICHAS DE TREINO</small></span></a><nav><a href="/personal">← Voltar aos alunos</a></nav></header><section className="personal-main">{error ? <p className="personal-alert" role="alert">{error}</p> : student ? <><WorkoutPlanManager students={[student]} canEdit onNewStudent={() => { window.location.href = '/personal'; }} onGoToExercises={() => {}} /><MuscleAnalytics studentId={student.id} /></> : <div className="personal-empty">Carregando ficha autorizada…</div>}</section></main>;
 }

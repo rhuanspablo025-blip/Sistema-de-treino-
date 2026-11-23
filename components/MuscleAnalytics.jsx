@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MeasuredAnatomy from "./MeasuredAnatomy";
 import MuscleAnatomy from "./MuscleAnatomy";
 import { aggregateMuscles } from "../lib/muscle-analytics.mjs";
 
-export default function MuscleAnalytics({ studentId, planId, draftEntries, catalog = [] }) {
+export default function MuscleAnalytics({ studentId, onMeasurementSaved, planId, draftEntries, catalog = [] }) {
   const [mode, setMode] = useState("planned");
   const [days, setDays] = useState(7);
   const [state, setState] = useState({ loading: true });
@@ -28,7 +29,8 @@ export default function MuscleAnalytics({ studentId, planId, draftEntries, catal
   }, [studentId, planId, mode, days, draftEntries]);
 
   const data = draftEntries ? aggregateMuscles(draftEntries, catalog, { mode: "planned" }) : state.data;
-  return <MuscleAnatomy
+  const Viewer = studentId ? MeasuredAnatomy : MuscleAnatomy;
+  return <Viewer key={studentId} studentId={studentId} onMeasurementSaved={onMeasurementSaved}
     groups={data?.groups || []}
     restrictions={data?.restrictions || []}
     totals={data?.totals}

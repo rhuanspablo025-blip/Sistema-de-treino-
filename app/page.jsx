@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import MeasureInputs from "../components/MeasureInputs";
+import Anatomy3D from "../components/Anatomy3D";
+import { currentMeasures } from "../lib/body-shape.mjs";
 import CardioPerformance from "../components/CardioPerformance";
 import MuscleAnalytics from "../components/MuscleAnalytics";
 import TrainingDesk from "../components/TrainingDesk";
@@ -319,24 +322,10 @@ function AdminModule({ onStudent, view, students, workoutPlans, adminList, exerc
   );
 }
 
-function BodyFigure({ measurements }) {
-  const value = (current, fallback) => Number(current) > 0 ? Number(current) : fallback;
-  const shoulder = Math.max(82, Math.min(142, value(measurements.shoulder, 108) * 1.15));
-  const chest = Math.max(72, Math.min(124, value(measurements.chest, 96) * 1.05));
-  const waist = Math.max(62, Math.min(108, value(measurements.waist, 82) * 0.95));
-  const hip = Math.max(75, Math.min(132, value(measurements.hip, 101) * 0.98));
-  const armLeft = Math.max(13, Math.min(25, value(measurements.armLeft, 34) * 0.58));
-  const armRight = Math.max(13, Math.min(25, value(measurements.armRight, 34) * 0.58));
-  const thighLeft = Math.max(21, Math.min(37, value(measurements.thighLeft, 58) * 0.48));
-  const thighRight = Math.max(21, Math.min(37, value(measurements.thighRight, 58) * 0.48));
-  return <div className="body-map"><div className="body-measure-tag tag-shoulder">Ombros {measurements.shoulder} cm</div><div className="body-measure-tag tag-waist">Cintura {measurements.waist} cm</div><svg viewBox="0 0 260 430" role="img" aria-label="Visualização proporcional do corpo"><defs><linearGradient id="figureGradient" x1="0" x2="1"><stop offset="0" stopColor="#277665" /><stop offset="1" stopColor="#3a927c" /></linearGradient></defs><circle cx="130" cy="42" r="29" fill="#d89575" /><path d="M115 67h30l6 25h-42z" fill="#d89575" /><path d={`M${130 - shoulder / 2} 86 Q130 73 ${130 + shoulder / 2} 86 L${130 + chest / 2} 185 Q130 204 ${130 - chest / 2} 185Z`} fill="url(#figureGradient)" /><path d={`M${130 - shoulder / 2} 94 L${130 - shoulder / 2 - armLeft - 12} 190 Q${130 - shoulder / 2 - armLeft - 12} 207 ${130 - shoulder / 2 - armLeft} 209 Q${130 - shoulder / 2 - armLeft + 8} 208 ${130 - shoulder / 2 - armLeft + 10} 190 L${130 - shoulder / 2 + 7} 112Z`} fill="#d89575" /><path d={`M${130 + shoulder / 2} 94 L${130 + shoulder / 2 + armRight + 12} 190 Q${130 + shoulder / 2 + armRight + 12} 207 ${130 + shoulder / 2 + armRight} 209 Q${130 + shoulder / 2 + armRight - 8} 208 ${130 + shoulder / 2 + armRight - 10} 190 L${130 + shoulder / 2 - 7} 112Z`} fill="#d89575" /><path d={`M${130 - hip / 2} 177 Q130 195 ${130 + hip / 2} 177 L${130 + hip / 2 - 7} 220 L${130 + thighRight / 2} 350 Q130 360 ${130 - thighLeft / 2} 350 L${130 - hip / 2 + 7} 220Z`} fill="url(#figureGradient)" /><path d={`M${130 - thighLeft / 2} 340 L${130 - thighLeft / 2 - 4} 405 Q130 414 ${130 - thighLeft / 2 + 10} 414 L130 405 L130 340Z`} fill="#315f57" /><path d={`M${130 + thighRight / 2} 340 L${130 + thighRight / 2 + 4} 405 Q260 414 ${130 + thighRight / 2 - 10} 414 L130 405 L130 340Z`} fill="#315f57" /></svg><div className="body-measure-legend"><span><i className="legend-teal" /> Proporções estimadas</span><span><i className="legend-brand" /> Medidas editáveis</span></div></div>;
-}
-
 function BodyProfileEditor({ measurements, setMeasurements }) {
-  const fields = [["height", "Altura", "cm"], ["weight", "Peso", "kg"], ["shoulder", "Ombros", "cm"], ["chest", "Peito", "cm"], ["waist", "Cintura", "cm"], ["hip", "Quadril", "cm"], ["armLeft", "Braço esquerdo", "cm"], ["armRight", "Braço direito", "cm"], ["thighLeft", "Coxa esquerda", "cm"], ["thighRight", "Coxa direita", "cm"], ["legLeft", "Perna esquerda", "cm"], ["legRight", "Perna direita", "cm"]];
   function update(key, value) { setMeasurements((current) => ({ ...current, [key]: value === '' ? '' : Number(value) })); }
   const bmi = Number(measurements.height) > 0 && Number(measurements.weight) > 0 ? (measurements.weight / ((measurements.height / 100) ** 2)).toFixed(1) : '—';
-  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><div className="measurement-form enhanced-form">{fields.map(([key, label, unit]) => <label key={key}>{label}<div><input type="number" min="1" max={key === 'height' ? 250 : key === 'weight' ? 500 : 300} step="0.1" value={measurements[key] ?? ''} onChange={(event) => update(key, event.target.value)} /><span>{unit}</span></div></label>)}</div></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {bmi}</span></div><BodyFigure measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
+  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><MeasureInputs values={measurements} onChange={update} /></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {bmi}</span></div><Anatomy3D measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
 }
 
 function EnhancedProfile({ student, measurements, setMeasurements, onBack, onSaved, measurementHistory = [] }) {
@@ -407,9 +396,6 @@ function StudentView({ student, onBack }) {
     .filter((record) => record.exerciseId === activeExercise.exerciseId && new Date(record.date) >= new Date(Date.now() - periodDays[chartPeriod] * 86400000))
     .flatMap((record) => (record.sets || []).map((set) => Number(set.load)))
     .filter((load) => Number.isFinite(load) && load > 0) : [];
-  const measurementDefaults = ['height', 'weight', 'shoulder', 'chest', 'waist', 'hip', 'armLeft', 'armRight', 'thighLeft', 'thighRight', 'legLeft', 'legRight'].reduce((result, key) => ({ ...result, [key]: 0 }), {});
-  const safeMeasurements = { ...measurementDefaults, ...measurements };
-
   useEffect(() => {
     let active = true;
     async function loadStudentData() {
@@ -458,7 +444,7 @@ function StudentView({ student, onBack }) {
         setWorkoutExercises(exerciseData.exercises);
         setHistory(historyData.history);
         setMeasurementHistory(measurementData.measurements);
-        setMeasurements(measurementData.measurements[0] || {});
+        setMeasurements(currentMeasures(measurementData.measurements));
         setSelectedExercise(0);
       } catch (loadError) {
         if (active) setError(loadError.message);
@@ -475,7 +461,7 @@ function StudentView({ student, onBack }) {
   if (student.profileMissing) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">Esta conta não tem um perfil de aluno cadastrado. Nenhuma ficha de outra pessoa será exibida aqui.</p></div>{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div><MuscleAnalytics draftEntries={[]} /></div>;
   if (editingOwnPlan) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Minha ficha de treino</h1><p className="heading-copy">Monte e salve sua ficha com sua senha.</p></div><button className="outline-button" onClick={() => setEditingOwnPlan(false)}>← Voltar</button></div><WorkoutPlanManager students={[student]} canEdit onNewStudent={() => {}} onGoToExercises={() => {}} studentMode /></div>;
   if (!workoutPlan || !workout || exercises.length === 0) return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">ÁREA DO ALUNO</p><h1>Olá, {student.name.split(" ")[0]}!</h1><p className="heading-copy">{student.trainerId ? 'Seu personal responsável gerencia sua ficha.' : 'Sua ficha ainda não foi cadastrada.'}</p></div>{!student.trainerId && <button className="primary-button" onClick={() => setEditingOwnPlan(true)}>Montar minha ficha</button>}{onBack && <button className="outline-button" onClick={onBack}>← Visão do administrador</button>}</div><MuscleAnalytics studentId={student.id} /></div>;
-  if (studentPanel === "profile") return <StudentProfile student={student} measurements={safeMeasurements} setMeasurements={setMeasurements} history={measurementHistory} onSaved={(record) => { setMeasurementHistory((current) => [record, ...current]); setMeasurements(record); }} onBack={() => setStudentPanel("workout")} />;
+  if (studentPanel === "profile") return <StudentProfile student={student} measurements={measurements} setMeasurements={setMeasurements} history={measurementHistory} onSaved={(record) => { setMeasurementHistory((current) => [record, ...current]); setMeasurements(record); }} onBack={() => setStudentPanel("workout")} />;
 
   async function toggleCompleted(index) {
     const item = exercises[index];
@@ -526,7 +512,10 @@ function StudentView({ student, onBack }) {
           <small>concluído</small>
         </div>
       </div>
-      <MuscleAnalytics studentId={student.id} planId={workoutPlan.id} />
+      <MuscleAnalytics studentId={student.id} onMeasurementSaved={record => {
+        setMeasurementHistory(items => [record, ...items]);
+        setMeasurements(values => ({ ...values, ...currentMeasures([record]) }));
+      }} planId={workoutPlan.id} />
       <div className="student-workout-layout">
         <section className="panel student-exercises">
           <div className="panel-header">
