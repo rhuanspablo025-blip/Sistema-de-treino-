@@ -1,3 +1,13 @@
+.showcase.showcase {
+  isolation:isolate;
+  background:radial-gradient(ellipse at 47% 37%,#69513a 0%,#392f29 46%,#191719 88%);
+}
+.showcase::before {
+  content:""; position:absolute; inset:-5px; pointer-events:none;
+  background:url("../../public/forge/gym.webp") center 55% / cover;
+  filter:blur(4px); opacity:.14;
+}
+.showcase:has(.stage[data-ready="true"]) .poster { opacity:0; }
 .stage {
   position: absolute;
   inset: 0;
@@ -5,7 +15,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.55s ease;
-  background: #100f0e;
+
 }
 .stage[data-ready='true'] {
   opacity: 1;
@@ -16,22 +26,13 @@
   height: 100%;
   display: block;
 }
-.stage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(0deg, #070706dd, transparent 25%),
-    radial-gradient(ellipse at 50% 42%, transparent 48%, #08070655);
-  pointer-events: none;
-}
 .mark {
   position: absolute;
   z-index: 1;
-  bottom: 5%;
+  bottom: 2%;
   left: 50%;
   transform: translateX(-50%);
-  width: min(48%, 370px);
+  width: min(39%, 300px);
   height: auto;
 }
 @media (prefers-reduced-motion: reduce) {
