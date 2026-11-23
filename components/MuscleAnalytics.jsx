@@ -29,7 +29,7 @@ export default function MuscleAnalytics({ studentId, onMeasurementSaved, planId,
   }, [studentId, planId, mode, days, draftEntries]);
 
   const data = draftEntries ? aggregateMuscles(draftEntries, catalog, { mode: "planned" }) : state.data;
-  const Viewer = studentId ? MeasuredAnatomy : MuscleAnatomy;
+  const Viewer = studentId && !draftEntries ? MeasuredAnatomy : MuscleAnatomy;
   return <Viewer key={studentId} studentId={studentId} onMeasurementSaved={onMeasurementSaved}
     groups={data?.groups || []}
     restrictions={data?.restrictions || []}

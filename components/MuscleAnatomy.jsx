@@ -1,9 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 
-const Anatomy3D = dynamic(() => import("./Anatomy3D"), { ssr: false, loading: () => <p className="muscle-anatomy__status">Preparando visualizador 3D…</p> });
 import { BACK_MUSCLES, FRONT_MUSCLES } from "body-muscles";
 
 const CATEGORIES = ["Glúteos", "Costas", "Peito", "Ombros", "Quadríceps", "Posterior de coxa", "Braços", "Abdômen", "Panturrilhas"];
@@ -101,10 +99,9 @@ function Figure({ side, muscles, groups, restrictions, metric, max, selected, on
   </figure>;
 }
 
-export default function MuscleAnatomy({ measurements, groups = [], restrictions = [], totals, mode = "planned", onModeChange, days = 7, onDaysChange, isDraft = false, loading = false, error = "" }) {
+export default function MuscleAnatomy({ groups = [], restrictions = [], totals, mode = "planned", onModeChange, days = 7, onDaysChange, isDraft = false, loading = false, error = "" }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [metric, setMetric] = useState("sets");
-  const [renderMode, setRenderMode] = useState("3d");
   const [view, setView] = useState("both");
   const [zoom, setZoom] = useState(false);
   const [selected, setSelected] = useState("auto");
@@ -143,17 +140,16 @@ export default function MuscleAnatomy({ measurements, groups = [], restrictions 
     <div className="muscle-anatomy__toolbar" aria-label="Controles do mapa muscular">
       <div className="muscle-anatomy__segmented" aria-label="Período">{(isDraft ? [["planned", "Prévia da ficha"]] : [["planned", "Planejado"], ["performed", "Realizado"]]).map(([value, label]) => <button type="button" key={value} aria-pressed={mode === value} onClick={() => onModeChange?.(value)}>{label}</button>)}{mode === "performed" && [7, 30].map((value) => <button type="button" key={value} aria-pressed={days === value} onClick={() => onDaysChange?.(value)}>{value} dias</button>)}</div>
       <div className="muscle-anatomy__segmented" aria-label="Métrica">{[["sets", "Séries"], ["volume", "Carga externa"]].map(([value, label]) => <button type="button" key={value} aria-pressed={metric === value} onClick={() => setMetric(value)}>{label}</button>)}</div>
-      <div className="muscle-anatomy__segmented" aria-label="Visualização">{[["3d", "Atleta 3D"], ["2d", "Mapa 2D"]].map(([value, label]) => <button key={value} type="button" aria-pressed={renderMode === value} onClick={() => setRenderMode(value)}>{label}</button>)}</div>
-      {renderMode === "2d" && <div className="muscle-anatomy__segmented" aria-label="Vista">{[["both", "Ambas"], ["front", "Frente"], ["back", "Costas"]].map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</div>}
-      {renderMode === "2d" && <button type="button" className="muscle-anatomy__tool" aria-pressed={zoom} onClick={() => setZoom((value) => !value)}>{zoom ? "Reduzir" : "Ampliar"}</button>}
+      <div className="muscle-anatomy__segmented" aria-label="Vista">{[["both", "Ambas"], ["front", "Frente"], ["back", "Costas"]].map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</div>
+      <button type="button" className="muscle-anatomy__tool" aria-pressed={zoom} onClick={() => setZoom((value) => !value)}>{zoom ? "Reduzir" : "Ampliar"}</button>
       <button type="button" className="muscle-anatomy__tool" aria-pressed={showIndex} onClick={() => setShowIndex((value) => !value)}>Grupos musculares</button>
     </div>
     {loading && <p className="muscle-anatomy__status" role="status">Carregando análise muscular…</p>}
     {error && <p className="muscle-anatomy__status" role="alert">{error}</p>}
-    {renderMode === "3d" ? <Anatomy3D measurements={measurements} groups={groups} restrictions={restrictions} metric={metric} selected={focus} onSelect={choose} filter={filter} isolated={isolated} restrictedOnly={restrictedOnly} /> : <div className="muscle-anatomy__figures" data-view={view}>
+    <div className="muscle-anatomy__figures" data-view={view}>
       {(view === "both" || view === "front") && <Figure side="front" muscles={FRONT_MUSCLES} {...anatomy} />}
       {(view === "both" || view === "back") && <Figure side="back" muscles={BACK_MUSCLES} {...anatomy} />}
-    </div>}
+    </div>
     <div className="muscle-anatomy__filters" aria-label="Filtrar intensidade">{LEVELS.map((label, index) => <button type="button" key={label} aria-pressed={filter === index} onClick={() => setFilter((current) => current === index ? null : index)}><i data-level={index} />{label}</button>)}</div>
     <div className="muscle-anatomy__options"><button type="button" className="muscle-anatomy__tool" disabled={!focus} aria-pressed={isolated} onClick={() => setIsolated((value) => !value)}>{isolated ? "Mostrar corpo completo" : "Isolar grupo em foco"}</button><button type="button" className="muscle-anatomy__tool" disabled={!restrictions.length} aria-pressed={restrictedOnly} onClick={() => setRestrictedOnly((value) => !value)}>{restrictedOnly ? "Mostrar todas as regiões" : "Destacar restrições"}</button></div>
     {showIndex && <div className="muscle-anatomy__index"><strong>Grupos musculares</strong><div>{allMuscles.filter((item) => regionInfo(item.id)[0]).map((item) => <button type="button" key={item.id} onClick={() => choose(regionInfo(item.id)[0], item.id)}>{regionLabel(item.id)}</button>)}</div></div>}

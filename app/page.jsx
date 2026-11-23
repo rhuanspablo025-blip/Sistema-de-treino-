@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import MeasureInputs from "../components/MeasureInputs";
-import Anatomy3D from "../components/Anatomy3D";
 import { currentMeasures } from "../lib/body-shape.mjs";
 import CardioPerformance from "../components/CardioPerformance";
 import MuscleAnalytics from "../components/MuscleAnalytics";
@@ -322,10 +321,23 @@ function AdminModule({ onStudent, view, students, workoutPlans, adminList, exerc
   );
 }
 
+function BodyFigure({ measurements }) {
+  const value = (current, fallback) => Number(current) > 0 ? Number(current) : fallback;
+  const shoulder = Math.max(82, Math.min(142, value(measurements.shoulder, 108) * 1.15));
+  const chest = Math.max(72, Math.min(124, value(measurements.chest, 96) * 1.05));
+  const waist = Math.max(62, Math.min(108, value(measurements.waist, 82) * 0.95));
+  const hip = Math.max(75, Math.min(132, value(measurements.hip, 101) * 0.98));
+  const armLeft = Math.max(13, Math.min(25, value(measurements.armLeft, 34) * 0.58));
+  const armRight = Math.max(13, Math.min(25, value(measurements.armRight, 34) * 0.58));
+  const thighLeft = Math.max(21, Math.min(37, value(measurements.thighLeft, 58) * 0.48));
+  const thighRight = Math.max(21, Math.min(37, value(measurements.thighRight, 58) * 0.48));
+  return <div className="body-map"><div className="body-measure-tag tag-shoulder">Ombros {measurements.shoulder ? `${measurements.shoulder} cm` : "—"}</div><div className="body-measure-tag tag-waist">Cintura {measurements.waist ? `${measurements.waist} cm` : "—"}</div><svg viewBox="0 0 260 430" role="img" aria-label="Visualização proporcional do corpo"><defs><linearGradient id="figureGradient" x1="0" x2="1"><stop offset="0" stopColor="#277665" /><stop offset="1" stopColor="#3a927c" /></linearGradient></defs><circle cx="130" cy="42" r="29" fill="#d89575" /><path d="M115 67h30l6 25h-42z" fill="#d89575" /><path d={`M${130 - shoulder / 2} 86 Q130 73 ${130 + shoulder / 2} 86 L${130 + chest / 2} 185 Q130 204 ${130 - chest / 2} 185Z`} fill="url(#figureGradient)" /><path d={`M${130 - shoulder / 2} 94 L${130 - shoulder / 2 - armLeft - 12} 190 Q${130 - shoulder / 2 - armLeft - 12} 207 ${130 - shoulder / 2 - armLeft} 209 Q${130 - shoulder / 2 - armLeft + 8} 208 ${130 - shoulder / 2 - armLeft + 10} 190 L${130 - shoulder / 2 + 7} 112Z`} fill="#d89575" /><path d={`M${130 + shoulder / 2} 94 L${130 + shoulder / 2 + armRight + 12} 190 Q${130 + shoulder / 2 + armRight + 12} 207 ${130 + shoulder / 2 + armRight} 209 Q${130 + shoulder / 2 + armRight - 8} 208 ${130 + shoulder / 2 + armRight - 10} 190 L${130 + shoulder / 2 - 7} 112Z`} fill="#d89575" /><path d={`M${130 - hip / 2} 177 Q130 195 ${130 + hip / 2} 177 L${130 + hip / 2 - 7} 220 L${130 + thighRight / 2} 350 Q130 360 ${130 - thighLeft / 2} 350 L${130 - hip / 2 + 7} 220Z`} fill="url(#figureGradient)" /><path d={`M${130 - thighLeft / 2} 340 L${130 - thighLeft / 2 - 4} 405 Q130 414 ${130 - thighLeft / 2 + 10} 414 L130 405 L130 340Z`} fill="#315f57" /><path d={`M${130 + thighRight / 2} 340 L${130 + thighRight / 2 + 4} 405 Q260 414 ${130 + thighRight / 2 - 10} 414 L130 405 L130 340Z`} fill="#315f57" /></svg><div className="body-measure-legend"><span><i className="legend-teal" /> Proporções estimadas</span><span><i className="legend-brand" /> Medidas editáveis</span></div></div>;
+}
+
 function BodyProfileEditor({ measurements, setMeasurements }) {
   function update(key, value) { setMeasurements((current) => ({ ...current, [key]: value === '' ? '' : Number(value) })); }
   const bmi = Number(measurements.height) > 0 && Number(measurements.weight) > 0 ? (measurements.weight / ((measurements.height / 100) ** 2)).toFixed(1) : '—';
-  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><MeasureInputs values={measurements} onChange={update} /></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {bmi}</span></div><Anatomy3D measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
+  return <div className="enhanced-profile-grid"><section className="panel measurements-panel enhanced-measurements"><div className="panel-header"><div><h2>Mapa de medidas</h2><p>Edite cada região para atualizar o modelo em tempo real.</p></div><span className="profile-status">Atualização ao vivo</span></div><MeasureInputs values={measurements} onChange={update} /></section><section className="panel body-card enhanced-body"><div className="panel-header"><div><p className="eyebrow">MODELO PROPORCIONAL</p><h2>Seu corpo hoje</h2></div><span className="bmi-badge">IMC {bmi}</span></div><BodyFigure measurements={measurements} /><p className="figure-caption">Ombros, tronco, braços e pernas mudam conforme suas medidas.</p></section></div>;
 }
 
 function EnhancedProfile({ student, measurements, setMeasurements, onBack, onSaved, measurementHistory = [] }) {
