@@ -94,3 +94,11 @@ html[data-theme=light] .muscle-anatomy__track{background:#d6cdc0}
 .anatomy-measures .panel-header { flex-wrap: wrap; gap: .75rem; }
 .anatomy-measures .measurement-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .75rem; }
 .anatomy-measures .profile-save-row { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+
+.atlas-anatomy3d { background:#171819; border-color:#474137; }
+.atlas-anatomy3d__canvas {
+  background: radial-gradient(ellipse at 50% 86%,#4c4435 0,transparent 39%),
+    linear-gradient(118deg,transparent 20%,#ffffff06 20.2%,transparent 43%),
+    radial-gradient(ellipse at 48% 30%,#423f38,#29292a 51%,#18191a 87%);
+}
+.atlas-anatomy3d__credit summary { cursor:pointer; }

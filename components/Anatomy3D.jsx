@@ -1,6 +1,7 @@
 "use client";
 
-import { regionField, shapeRatios } from "../lib/body-shape.mjs";
+import { dressAthlete } from "../lib/athlete-surface.mjs";
+import { shapeRatios } from "../lib/body-shape.mjs";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -11,21 +12,6 @@ import { useEffect, useRef, useState } from "react";
 const MODEL_BASE = "/models/open-anatomy-3d/";
 const COLORS = ["#85858b", "#ff829c", "#399dff", "#26ce95", "#ffdc45", "#ff4055"];
 
-const MUSCLE_MATCH = [
-  ["Glúteos", /glute|piriform/i],
-  ["Costas", /back_muscles|trapez|rhomboid|erector|latiss|rotator_cuff/i],
-  ["Peito", /pector|chest|intercostal/i],
-  ["Ombros", /deltoid|shoulder_muscles/i],
-  ["Quadríceps", /quadricep|adductor|iliopsoas/i],
-  ["Posterior de coxa", /hamstring/i],
-  ["Braços", /upper_arm|forearm|hand_muscles/i],
-  ["Abdômen", /abdomin|pelvic_floor/i],
-  ["Panturrilhas", /calf|shin_muscles/i],
-];
-
-function muscleCategory(name) {
-  return MUSCLE_MATCH.find(([, pattern]) => pattern.test(name))?.[0] ?? null;
-}
 function groupCategory(name) {
   const value = String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/glut/.test(value)) return "Glúteos";
@@ -45,45 +31,44 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
   const controller = useRef(null);
   const [rotating, setRotating] = useState(false);
   const [sex, setSex] = useState("male");
-  const [status, setStatus] = useState("Carregando anatomia 3D…");
+  const [status, setStatus] = useState("Preparando o atleta…");
   const [problem, setProblem] = useState(false);
 
   useEffect(() => {
     let disposed = false;
     let renderer, scene, camera, controls, model, animation, resizeObserver;
     const materials = [];
-    const originals = new Map();
-    const meshes = [];
+    const scenery = [];
+    let print;
     const root = canvas.current;
     setProblem(false);
-    setStatus("Carregando modelo muscular 3D…");
+    setStatus("Carregando o atleta 3D…");
     if (!root) return undefined;
 
     async function boot() {
       try {
-        const [THREE, { GLTFLoader }, { OrbitControls }, { MeshoptDecoder }] = await Promise.all([
+        const [THREE, { GLTFLoader }, { OrbitControls }] = await Promise.all([
           import("three"),
           import("three/examples/jsm/loaders/GLTFLoader.js"),
           import("three/examples/jsm/controls/OrbitControls.js"),
-          import("three/examples/jsm/libs/meshopt_decoder.module.js"),
         ]);
         if (disposed) return;
         scene = new THREE.Scene();
-        scene.background = new THREE.Color("#121418");
+
         camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
         camera.position.set(0, 1, 4.5);
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.7;
-        renderer.domElement.setAttribute("aria-label", "Modelo muscular humano tridimensional. Arraste para girar.");
+        renderer.toneMappingExposure = 1.15;
+        renderer.domElement.setAttribute("aria-label", "Atleta com uniforme de treino. Arraste para girar.");
         root.appendChild(renderer.domElement);
-        scene.add(new THREE.HemisphereLight("#ffffff", "#48546b", 3));
-        const key = new THREE.DirectionalLight("#fff2d7", 3.4);
+        scene.add(new THREE.HemisphereLight("#fff2de", "#625e60", 1.65));
+        const key = new THREE.DirectionalLight("#fff1da", 2.65);
         key.position.set(3, 6, 5);
         scene.add(key);
-        const rim = new THREE.DirectionalLight("#7ea2ff", 2);
+        const rim = new THREE.DirectionalLight("#ffca75", 3);
         rim.position.set(-4, 3, -5);
         scene.add(rim);
         controls = new OrbitControls(camera, renderer.domElement);
@@ -94,8 +79,7 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
         controls.maxDistance = 6;
         controls.target.set(0, 0.9, 0);
         const loader = new GLTFLoader();
-        loader.setMeshoptDecoder(MeshoptDecoder);
-        const asset = MODEL_BASE + (sex === "male" ? "anatomy-male.glb" : "anatomy-female.glb");
+        const asset = MODEL_BASE + (sex === "male" ? "anatomy-male.glb" : "anatomy-female.glb") + "?kit=training-v1";
         // Validate the actual binary response: auth redirects may otherwise return HTTP 200 HTML.
         const response = await fetch(asset, { cache: "force-cache", redirect: "error" });
         if (!response.ok) throw new Error("Arquivo GLB indisponível (HTTP " + response.status + ")");
@@ -108,41 +92,55 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
         if (disposed) return;
         model = gltf.scene;
         scene.add(model);
-        model.traverse((object) => {
-          // A camada muscular fica visível; pele, órgãos, vasos e ossos não obstruem a seleção.
-          if (object.parent === model && /^(skin|skeleton|organs|vessels|nerves)$/i.test(object.name)) object.visible = false;
-          if (object.isMesh) {
-            // GLB primitives are often unnamed: resolve the nearest named muscle ancestor.
-            let owner = object;
-            while (owner && owner !== model && !muscleCategory(owner.name)) owner = owner.parent;
-            object.userData.anatomyCategory = owner ? muscleCategory(owner.name) : null;
-            // Omit invisible non-muscle layers when picking; preserve native geometry and groups.
-            object.userData.isMuscle = Boolean(object.userData.anatomyCategory);
-            if (object.userData.isMuscle) meshes.push(object);
-            const source = object.material;
-            const material = Array.isArray(source) ? source.map((m) => m.clone()) : source.clone();
-            object.material = material;
-            (Array.isArray(material) ? material : [material]).forEach(m => materials.push(m));
-            originals.set(object, (Array.isArray(material) ? material : [material]).map(m => m.color?.clone()));
-          }
-        });
-        // Each GLB region has its own native pivot and quantization scale.
-        // Apply ratios to that resting transform so changing inputs never compounds.
-        const regions = [];
-        model.getObjectByName("muscles")?.children.forEach(node => {
-          const field = regionField(node.name);
-          if (field) regions.push({ node, field, rest: node.scale.clone(), restX: node.position.x });
-        });
+        const athlete = model.getObjectByName("Athlete");
+        if (!athlete?.isMesh) throw Error("Superfície do atleta indisponível.");
+        const surface = dressAthlete(THREE, athlete, sex);
+        // Project the jersey print in rest coordinates so it stretches with the fabric.
+        const jersey = document.createElement("canvas");
+        jersey.width = 512; jersey.height = 128;
+        const ink = jersey.getContext("2d");
+        ink.fillStyle = "#f8e9c6";
+        ink.textAlign = "center";
+        ink.font = "italic 900 90px system-ui, sans-serif";
+        ink.fillText("ATLAS FIT", 256, 96, 490);
+        print = new THREE.CanvasTexture(jersey);
+        print.colorSpace = THREE.SRGBColorSpace;
+        const bodyHeight = athlete.geometry.boundingBox.max.y;
+        athlete.material.onBeforeCompile = shader => {
+          shader.uniforms.jerseyPrint = { value: print };
+          shader.uniforms.bodyHeight = { value: bodyHeight };
+          shader.vertexShader = "varying vec3 kitPoint; uniform float bodyHeight;\n" +
+            shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nkitPoint = position/bodyHeight;");
+          shader.fragmentShader = "varying vec3 kitPoint; uniform sampler2D jerseyPrint;\n" +
+            shader.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+              vec2 stamp = (kitPoint.xy - vec2(-0.058,0.737))/vec2(0.116,0.029);
+              if (kitPoint.z > 0.018 && all(greaterThanEqual(stamp,vec2(0.0))) && all(lessThanEqual(stamp,vec2(1.0)))) {
+                vec4 ink = texture2D(jerseyPrint,stamp);
+                diffuseColor.rgb = mix(diffuseColor.rgb,ink.rgb,ink.a*0.94);
+              }`);
+        };
+        materials.push(athlete.material);
+        surface.paint(new Map());
+        const deck = new THREE.Mesh(new THREE.CylinderGeometry(.47,.49,.045,72),
+          new THREE.MeshStandardMaterial({ color:"#24272b",roughness:.84,metalness:.18 }));
+        deck.position.y=-.029;
+        const edge = new THREE.Mesh(new THREE.TorusGeometry(.45,.003,8,96),
+          new THREE.MeshStandardMaterial({ color:"#c99239",roughness:.5 }));
+        edge.rotation.x=-Math.PI/2;
+        edge.position.y=-.005;
+        scene.add(deck,edge);
+        scenery.push(deck,edge);
         let ratios = shapeRatios({}, sex);
         let settling = false;
         const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
         controls.autoRotateSpeed = 0.65;
-        const box = new THREE.Box3().setFromObject(model);
+        const box = athlete.geometry.boundingBox.clone();
         if (box.isEmpty()) throw new Error("Modelo anatômico sem geometria visível");
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         controls.target.copy(center);
-        camera.position.set(center.x, center.y + size.y * 0.04, center.z + Math.max(2.5, size.y * 1.65));
+        camera.position.set(center.x + .51, center.y + .11, center.z + size.y * 1.92);
+        const home = camera.position.clone();
         camera.near = 0.01;
         camera.far = 100;
         camera.updateProjectionMatrix();
@@ -156,9 +154,9 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
           const bounds = renderer.domElement.getBoundingClientRect();
           pointer.set(((event.clientX - bounds.left) / bounds.width) * 2 - 1, -((event.clientY - bounds.top) / bounds.height) * 2 + 1);
           raycaster.setFromCamera(pointer, camera);
-          const hit = raycaster.intersectObjects(meshes.filter(m => m.visible && m.parent?.visible), false)
-            .find(i => i.object.userData.anatomyCategory);
-          if (hit) controller.current?.select?.(hit.object.userData.anatomyCategory, hit.object.name);
+          const hit = raycaster.intersectObject(athlete,false)[0];
+          const category = hit && surface.categoryAt(hit);
+          if (category) controller.current?.select?.(category);
         };
         renderer.domElement.addEventListener("pointerdown", onDown);
         renderer.domElement.addEventListener("pointerup", onUp);
@@ -187,14 +185,7 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
               return Math.abs(delta) < .00001 ? target : value + delta * mix;
             };
             model.scale.y = approach(model.scale.y, ratios.height);
-            for (const { node, field, rest, restX } of regions) {
-              const radial = ratios[field];
-              node.scale.x = approach(node.scale.x, rest.x * radial);
-              node.scale.z = approach(node.scale.z, rest.z * radial);
-              // Paired trunk regions share a midline; limbs keep their own axis.
-              if (["chest", "waist", "hip", "neck"].includes(field))
-                node.position.x = approach(node.position.x, restX * radial);
-            }
+            surface.shape(ratios, approach);
             settling = maxDelta > .00001;
           }
           controls.update(dt);
@@ -215,28 +206,20 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
               perCategory.set(category, Math.max(score, perCategory.get(category) || 0));
             }
             const highest = Math.max(0, ...perCategory.values());
-            for (const mesh of meshes) {
-              const category = mesh.userData.anatomyCategory;
+            const styles = new Map();
+            for (const category of ["Peito","Costas","Ombros","Braços","Abdômen","Glúteos","Quadríceps","Posterior de coxa","Panturrilhas"]) {
               const score = perCategory.get(category) || 0;
               const restricted = data.restrictions.some(r => r?.active !== false && groupCategory(r.muscle) === category);
               const ratio = highest ? score / highest : 0;
               const tier = restricted ? 5 : !score ? 0 : ratio <= .25 ? 1 : ratio <= .5 ? 2 : ratio <= .75 ? 3 : 4;
               const fade = Boolean((data.filter !== null && tier !== data.filter) || (data.restrictedOnly && !restricted) || (data.isolated && data.selected && category !== data.selected));
-              const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-              mats.forEach((mat, index) => {
-                if (mat.color) {
-                  const original = originals.get(mesh)?.[index];
-                  if (original) mat.color.copy(original);
-                  if (category) mat.color.set(COLORS[tier]);
-                  if (mat.emissive) mat.emissive.set(data.selected === category ? COLORS[tier] : "#000000").multiplyScalar(.12);
-                  if (fade) mat.color.multiplyScalar(.2);
-                }
-              });
+              styles.set(category, { tier, color: new THREE.Color(COLORS[tier]), fade, selected: data.selected === category });
             }
+            surface.paint(styles);
           },
           zoomIn() { camera.position.sub(controls.target).multiplyScalar(.8).add(controls.target); },
           zoomOut() { camera.position.sub(controls.target).multiplyScalar(1.25).add(controls.target); },
-          reset() { camera.position.set(center.x, center.y + size.y * .04, center.z + Math.max(2.5, size.y * 1.65)); controls.target.copy(center); controls.update(); },
+          reset() { camera.position.copy(home); controls.target.copy(center); controls.update(); },
         };
         setStatus("");
         setProblem(false);
@@ -252,6 +235,8 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
       resizeObserver?.disconnect();
       controls?.dispose();
       if (model) model.traverse((obj) => { if (obj.isMesh) obj.geometry?.dispose(); });
+      print?.dispose();
+      scenery.forEach(obj => { obj.geometry.dispose(); obj.material.dispose(); });
       materials.forEach(m => m.dispose());
       renderer?.dispose();
       renderer?.domElement?.remove();
@@ -280,10 +265,10 @@ export default function Anatomy3D({ measurements, groups = [], restrictions = []
       <button type="button" className="muscle-anatomy__tool" onClick={() => controller.current?.zoomOut()}>Afastar</button>
       <button type="button" className="muscle-anatomy__tool" onClick={() => controller.current?.reset()}>Centralizar</button>
     </div>
-    <div ref={canvas} className="atlas-anatomy3d__canvas" aria-label="Visualizador anatômico 3D" />
+    <div ref={canvas} className="atlas-anatomy3d__canvas" aria-label="Atleta 3D" />
     {status && <p role={problem ? "alert" : "status"} className="atlas-anatomy3d__status">{status}</p>}
-    <p className="atlas-anatomy3d__help">Arraste para girar · Use os controles para aproximar · Clique em um músculo para selecionar o grupo.</p>
-    <p className="atlas-anatomy3d__help">Proporções estimadas pelas medidas corporais. Regiões sem medida usam o modelo de referência.</p>
-    <small className="atlas-anatomy3d__credit">Open Anatomy 3D — modelos adaptados de BodyParts3D (DBCLS), Human Reference Atlas (HuBMAP) e MakeHuman. Licença CC BY 4.0. Uso educacional, não diagnóstico.</small>
+    <p className="atlas-anatomy3d__help">Arraste para girar. Toque em uma região para ver o treino.</p>
+    <p className="atlas-anatomy3d__help">Silhueta estimada pelas medidas cadastradas.</p>
+    <details className="atlas-anatomy3d__credit"><summary>Créditos do modelo</summary>Open Anatomy 3D — modelos adaptados de BodyParts3D (DBCLS), Human Reference Atlas (HuBMAP) e MakeHuman. Licença CC BY 4.0. Adaptação visual AtlasFit.</details>
   </div>;
 }
