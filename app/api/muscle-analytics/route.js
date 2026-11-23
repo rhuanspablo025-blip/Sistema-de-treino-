@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '../../../lib/api-auth';
 import { getDatabase } from '../../../lib/mongodb';
-import { hasAnyRole, isAdminUser } from '../../../lib/user-roles';
+import { canAccessAnatomy } from '../../../lib/student-anatomy-access';
 import { aggregateMuscles } from '../../../lib/muscle-analytics.mjs';
 export const runtime = 'nodejs';
 export async function GET(request) {
@@ -14,9 +14,7 @@ export async function GET(request) {
     const days = Number(p.get('days') || 7);
     if (!/^[0-9a-f-]{36}$/i.test(studentId) || !['planned','performed'].includes(mode) || ![7,30].includes(days)) return NextResponse.json({error:'Parâmetros inválidos.'},{status:400});
     const db = await getDatabase();
-    const student = await db.collection('students').findOne({userId:studentId,active:true});
-    const user = access.user;
-    if (!student || !((isAdminUser(user) && user.tenantId && user.tenantId === student.tenantId) || (hasAnyRole(user,['student']) && user.id === studentId) || (hasAnyRole(user,['trainer']) && student.trainerId === user.id))) return NextResponse.json({error:'Acesso negado.'},{status:403});
+    if (!await canAccessAnatomy(db, access.user, studentId)) return NextResponse.json({error:'Acesso negado.'},{status:403});
     let entries = [];
     if (mode === 'planned') {
       const planId = p.get('planId');

@@ -1,5 +1,6 @@
 "use client";
 
+import { regionField, shapeRatios } from "../lib/body-shape.mjs";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -39,9 +40,10 @@ function groupCategory(name) {
   return null;
 }
 
-export default function Anatomy3D({ groups = [], restrictions = [], metric = "sets", selected, onSelect, filter, isolated, restrictedOnly, zoom = false }) {
+export default function Anatomy3D({ measurements, groups = [], restrictions = [], metric = "sets", selected, onSelect, filter = null, isolated, restrictedOnly, }) {
   const canvas = useRef(null);
   const controller = useRef(null);
+  const [rotating, setRotating] = useState(false);
   const [sex, setSex] = useState("male");
   const [status, setStatus] = useState("Carregando anatomia 3D…");
   const [problem, setProblem] = useState(false);
@@ -124,6 +126,17 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
             originals.set(object, (Array.isArray(material) ? material : [material]).map(m => m.color?.clone()));
           }
         });
+        // Each GLB region has its own native pivot and quantization scale.
+        // Apply ratios to that resting transform so changing inputs never compounds.
+        const regions = [];
+        model.getObjectByName("muscles")?.children.forEach(node => {
+          const field = regionField(node.name);
+          if (field) regions.push({ node, field, rest: node.scale.clone(), restX: node.position.x });
+        });
+        let ratios = shapeRatios({}, sex);
+        let settling = false;
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+        controls.autoRotateSpeed = 0.65;
         const box = new THREE.Box3().setFromObject(model);
         if (box.isEmpty()) throw new Error("Modelo anatômico sem geometria visível");
         const center = box.getCenter(new THREE.Vector3());
@@ -159,14 +172,39 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
         resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(root);
         resize();
+        let lastFrame = performance.now();
         const animate = () => {
           if (disposed) return;
-          controls.update();
+          const now = performance.now();
+          const dt = Math.min(.1, (now - lastFrame) / 1000);
+          lastFrame = now;
+          if (settling) {
+            const mix = reducedMotion.matches ? 1 : 1 - Math.exp(-10 * dt);
+            let maxDelta = 0;
+            const approach = (value, target) => {
+              const delta = target - value;
+              maxDelta = Math.max(maxDelta, Math.abs(delta));
+              return Math.abs(delta) < .00001 ? target : value + delta * mix;
+            };
+            model.scale.y = approach(model.scale.y, ratios.height);
+            for (const { node, field, rest, restX } of regions) {
+              const radial = ratios[field];
+              node.scale.x = approach(node.scale.x, rest.x * radial);
+              node.scale.z = approach(node.scale.z, rest.z * radial);
+              // Paired trunk regions share a midline; limbs keep their own axis.
+              if (["chest", "waist", "hip", "neck"].includes(field))
+                node.position.x = approach(node.position.x, restX * radial);
+            }
+            settling = maxDelta > .00001;
+          }
+          controls.update(dt);
           renderer.render(scene, camera);
           animation = requestAnimationFrame(animate);
         };
         animate();
         controller.current = {
+          shape(values) { ratios = shapeRatios(values, sex); settling = true; },
+          rotate(active) { controls.autoRotate = active; },
           select: onSelect,
           apply(data) {
             const perCategory = new Map();
@@ -189,8 +227,8 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
                 if (mat.color) {
                   const original = originals.get(mesh)?.[index];
                   if (original) mat.color.copy(original);
-                  if (category && tier > 0) mat.color.set(COLORS[tier]);
-                  if (category && data.selected === category) mat.color.set("#ffe59a");
+                  if (category) mat.color.set(COLORS[tier]);
+                  if (mat.emissive) mat.emissive.set(data.selected === category ? COLORS[tier] : "#000000").multiplyScalar(.12);
                   if (fade) mat.color.multiplyScalar(.2);
                 }
               });
@@ -228,12 +266,16 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
     }
   }, [groups, restrictions, metric, selected, filter, isolated, restrictedOnly, status, onSelect]);
 
+  useEffect(() => { controller.current?.shape(measurements); }, [measurements, status]);
+  useEffect(() => { controller.current?.rotate(rotating); }, [rotating, status]);
+
   return <div className="atlas-anatomy3d">
     <div className="atlas-anatomy3d__controls">
       <div className="muscle-anatomy__segmented" aria-label="Modelo corporal">
         <button type="button" aria-pressed={sex === "male"} onClick={() => setSex("male")}>Masculino</button>
         <button type="button" aria-pressed={sex === "female"} onClick={() => setSex("female")}>Feminino</button>
       </div>
+      <button type="button" className="muscle-anatomy__tool" aria-pressed={rotating} onClick={() => setRotating(value => !value)}>{rotating ? "Pausar rotação" : "Girar modelo"}</button>
       <button type="button" className="muscle-anatomy__tool" onClick={() => controller.current?.zoomIn()}>Aproximar</button>
       <button type="button" className="muscle-anatomy__tool" onClick={() => controller.current?.zoomOut()}>Afastar</button>
       <button type="button" className="muscle-anatomy__tool" onClick={() => controller.current?.reset()}>Centralizar</button>
@@ -241,6 +283,7 @@ export default function Anatomy3D({ groups = [], restrictions = [], metric = "se
     <div ref={canvas} className="atlas-anatomy3d__canvas" aria-label="Visualizador anatômico 3D" />
     {status && <p role={problem ? "alert" : "status"} className="atlas-anatomy3d__status">{status}</p>}
     <p className="atlas-anatomy3d__help">Arraste para girar · Use os controles para aproximar · Clique em um músculo para selecionar o grupo.</p>
+    <p className="atlas-anatomy3d__help">Proporções estimadas pelas medidas corporais. Regiões sem medida usam o modelo de referência.</p>
     <small className="atlas-anatomy3d__credit">Open Anatomy 3D — modelos adaptados de BodyParts3D (DBCLS), Human Reference Atlas (HuBMAP) e MakeHuman. Licença CC BY 4.0. Uso educacional, não diagnóstico.</small>
   </div>;
 }

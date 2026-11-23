@@ -101,7 +101,7 @@ function Figure({ side, muscles, groups, restrictions, metric, max, selected, on
   </figure>;
 }
 
-export default function MuscleAnatomy({ groups = [], restrictions = [], totals, mode = "planned", onModeChange, days = 7, onDaysChange, isDraft = false, loading = false, error = "" }) {
+export default function MuscleAnatomy({ measurements, groups = [], restrictions = [], totals, mode = "planned", onModeChange, days = 7, onDaysChange, isDraft = false, loading = false, error = "" }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [metric, setMetric] = useState("sets");
   const [renderMode, setRenderMode] = useState("3d");
@@ -150,7 +150,7 @@ export default function MuscleAnatomy({ groups = [], restrictions = [], totals, 
     </div>
     {loading && <p className="muscle-anatomy__status" role="status">Carregando análise muscular…</p>}
     {error && <p className="muscle-anatomy__status" role="alert">{error}</p>}
-    {renderMode === "3d" ? <Anatomy3D groups={groups} restrictions={restrictions} metric={metric} selected={focus} onSelect={choose} filter={filter} isolated={isolated} restrictedOnly={restrictedOnly} /> : <div className="muscle-anatomy__figures" data-view={view}>
+    {renderMode === "3d" ? <Anatomy3D measurements={measurements} groups={groups} restrictions={restrictions} metric={metric} selected={focus} onSelect={choose} filter={filter} isolated={isolated} restrictedOnly={restrictedOnly} /> : <div className="muscle-anatomy__figures" data-view={view}>
       {(view === "both" || view === "front") && <Figure side="front" muscles={FRONT_MUSCLES} {...anatomy} />}
       {(view === "both" || view === "back") && <Figure side="back" muscles={BACK_MUSCLES} {...anatomy} />}
     </div>}
