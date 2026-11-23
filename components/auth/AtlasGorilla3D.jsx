@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import wordmark from '../../public/forge/atlasfit.webp';
 import styles from './mascot.module.css';
 
 export default function AtlasGorilla3D() {
@@ -57,7 +56,6 @@ export default function AtlasGorilla3D() {
   return (
     <div className={styles.stage} data-ready={ready} aria-hidden="true">
       <div ref={host} className={styles.canvas} />
-      <img className={styles.mark} src={wordmark.src} alt="" />
     </div>
   );
 }
